@@ -13,6 +13,8 @@ export interface Challenge {
   action_url: string | null;
   num_hints: number;
   day: number;
+  is_extra: boolean;
+  suggested_tool: string | null;
 }
 
 export interface Day {
@@ -91,6 +93,8 @@ export interface AdminChallenge {
   prompt: string;
   asset_url: string | null;
   action_url: string | null;
+  is_extra: boolean;
+  suggested_tool: string | null;
   flag: string;
   solves_count: number;
   first_blood_by: string | null;

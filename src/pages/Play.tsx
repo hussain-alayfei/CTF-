@@ -147,8 +147,35 @@ export default function Play() {
     return unlockedDays.has(d.day);
   }
 
+  function renderChallengeGrid(list: Challenge[]) {
+    return order.map((diff) => {
+      const group = list.filter((c) => c.difficulty === diff);
+      if (group.length === 0) return null;
+      return (
+        <div key={diff} className="mb-6">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-dim">
+            {sectionTitle[diff]}
+          </h3>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {group.map((c) => (
+              <ChallengeCard
+                key={c.id}
+                challenge={c}
+                solved={game.mySolvedIds.has(c.id)}
+                firstBloodBy={game.firstBloodByChallenge.get(c.id)}
+                onOpen={() => setOpenId(c.id)}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    });
+  }
+
   function renderDay(d: Day) {
     const list = (challengesByDay.get(d.day) ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+    const mainList = list.filter((c) => !c.is_extra);
+    const extraList = list.filter((c) => c.is_extra);
 
     // Code gate
     if (d.requires_code && !isDayAccessible(d)) {
@@ -203,28 +230,23 @@ export default function Play() {
         {list.length === 0 ? (
           <p className="text-sm text-terminal-dim">Challenges will appear here.</p>
         ) : (
-          order.map((diff) => {
-            const group = list.filter((c) => c.difficulty === diff);
-            if (group.length === 0) return null;
-            return (
-              <div key={diff} className="mb-6">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-dim">
-                  {sectionTitle[diff]}
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {group.map((c) => (
-                    <ChallengeCard
-                      key={c.id}
-                      challenge={c}
-                      solved={game.mySolvedIds.has(c.id)}
-                      firstBloodBy={game.firstBloodByChallenge.get(c.id)}
-                      onOpen={() => setOpenId(c.id)}
-                    />
-                  ))}
-                </div>
+          <>
+            {mainList.length > 0 && renderChallengeGrid(mainList)}
+
+            {extraList.length > 0 && (
+              <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
+                {mainList.length > 0 && (
+                  <h3 className="mb-4 flex flex-wrap items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-terminal-cyan">
+                    🎁 Extra Challenges
+                    <span className="text-[10px] font-normal normal-case text-terminal-dim">
+                      optional bonus practice — not required
+                    </span>
+                  </h3>
+                )}
+                {renderChallengeGrid(extraList)}
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
     );

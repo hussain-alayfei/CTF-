@@ -90,6 +90,16 @@ The **Challenges & flags** section lists every challenge grouped by day.
 - **First blood** on a challenge gives a bonus.
 - **Hints are free once you've already solved** that challenge — no penalty after solving.
 
+### Main vs. Extra challenges
+Each challenge has an **`is_extra`** flag:
+- `false` (default) — core lecture content. Shown first on the day, no special label.
+- `true` — optional bonus practice. Automatically grouped under a **"🎁 Extra Challenges"**
+  heading, still inside the same day (never a separate day/section elsewhere).
+
+Each challenge can also have a **`suggested_tool`** — a short, beginner-friendly pointer to
+the *kind* of tool needed (e.g. "Any online Base64 decoder"), shown to players right under
+the prompt. It should point to a tool category, never spoil the technique or the answer.
+
 ---
 
 ## 6. Competition Music
@@ -114,10 +124,13 @@ Challenges live in the Supabase database. To add one to **any day**:
 ```sql
 -- Challenge (metadata; not secret)
 insert into public.challenges
-  (id, title, category, difficulty, points, first_blood_bonus, sort_order, num_hints, day, asset_url, action_url, prompt)
+  (id, title, category, difficulty, points, first_blood_bonus, sort_order, num_hints,
+   day, asset_url, action_url, prompt, is_extra, suggested_tool)
 values
   ('my_new_chal', 'My Challenge', 'Web', 'medium', 200, 50, 20, 2, 4, null, null,
-   'Short, cryptic prompt here.');
+   'Short, cryptic prompt here.',
+   false,                                  -- true = shows under "🎁 Extra Challenges"
+   'Browser DevTools (F12)');              -- optional beginner nudge; null to omit
 
 -- Flag (SECRET)
 insert into public.challenge_flags (challenge_id, flag)
@@ -132,6 +145,8 @@ insert into public.challenge_hints (challenge_id, hint_number, body, penalty) va
 3. Set `day` to the day number you want it to appear on. Open that day in the dashboard.
 4. If the challenge needs a downloadable file, put it in `public/challenges/...`
    and set `asset_url` to its path (e.g. `/challenges/labs/myfile.bin`).
+5. Set `is_extra = true` if it's optional bonus practice rather than core lecture content —
+   it will automatically appear under its day's "🎁 Extra Challenges" section.
 
 ### Prompt style
 Keep prompts **short and cryptic** (Black Hat / FlagYard style): a one-to-three

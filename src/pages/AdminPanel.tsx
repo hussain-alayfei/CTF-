@@ -535,6 +535,11 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
       >
         <span className="w-8 text-center text-xs tabular-nums text-terminal-dim">D{c.day}</span>
         <span className="flex-1 font-semibold text-terminal-green">{c.title}</span>
+        {c.is_extra && (
+          <span className="rounded border border-terminal-cyan/40 px-1.5 py-0.5 text-[10px] font-bold uppercase text-terminal-cyan">
+            🎁 extra
+          </span>
+        )}
         <span className={`text-xs font-bold uppercase ${diffColor[c.difficulty]}`}>{c.difficulty}</span>
         <span className="w-12 text-right tabular-nums text-terminal-amber">{c.points}</span>
         <span className="w-12 text-right text-xs tabular-nums text-terminal-dim">{c.solves_count} ★</span>
@@ -561,6 +566,14 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
               {showFlags ? c.flag : '••••••••'}
             </code>
           </div>
+
+          {/* Suggested tool (shown to players as a beginner nudge) */}
+          {c.suggested_tool && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold uppercase tracking-widest text-terminal-dim">Suggested tool:</span>
+              <span className="text-terminal-cyan">🧰 {c.suggested_tool}</span>
+            </div>
+          )}
 
           {/* Hints */}
           {c.hints && c.hints.length > 0 && (

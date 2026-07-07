@@ -115,6 +115,11 @@ export default function ChallengeModal({
               {challenge.first_blood_bonus > 0 && (
                 <span className="text-terminal-red">🩸 +{challenge.first_blood_bonus}</span>
               )}
+              {challenge.is_extra && (
+                <span className="rounded border border-terminal-cyan/40 px-1.5 py-0.5 text-terminal-cyan">
+                  🎁 extra
+                </span>
+              )}
             </div>
             <h2 className="text-2xl font-extrabold text-terminal-green">{challenge.title}</h2>
             {firstBloodBy && (
@@ -133,6 +138,16 @@ export default function ChallengeModal({
         {/* Body */}
         <div className="space-y-5 p-5">
           <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
+
+          {/* Beginner-friendly nudge toward the right kind of tool (not the answer) */}
+          {challenge.suggested_tool && (
+            <div className="flex items-start gap-2 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 px-3 py-2 text-xs text-terminal-cyan">
+              <span>🧰</span>
+              <span>
+                <strong className="font-bold">Tool to try:</strong> {challenge.suggested_tool}
+              </span>
+            </div>
+          )}
 
           {/* Asset / action buttons */}
           <div className="flex flex-wrap gap-3">

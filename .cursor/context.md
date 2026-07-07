@@ -29,7 +29,8 @@ There is **no Supabase Auth**. Instead:
 ### Key tables
 - `players` — id, username, token, password_hash, avatar, created_at
 - `challenges` — id, title, category, difficulty, points, first_blood_bonus,
-  sort_order, prompt, asset_url, action_url, num_hints, **day**
+  sort_order, prompt, asset_url, action_url, num_hints, **day**, **is_extra**,
+  **suggested_tool**
 - `challenge_flags` — challenge_id, flag (SECRET)
 - `challenge_hints` — challenge_id, hint_number, body, penalty (SECRET)
 - `solves` — player_id, challenge_id, points_awarded, is_first_blood, solved_at
@@ -60,6 +61,16 @@ Admin (all take the secret token from `admin_login`): `admin_login`, `admin_over
   labs + crypto/stego/hash), Day 4 = Web & Recon (cookie, chain; locked until opened).
 - Prompt style: short & cryptic (Black Hat / FlagYard). No step-by-step tool names
   in prompts — those go in optional, point-penalized hints.
+- **`is_extra`** (boolean): marks a challenge as optional bonus practice rather
+  than core lecture content. In `Play.tsx`, each day renders its non-extra
+  challenges first, then any `is_extra` ones under a separate "🎁 Extra
+  Challenges" heading — still inside the same day, never a separate day.
+- **`suggested_tool`** (text, nullable): a short beginner-friendly pointer to
+  the *kind* of tool needed (e.g. "Any online Base64 decoder") — never the
+  technique or answer. Shown in `ChallengeModal.tsx` right under the prompt,
+  and in the admin challenge preview. Since players are beginners, this
+  softens the otherwise cryptic Black-Hat-style prompts without spoiling
+  the challenge.
 
 ## File map
 
