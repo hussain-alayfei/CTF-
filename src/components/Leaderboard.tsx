@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { Day, LeaderboardRow } from '../lib/types';
 import { fetchDayLeaderboard } from '../lib/api';
 
 const medal = ['🥇', '🥈', '🥉'];
 
-export default function Leaderboard({
+function Leaderboard({
   rows,
   meId,
-  frozen = false,
   days = [],
   activeDay = null,
 }: {
   rows: LeaderboardRow[];
   meId: string | null;
-  frozen?: boolean;
-  /** All days, so students can browse a previous day's board. */
+  /** Days worth browsing on the board (already filtered by the parent). */
   days?: Day[];
   /** The day currently "live" — its board is `rows`, kept in realtime sync. */
   activeDay?: number | null;
@@ -61,31 +59,17 @@ export default function Leaderboard({
 
       {browsableDays.length > 1 && (
         <div className="flex items-center gap-2 border-b border-terminal-border/60 px-4 py-2">
-          <span className="text-[10px] uppercase tracking-widest text-terminal-dim">Viewing</span>
-          <select
-            value={viewDay ?? ''}
-            onChange={(e) => handleSelectDay(Number(e.target.value))}
-            className="flex-1 rounded border border-terminal-border bg-terminal-input px-2 py-1 text-xs text-terminal-green outline-none focus:border-terminal-green"
-          >
-            {browsableDays.map((d) => (
-              <option key={d.day} value={d.day}>
-                {d.title} {d.day === activeDay ? '· live' : ''}
-              </option>
-            ))}
-          </select>
+          <span className="shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">Viewing</span>
+          <DayPicker
+            days={browsableDays}
+            activeDay={activeDay}
+            value={viewDay}
+            onSelect={handleSelectDay}
+          />
         </div>
       )}
 
-      {frozen && isViewingActive ? (
-        <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-          <span className="text-4xl">🕶️</span>
-          <p className="font-bold text-terminal-amber">SCOREBOARD FROZEN</p>
-          <p className="text-xs leading-relaxed text-terminal-dim">
-            The scores are hidden for the final minutes. Nobody can see the ranking now —
-            keep solving, the winners are revealed when time runs out!
-          </p>
-        </div>
-      ) : loadingOverride ? (
+      {loadingOverride ? (
         <p className="px-4 py-10 text-center text-sm text-terminal-dim">Loading…</p>
       ) : (
         <div className="max-h-[60vh] overflow-y-auto">
@@ -138,3 +122,87 @@ export default function Leaderboard({
     </div>
   );
 }
+
+// A themed dropdown that renders its menu *inside* the card (absolutely
+// positioned) instead of relying on the browser's native <select> popup,
+// which broke out of the panel's frame and looked out of place.
+function DayPicker({
+  days,
+  activeDay,
+  value,
+  onSelect,
+}: {
+  days: Day[];
+  activeDay: number | null;
+  value: number | null;
+  onSelect: (day: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const current = days.find((d) => d.day === value) ?? days.find((d) => d.day === activeDay) ?? days[0];
+
+  return (
+    <div ref={ref} className="relative flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-2 rounded border border-terminal-border bg-terminal-input px-2 py-1 text-xs text-terminal-green outline-none transition hover:border-terminal-green focus:border-terminal-green"
+      >
+        <span className="truncate">
+          {current?.title ?? 'Select day'}
+          {current?.day === activeDay && <span className="ml-1 text-terminal-dim">· live</span>}
+        </span>
+        <span className={`shrink-0 text-terminal-dim transition-transform ${open ? 'rotate-180' : ''}`}>▾</span>
+      </button>
+
+      {open && (
+        <ul className="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto rounded border border-terminal-border bg-terminal-panel py-1 shadow-neon">
+          {days.map((d) => {
+            const selected = d.day === value;
+            return (
+              <li key={d.day}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelect(d.day);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition hover:bg-terminal-green/10 ${
+                    selected ? 'bg-terminal-green/10 text-terminal-green' : 'text-terminal-green/80'
+                  }`}
+                >
+                  <span className="truncate">{d.title}</span>
+                  {d.day === activeDay && (
+                    <span className="shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">live</span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// Memoized so the per-second clock tick in the arena doesn't re-render (and
+// visibly flicker/reshuffle) the whole board. It only re-renders when the
+// actual data — rows, days, the active day or the viewer — changes.
+export default memo(Leaderboard);

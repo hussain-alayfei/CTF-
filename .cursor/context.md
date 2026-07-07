@@ -50,7 +50,8 @@ There is **no Supabase Auth**. Instead:
 - `days` — day, title, subtitle, is_open, event_label, sort_order, is_rest, requires_code
 - `day_codes` — day, code (SECRET; RLS no-policy)
 - `event_config` — id=1, name, starts_at, ends_at, duration_minutes (default 35),
-  freeze_minutes, **active_day** (which day's leaderboard is "live")
+  freeze_minutes (**always 0 — the freeze/blackout feature was removed, see
+  below**), **active_day** (which day's leaderboard is "live")
 - `admin_config` — id=1, secret, username, password_hash (legacy fields from the
   old direct `/admin` login; still used only as the source of the `admin_token`)
 - `leaderboard` (view) — all-time board, **excludes is_admin players**
@@ -74,12 +75,16 @@ username/password admin auth but is no longer called by the frontend.)
 
 ## Day / challenge structure
 
-- Full 10-day curriculum (from the KGSP 2-week plan): Day 1 Introduction to
-  Cybersecurity, Day 2 Securing Accounts, Day 3 Securing Data (**the only day with
-  live challenges**, open + code-gated `SECURING-DATA`), Day 4 Securing Networks,
-  Day 5 Privacy, Day 6 Introduction to Pentesting, Day 7 Web Applications, Day 8 Web
-  Application Hacking, Day 9 Blockchain Introduction, Day 10 Smart Contracts. Days
-  4-10 are locked placeholders until challenges are authored for them.
+- Curriculum runs **Day 3 → Day 10** (Days 1 "Introduction to Cybersecurity" and
+  2 "Securing Accounts" were deleted from the `days` table — they were empty
+  placeholders with no challenges/codes/solves attached, so the roadmap now
+  starts at Day 3). Day 3 Securing Data is **the only day with live challenges**
+  (open + code-gated `SECURING-DATA`); Day 4 Securing Networks, Day 5 Privacy,
+  Day 6 Introduction to Pentesting, Day 7 Web Applications, Day 8 Web Application
+  Hacking, Day 9 Blockchain Introduction, Day 10 Smart Contracts are locked
+  placeholders until challenges are authored for them. Day numbers are stored
+  as plain integers (no re-sequencing needed after the delete — `day` is not an
+  array index).
 - Challenges belong to a **day**; each day holds both its core and any `is_extra`
   (bonus) challenges together (there is **no** separate global bonus day).
 - **Difficulty tiers:** `easy` → `medium` → `hard` → `danger` (☠, fuchsia styling,
@@ -110,9 +115,26 @@ flowchart LR
 - `useGame.ts` fetches `day_leaderboard(activeDay)` instead of the all-time
   `leaderboard` view for the "live" board (`game.leaderboard`). It refetches
   automatically whenever `event_config` changes and `active_day` differs.
-- `Leaderboard.tsx` has a day-selector dropdown so students can browse any
-  previous day's board (one-off fetch, not realtime) without affecting the live
-  view. No scores are ever deleted when the active day changes.
+- **No freeze/blackout.** The board is live the entire round; standings are never
+  hidden mid-event. `isFrozen()` still exists in `time.ts` (dead code, kept in
+  case a future freeze feature returns) but nothing calls it, `freeze_minutes` is
+  pinned at 0, and `AdminPanel.tsx` has no freeze input. The finale (`Podium.tsx`)
+  is purely an optional "make it dramatic" reveal shown when the timer hits zero
+  — it does not gate visibility beforehand.
+- `Leaderboard.tsx` renders a **custom themed day-picker** (button + absolutely
+  positioned menu inside the card, closes on outside-click/Escape) instead of a
+  native `<select>` — the native popup rendered outside the panel's frame. `Play.tsx`
+  computes `boardDays` (memoized) to feed it only days that have at least one solve
+  plus the current active day, so the picker doesn't fill with the 7 empty locked
+  days. The component itself is wrapped in `memo()` so the arena's 1s clock tick
+  doesn't re-render/flicker it.
+- Leaderboard sort (`sortLeaderboard` in `api.ts`, shared by `fetchLeaderboard` and
+  `fetchDayLeaderboard`) has a **stable final tiebreak on `player_id`** so
+  identically-scored rows keep a fixed order across refetches instead of visibly
+  reshuffling every update.
+- Students can still browse any previous day's board via the day-selector
+  (one-off fetch, not realtime) without affecting the live view. No scores are
+  ever deleted when the active day changes.
 - Personal profile score (`game.myPoints`, shown in the header) stays **all-time**
   by design — only the competitive ranking board is day-scoped.
 
@@ -128,8 +150,12 @@ src/
     session.ts             player localStorage (kgsp_ctf_player) — admin session rides along
     app-context.tsx        player, mute, theme context
     useGame.ts             loads challenges/days/solves/day-scoped leaderboard + realtime
-    time.ts                event state (idle/running/ended) + freeze window
-    sounds.ts              Web Audio synthesized cyber SFX; playFirstBlood() tries
+    time.ts                event state (idle/running/ended); isFrozen() is dead code,
+                            freeze is no longer used anywhere
+    sounds.ts              Web Audio synthesized SFX, routed through a shared master
+                            gain + DynamicsCompressorNode so layered notes never clip;
+                            warm sine/triangle voices + lowpass-filtered noise (no
+                            harsh raw sawtooth/static). playFirstBlood() tries
                             /sounds/first-blood.mp3|.wav before falling back to synth
     theme.ts               dark/light
     constants.ts           AVATARS list
@@ -138,18 +164,23 @@ src/
                             also reused as the login gate on /admin and /board
     ChallengeCard.tsx       grid card; danger tier styling
     ChallengeModal.tsx      prompt only (no tool hints shown); single hint w/ warning
-    Leaderboard.tsx         day-scoped board + day-browser dropdown
+    Leaderboard.tsx         day-scoped board + custom in-frame day-browser picker
+                            (not a native <select>); memoized against per-second
+                            re-renders
     Podium.tsx              Kahoot-style 3-2-1 finale, slow paced with real countdowns
     ProfileModal.tsx        slide-out side panel (all-time score, rank, solves, logout)
     Timer.tsx               countdown with color states
     Toasts.tsx              live solve / first-blood announcements
     Prompt.tsx              safe markdown subset renderer
   pages/
-    Play.tsx                main arena: days, code gate, event banner, GO overlay,
+    Play.tsx                main arena: collapsible per-day sections (arrow expander,
+                             challenge count), code gate, event banner, GO overlay,
                              admin-only Admin/Board header links
     AdminPanel.tsx          role-gated (player.is_admin) dashboard: event, active day,
-                             days+codes, players, challenges, music — no password form
-    Board.tsx               admin-only full-screen projector dashboard at /board
+                             days+codes, players, challenges (grouped by day under
+                             collapsible headers), music — no password form, no freeze
+    Board.tsx               admin-only full-screen projector dashboard at /board,
+                             with a "‹ Back to arena" link; always live (no freeze)
     CookieChallenge.tsx     the cookie-tampering web challenge
 ```
 

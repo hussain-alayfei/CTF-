@@ -133,27 +133,28 @@ export async function fetchSolves(): Promise<Solve[]> {
 export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   const { data, error } = await supabase.from('leaderboard').select('*');
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as LeaderboardRow[];
-  // Rank: most points first, then whoever reached their score earliest.
-  rows.sort((a, b) => {
-    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-    const ta = a.last_solve_at ? Date.parse(a.last_solve_at) : Infinity;
-    const tb = b.last_solve_at ? Date.parse(b.last_solve_at) : Infinity;
-    return ta - tb;
-  });
-  return rows;
+  return sortLeaderboard((data ?? []) as LeaderboardRow[]);
 }
 
 /** The leaderboard scoped to a single day (used for the "live" board so it resets per day). */
 export async function fetchDayLeaderboard(day: number): Promise<LeaderboardRow[]> {
   const { data, error } = await supabase.rpc('day_leaderboard', { p_day: day });
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as LeaderboardRow[];
+  return sortLeaderboard((data ?? []) as LeaderboardRow[]);
+}
+
+/**
+ * Rank: most points first, then whoever reached their score earliest, and
+ * finally a stable tiebreak on player_id so equally-scored rows keep a fixed
+ * order across refetches (otherwise tied rows visibly reshuffle every update).
+ */
+function sortLeaderboard(rows: LeaderboardRow[]): LeaderboardRow[] {
   rows.sort((a, b) => {
     if (b.total_points !== a.total_points) return b.total_points - a.total_points;
     const ta = a.last_solve_at ? Date.parse(a.last_solve_at) : Infinity;
     const tb = b.last_solve_at ? Date.parse(b.last_solve_at) : Infinity;
-    return ta - tb;
+    if (ta !== tb) return ta - tb;
+    return a.player_id < b.player_id ? -1 : a.player_id > b.player_id ? 1 : 0;
   });
   return rows;
 }

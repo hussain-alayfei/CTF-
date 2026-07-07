@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
-import { getEventState, isFrozen, formatDuration } from '../lib/time';
+import { getEventState, formatDuration } from '../lib/time';
 import Register from '../components/Register';
 
 const medal = ['🥇', '🥈', '🥉'];
@@ -35,7 +35,6 @@ export default function Board() {
   }
 
   const eventState = getEventState(game.event, now);
-  const frozen = isFrozen(game.event, now);
   const activeDay = game.days.find((d) => d.day === game.event?.active_day);
   const rows = game.leaderboard.filter((r) => r.total_points > 0 || r.solves_count > 0).slice(0, 15);
   const idleCount = game.leaderboard.length - rows.length;
@@ -60,6 +59,12 @@ export default function Board() {
         {/* Header */}
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
+            <Link
+              to="/"
+              className="mb-1 inline-flex items-center gap-1 text-xs text-terminal-dim underline decoration-dotted transition hover:text-terminal-green"
+            >
+              ‹ Back to arena
+            </Link>
             <div className="text-xs uppercase tracking-[0.35em] text-terminal-dim">
               KGSP // CTF — Live Board
             </div>
@@ -77,14 +82,7 @@ export default function Board() {
           </div>
         </header>
 
-        {frozen ? (
-          <div className="rounded-2xl border border-terminal-amber/40 bg-terminal-amber/5 p-20 text-center">
-            <div className="text-6xl">🕶️</div>
-            <p className="mt-4 text-2xl font-extrabold text-terminal-amber">SCOREBOARD FROZEN</p>
-            <p className="mt-2 text-terminal-dim">Winners revealed when time runs out…</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
             {/* Ranking */}
             <ol className="space-y-2">
               {rows.length === 0 && (
@@ -145,8 +143,7 @@ export default function Board() {
                 ))}
               </ul>
             </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

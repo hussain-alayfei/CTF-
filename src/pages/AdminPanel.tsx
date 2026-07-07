@@ -9,7 +9,6 @@ import {
   adminSetActiveDay,
   adminSetDay,
   adminSetDayCode,
-  adminSetFreeze,
   adminStartEvent,
   adminStopEvent,
 } from '../lib/api';
@@ -34,7 +33,6 @@ export default function AdminPanel() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minutes, setMinutes] = useState(35);
-  const [freeze, setFreeze] = useState(15);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
 
@@ -53,7 +51,6 @@ export default function AdminPanel() {
     setData(res);
     if (res.event) {
       setMinutes(res.event.duration_minutes ?? 35);
-      setFreeze(res.event.freeze_minutes ?? 15);
       setActiveDaySel(res.event.active_day ?? '');
     }
     try {
@@ -134,6 +131,19 @@ export default function AdminPanel() {
   const challenges = data?.challenges ?? [];
   const days = data?.days ?? [];
 
+  // Group challenges by day so the "Challenges & flags" list is organised, with
+  // each day collapsible.
+  const dayTitle = new Map(days.map((d) => [d.day, d.title]));
+  const challengeDayGroups = [...challenges
+    .reduce((map, c) => {
+      const arr = map.get(c.day) ?? [];
+      arr.push(c);
+      return map.set(c.day, arr);
+    }, new Map<number, AdminChallenge[]>())
+    .entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, list]) => ({ day, title: dayTitle.get(day) ?? `Day ${day}`, list }));
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-4 flex items-center justify-between">
@@ -181,11 +191,10 @@ export default function AdminPanel() {
       )}
 
       {/* Stat tiles */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-4 grid grid-cols-3 gap-3">
         <Tile label="Status" value={statusLabel} valueClass={statusColor} />
         <Tile label="Players" value={String(data?.players_count ?? 0)} />
         <Tile label="Total solves" value={String(data?.total_solves ?? 0)} />
-        <Tile label="Freeze" value={`${data?.event?.freeze_minutes ?? 0} min`} />
       </div>
 
       {/* Event controls */}
@@ -199,42 +208,22 @@ export default function AdminPanel() {
           remainingMs={state.remainingMs}
         />
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-              Duration (minutes)
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={600}
-              value={minutes}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-              className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-              Hide scores in final … minutes
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min={0}
-                max={120}
-                value={freeze}
-                onChange={(e) => setFreeze(Number(e.target.value))}
-                className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-              />
-              <button
-                disabled={busy}
-                onClick={() => run(() => adminSetFreeze(secret, freeze))}
-                className="whitespace-nowrap rounded-lg border border-terminal-cyan/50 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/20"
-              >
-                Save
-              </button>
-            </div>
-          </div>
+        <div className="mt-4 max-w-xs">
+          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+            Duration (minutes)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={600}
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+          />
+          <p className="mt-1 text-[11px] text-terminal-dim">
+            The live leaderboard stays visible the whole round; final standings reveal on the podium
+            when time ends.
+          </p>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -403,9 +392,13 @@ export default function AdminPanel() {
           </button>
         </div>
         <div className="space-y-3">
-          {challenges.map((c: AdminChallenge) => (
-            <ChallengeAdminCard key={c.id} c={c} showFlags={showFlags} />
-          ))}
+          {challengeDayGroups.length === 0 ? (
+            <p className="text-sm text-terminal-dim">No challenges yet.</p>
+          ) : (
+            challengeDayGroups.map((g) => (
+              <ChallengeDayGroup key={g.day} title={g.title} challenges={g.list} showFlags={showFlags} />
+            ))
+          )}
         </div>
         <p className="mt-4 text-[11px] text-terminal-dim">
           Tip: to add challenges to any day, insert rows in the Supabase <code className="text-terminal-green">challenges</code> table and
@@ -539,6 +532,45 @@ function DayCodeEditor({
   );
 }
 
+// A collapsible group of challenges for one day.
+function ChallengeDayGroup({
+  title,
+  challenges,
+  showFlags,
+}: {
+  title: string;
+  challenges: AdminChallenge[];
+  showFlags: boolean;
+}) {
+  const [open, setOpen] = useState(true);
+  const solved = challenges.reduce((n, c) => n + c.solves_count, 0);
+
+  return (
+    <div className="rounded-lg border border-terminal-border bg-terminal-input/20">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-terminal-green/5"
+      >
+        <span className="flex items-center gap-2 font-bold text-terminal-green">
+          <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+          {title}
+        </span>
+        <span className="flex items-center gap-3 text-[11px] text-terminal-dim">
+          <span>{challenges.length} challenge{challenges.length === 1 ? '' : 's'}</span>
+          <span>{solved} ★ solves</span>
+        </span>
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-terminal-border/60 p-3">
+          {challenges.map((c) => (
+            <ChallengeAdminCard key={c.id} c={c} showFlags={showFlags} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -548,7 +580,6 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
         onClick={() => setExpanded((e) => !e)}
         className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-terminal-green/5"
       >
-        <span className="w-8 text-center text-xs tabular-nums text-terminal-dim">D{c.day}</span>
         <span className="flex-1 font-semibold text-terminal-green">{c.title}</span>
         {c.is_extra && (
           <span className="rounded border border-terminal-cyan/40 px-1.5 py-0.5 text-[10px] font-bold uppercase text-terminal-cyan">

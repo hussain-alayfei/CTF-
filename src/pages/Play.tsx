@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
-import { getEventState, isFrozen } from '../lib/time';
+import { getEventState } from '../lib/time';
 import { checkDayCode } from '../lib/api';
 import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
@@ -59,7 +59,18 @@ export default function Play() {
   }, []);
 
   const eventState = getEventState(game.event, now);
-  const frozen = isFrozen(game.event, now);
+
+  // Collapsible day sections (arrow expanders). A day is expanded unless the
+  // player has collapsed it; the live day starts expanded.
+  const [collapsedDays, setCollapsedDays] = useState<Set<number>>(new Set());
+  function toggleDay(day: number) {
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) next.delete(day);
+      else next.add(day);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (
@@ -105,6 +116,21 @@ export default function Play() {
     }
     return map;
   }, [game.challenges]);
+
+  // Only offer the leaderboard's day-picker for days that actually have a
+  // board worth looking at (some scores) plus the live day — otherwise the
+  // picker fills with empty, locked days. Memoized so the 1s clock tick doesn't
+  // hand the (memoized) Leaderboard a fresh array every second.
+  const boardDays = useMemo(() => {
+    const challDay = new Map(game.challenges.map((c) => [c.id, c.day]));
+    const withScore = new Set<number>();
+    for (const s of game.solves) {
+      const d = challDay.get(s.challenge_id);
+      if (d != null) withScore.add(d);
+    }
+    if (game.event?.active_day != null) withScore.add(game.event.active_day);
+    return game.days.filter((d) => withScore.has(d.day));
+  }, [game.challenges, game.solves, game.days, game.event?.active_day]);
 
   // Day categories
   const sortedDays = [...game.days].sort((a, b) => a.sort_order - b.sort_order);
@@ -216,36 +242,53 @@ export default function Play() {
       );
     }
 
+    const collapsed = collapsedDays.has(d.day);
     return (
       <div key={d.day} className="mb-10">
-        <div className="mb-3 flex items-center justify-between gap-3 border-b border-terminal-border pb-2">
-          <h2 className="text-lg font-extrabold text-terminal-green">{d.title}</h2>
-          {d.event_label && (
-            <span className="rounded border border-terminal-green/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
-              {d.event_label}
+        <button
+          onClick={() => toggleDay(d.day)}
+          className="mb-3 flex w-full items-center justify-between gap-3 border-b border-terminal-border pb-2 text-left transition hover:border-terminal-green/50"
+        >
+          <h2 className="flex items-center gap-2 text-lg font-extrabold text-terminal-green">
+            <span className={`text-terminal-dim transition-transform ${collapsed ? '' : 'rotate-90'}`}>▸</span>
+            {d.title}
+          </h2>
+          <span className="flex items-center gap-2">
+            <span className="text-[11px] text-terminal-dim">
+              {list.length} challenge{list.length === 1 ? '' : 's'}
             </span>
-          )}
-        </div>
-        {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
+            {d.event_label && (
+              <span className="rounded border border-terminal-green/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
+                {d.event_label}
+              </span>
+            )}
+          </span>
+        </button>
 
-        {list.length === 0 ? (
-          <p className="text-sm text-terminal-dim">Challenges will appear here.</p>
-        ) : (
+        {!collapsed && (
           <>
-            {mainList.length > 0 && renderChallengeGrid(mainList)}
+            {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
 
-            {extraList.length > 0 && (
-              <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
-                {mainList.length > 0 && (
-                  <h3 className="mb-4 flex flex-wrap items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-terminal-cyan">
-                    🎁 Extra Challenges
-                    <span className="text-[10px] font-normal normal-case text-terminal-dim">
-                      optional bonus practice — not required
-                    </span>
-                  </h3>
+            {list.length === 0 ? (
+              <p className="text-sm text-terminal-dim">Challenges will appear here.</p>
+            ) : (
+              <>
+                {mainList.length > 0 && renderChallengeGrid(mainList)}
+
+                {extraList.length > 0 && (
+                  <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
+                    {mainList.length > 0 && (
+                      <h3 className="mb-4 flex flex-wrap items-center gap-2 text-sm font-extrabold uppercase tracking-widest text-terminal-cyan">
+                        🎁 Extra Challenges
+                        <span className="text-[10px] font-normal normal-case text-terminal-dim">
+                          optional bonus practice — not required
+                        </span>
+                      </h3>
+                    )}
+                    {renderChallengeGrid(extraList)}
+                  </div>
                 )}
-                {renderChallengeGrid(extraList)}
-              </div>
+              </>
             )}
           </>
         )}
@@ -417,8 +460,7 @@ export default function Play() {
           <Leaderboard
             rows={game.leaderboard}
             meId={player?.id ?? null}
-            frozen={frozen}
-            days={game.days}
+            days={boardDays}
             activeDay={game.event?.active_day ?? null}
           />
         </aside>
