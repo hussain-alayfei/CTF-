@@ -94,14 +94,57 @@ export function playWrong() {
   noise(0, 0.18, 0.08);
 }
 
-/** First blood — menacing breach alarm everyone hears. */
-export function playFirstBlood() {
+/** Fallback synthesized siren — menacing breach alarm everyone hears. */
+function playFirstBloodSynth() {
   // Deep descending klaxon + rising alert sweep + glitch static.
   tone(440, 0, 0.4, { type: 'sawtooth', gain: 0.22, slideTo: 220 });
   tone(330, 0.36, 0.4, { type: 'sawtooth', gain: 0.22, slideTo: 660 });
   tone(220, 0.72, 0.5, { type: 'square', gain: 0.2, slideTo: 880 });
   noise(0, 0.3, 0.09);
   noise(0.7, 0.2, 0.06);
+}
+
+function playAudioFile(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(src);
+    audio.volume = 0.9;
+    let settled = false;
+    const fail = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('unplayable'));
+    };
+    const ok = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    audio.addEventListener('error', fail, { once: true });
+    audio.play().then(ok).catch(fail);
+  });
+}
+
+// Cache whether a custom clip exists so repeated first bloods in the same
+// session don't keep retrying a missing file.
+let firstBloodFileMissing = false;
+
+/**
+ * First blood — plays a custom uploaded clip if the admin dropped one in
+ * `public/sounds/first-blood.mp3` (or `.wav`); otherwise falls back to the
+ * built-in synthesized siren automatically.
+ */
+export function playFirstBlood() {
+  if (muted) return;
+  if (firstBloodFileMissing) {
+    playFirstBloodSynth();
+    return;
+  }
+  playAudioFile('/sounds/first-blood.mp3')
+    .catch(() => playAudioFile('/sounds/first-blood.wav'))
+    .catch(() => {
+      firstBloodFileMissing = true;
+      playFirstBloodSynth();
+    });
 }
 
 /** A hint being unlocked — soft data-decrypt shimmer. */

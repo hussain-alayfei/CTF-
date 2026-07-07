@@ -9,6 +9,7 @@ import type { Player } from './lib/types';
 import Play from './pages/Play';
 import CookieChallenge from './pages/CookieChallenge';
 import AdminPanel from './pages/AdminPanel';
+import Board from './pages/Board';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="/" element={<Play />} />
         <Route path="/challenge/admin-panel" element={<CookieChallenge />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/board" element={<Board />} />
         <Route path="*" element={<Play />} />
       </Routes>
     </AppContext.Provider>

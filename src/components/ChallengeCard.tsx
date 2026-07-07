@@ -4,12 +4,14 @@ const diffStyle: Record<Difficulty, string> = {
   easy: 'text-terminal-green border-terminal-green/40',
   medium: 'text-terminal-amber border-terminal-amber/40',
   hard: 'text-terminal-red border-terminal-red/40',
+  danger: 'text-fuchsia-400 border-fuchsia-400/50',
 };
 
 const diffLabel: Record<Difficulty, string> = {
   easy: 'EASY',
   medium: 'MEDIUM',
   hard: 'HARD',
+  danger: '☠ DANGER',
 };
 
 export default function ChallengeCard({
@@ -23,11 +25,17 @@ export default function ChallengeCard({
   firstBloodBy?: string;
   onOpen: () => void;
 }) {
+  const isDanger = challenge.difficulty === 'danger';
+
   return (
     <button
       onClick={onOpen}
       className={`group relative flex flex-col rounded-xl border bg-terminal-panel p-4 text-left transition hover:-translate-y-0.5 hover:border-terminal-green/60 hover:shadow-neon ${
-        solved ? 'border-terminal-green/60' : 'border-terminal-border'
+        solved
+          ? 'border-terminal-green/60'
+          : isDanger
+            ? 'border-fuchsia-400/40 shadow-[0_0_14px_rgb(232_121_249_/_0.15)] hover:border-fuchsia-400/70'
+            : 'border-terminal-border'
       }`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">

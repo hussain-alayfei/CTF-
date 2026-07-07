@@ -21,7 +21,14 @@ export async function registerPlayer(username: string, password: string, avatar:
   });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.message ?? 'Registration failed.');
-  return { id: data.player_id, token: data.token, username: data.username, avatar: data.avatar };
+  return {
+    id: data.player_id,
+    token: data.token,
+    username: data.username,
+    avatar: data.avatar,
+    is_admin: false,
+    admin_token: null,
+  };
 }
 
 export async function loginPlayer(username: string, password: string): Promise<Player> {
@@ -31,7 +38,14 @@ export async function loginPlayer(username: string, password: string): Promise<P
   });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.message ?? 'Login failed.');
-  return { id: data.player_id, token: data.token, username: data.username, avatar: data.avatar };
+  return {
+    id: data.player_id,
+    token: data.token,
+    username: data.username,
+    avatar: data.avatar,
+    is_admin: !!data.is_admin,
+    admin_token: data.admin_token ?? null,
+  };
 }
 
 export async function checkDayCode(day: number, code: string): Promise<boolean> {
@@ -130,10 +144,24 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
   return rows;
 }
 
+/** The leaderboard scoped to a single day (used for the "live" board so it resets per day). */
+export async function fetchDayLeaderboard(day: number): Promise<LeaderboardRow[]> {
+  const { data, error } = await supabase.rpc('day_leaderboard', { p_day: day });
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as LeaderboardRow[];
+  rows.sort((a, b) => {
+    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
+    const ta = a.last_solve_at ? Date.parse(a.last_solve_at) : Infinity;
+    const tb = b.last_solve_at ? Date.parse(b.last_solve_at) : Infinity;
+    return ta - tb;
+  });
+  return rows;
+}
+
 export async function fetchEventConfig(): Promise<EventConfig> {
   const { data, error } = await supabase
     .from('event_config')
-    .select('name, starts_at, ends_at, duration_minutes, freeze_minutes')
+    .select('name, starts_at, ends_at, duration_minutes, freeze_minutes, active_day')
     .eq('id', 1)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -141,8 +169,9 @@ export async function fetchEventConfig(): Promise<EventConfig> {
     name: 'KGSP CTF',
     starts_at: null,
     ends_at: null,
-    duration_minutes: 60,
+    duration_minutes: 35,
     freeze_minutes: 15,
+    active_day: null,
   }) as EventConfig;
 }
 
@@ -231,4 +260,14 @@ export async function adminSetDayCode(secret: string, day: number, code: string)
   });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string; ok?: boolean };
+}
+
+/** Switch which day's leaderboard is "live" for students. */
+export async function adminSetActiveDay(secret: string, day: number) {
+  const { data, error } = await supabase.rpc('admin_set_active_day', {
+    p_secret: secret,
+    p_day: day,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; active_day?: number };
 }

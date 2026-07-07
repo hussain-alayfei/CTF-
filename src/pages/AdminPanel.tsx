@@ -4,9 +4,9 @@ import {
   adminDeleteAllPlayers,
   adminDeletePlayer,
   adminListPlayers,
-  adminLogin,
   adminOverview,
   adminReset,
+  adminSetActiveDay,
   adminSetDay,
   adminSetDayCode,
   adminSetFreeze,
@@ -16,129 +16,69 @@ import {
 import { formatDuration, getEventState } from '../lib/time';
 import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer } from '../lib/types';
 import { useApp } from '../lib/app-context';
+import { clearPlayer } from '../lib/session';
 import Prompt from '../components/Prompt';
+import Register from '../components/Register';
 
 const diffColor: Record<string, string> = {
   easy: 'text-terminal-green',
   medium: 'text-terminal-amber',
   hard: 'text-terminal-red',
+  danger: 'text-fuchsia-400',
 };
 
-// Admin token persisted in localStorage so it survives both page refreshes
-// AND opening /admin in a new tab. Cleared explicitly on Sign out.
-const ADMIN_TOKEN_KEY = 'kgsp_ctf_admin_token';
-
 export default function AdminPanel() {
-  const { theme, toggleTheme } = useApp();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [secret, setSecret] = useState(''); // session token returned by admin_login
-  const [authed, setAuthed] = useState(false);
-  const [restoring, setRestoring] = useState(true);
+  const { player, setPlayer, theme, toggleTheme } = useApp();
   const [data, setData] = useState<AdminOverview | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [minutes, setMinutes] = useState(60);
+  const [minutes, setMinutes] = useState(35);
   const [freeze, setFreeze] = useState(15);
+  const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
 
-  const load = useCallback(
-    async (sec: string, isRestore = false) => {
-      const res = await adminOverview(sec);
-      if (res.error) {
-        if (isRestore) {
-          // During restore: only wipe the token if the server explicitly says
-          // the secret is wrong. Ignore transient network/server errors so a
-          // bad Wi-Fi blip doesn't permanently log the admin out.
-          const isAuthError = res.message?.toLowerCase().includes('secret') ||
-                              res.message?.toLowerCase().includes('auth') ||
-                              res.message?.toLowerCase().includes('wrong');
-          if (isAuthError) {
-            localStorage.removeItem(ADMIN_TOKEN_KEY);
-            setAuthed(false);
-            setSecret('');
-          }
-          // Otherwise: silently stay "restoring" finished with no session —
-          // user sees the login form.
-        } else {
-          setMsg({ ok: false, text: res.message ?? 'Session expired — sign in again.' });
-          setAuthed(false);
-          setSecret('');
-          localStorage.removeItem(ADMIN_TOKEN_KEY);
-        }
-        return false;
-      }
-      setData(res);
-      setAuthed(true);
-      if (res.event) {
-        setMinutes(res.event.duration_minutes ?? 60);
-        setFreeze(res.event.freeze_minutes ?? 15);
-      }
-      // Refresh the player roster too (best-effort).
-      try {
-        const pl = await adminListPlayers(sec);
-        if (pl.players) setPlayers(pl.players);
-      } catch {
-        /* ignore roster errors */
-      }
-      return true;
-    },
-    [],
-  );
+  // Admin identity is just a normal logged-in player with is_admin = true.
+  // Their session (including the admin token) persists exactly like any
+  // player's session — no separate password gate on this page anymore.
+  const secret = player?.admin_token ?? '';
 
-  // Restore a saved admin session on every page load.
-  useEffect(() => {
-    const saved = localStorage.getItem(ADMIN_TOKEN_KEY);
-    if (!saved) {
-      setRestoring(false);
+  const load = useCallback(async () => {
+    if (!secret) return;
+    const res = await adminOverview(secret);
+    if (res.error) {
+      setMsg({ ok: false, text: res.message ?? 'Could not load the dashboard.' });
       return;
     }
-    setSecret(saved);
-    void load(saved, true)
-      .catch(() => {})
-      .finally(() => setRestoring(false));
-  }, [load]);
+    setData(res);
+    if (res.event) {
+      setMinutes(res.event.duration_minutes ?? 35);
+      setFreeze(res.event.freeze_minutes ?? 15);
+      setActiveDaySel(res.event.active_day ?? '');
+    }
+    try {
+      const pl = await adminListPlayers(secret);
+      if (pl.players) setPlayers(pl.players);
+    } catch {
+      /* ignore roster errors */
+    }
+  }, [secret]);
+
+  useEffect(() => {
+    if (secret) void load();
+  }, [secret, load]);
+
+  // Auto-refresh the dashboard while on this page.
+  useEffect(() => {
+    if (!secret) return;
+    const id = setInterval(() => void load(), 5000);
+    return () => clearInterval(id);
+  }, [secret, load]);
 
   function logout() {
-    localStorage.removeItem(ADMIN_TOKEN_KEY);
-    setSecret('');
-    setAuthed(false);
-    setData(null);
-    setPlayers([]);
-    setPassword('');
-    setMsg(null);
+    clearPlayer();
+    setPlayer(null);
   }
-
-  async function login(e: React.FormEvent) {
-    e.preventDefault();
-    if (!username.trim() || !password) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await adminLogin(username.trim(), password);
-      if (res.error || !res.token) {
-        setMsg({ ok: false, text: res.message ?? 'Wrong admin username or password.' });
-        return;
-      }
-      setSecret(res.token);
-      localStorage.setItem(ADMIN_TOKEN_KEY, res.token);
-      await load(res.token);
-    } catch (err) {
-      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error.' });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Auto-refresh the dashboard while signed in.
-  useEffect(() => {
-    if (!authed || !secret) return;
-    const id = setInterval(() => {
-      void load(secret).catch(() => {});
-    }, 5000);
-    return () => clearInterval(id);
-  }, [authed, secret, load]);
 
   async function run(
     action: () => Promise<{ error?: string; message?: string }>,
@@ -151,7 +91,7 @@ export default function AdminPanel() {
       const res = await action();
       if (res.error) setMsg({ ok: false, text: res.message ?? 'Failed.' });
       else setMsg({ ok: true, text: res.message ?? 'Done.' });
-      await load(secret);
+      await load();
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'Error.' });
     } finally {
@@ -166,71 +106,31 @@ export default function AdminPanel() {
   const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
   const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
 
-  // ----- Restoring a saved session on refresh: avoid flashing the login form -----
-  if (restoring && !authed) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-24 text-center text-terminal-dim">
-        Restoring session…
-      </div>
-    );
+  // ----- Not logged in at all: reuse the normal login/register screen -----
+  if (!player) {
+    return <Register />;
   }
 
-  // ----- Not signed in: username + password -----
-  if (!authed) {
+  // ----- Logged in, but not the instructor account -----
+  if (!player.is_admin) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16">
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <div className="text-4xl">🚫</div>
+        <h1 className="mt-3 text-xl font-extrabold text-terminal-red">Instructors only</h1>
+        <p className="mt-2 text-sm text-terminal-dim">
+          This page is for course instructors. Head back to the arena to keep playing.
+        </p>
         <Link
           to="/"
-          className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+          className="mt-4 inline-block rounded-lg border border-terminal-green px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/10"
         >
-          ‹ back to the arena
+          ‹ Back to the arena
         </Link>
-        <form
-          onSubmit={login}
-          className="mt-4 rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-neon"
-        >
-          <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Panel</h1>
-          <p className="mt-1 mb-5 text-sm text-terminal-dim">
-            Sign in with your admin username and password.
-          </p>
-          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-            Username
-          </label>
-          <input
-            autoFocus
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="admin username"
-            className="mb-3 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-terminal-green outline-none focus:border-terminal-green focus:shadow-neon"
-          />
-          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="admin password"
-            className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-terminal-green outline-none focus:border-terminal-green focus:shadow-neon"
-          />
-          {msg && !msg.ok && (
-            <div className="mt-3 rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-3 py-2 text-sm text-terminal-red">
-              {msg.text}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-4 w-full rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-3 font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
-          >
-            {busy ? 'checking…' : 'Sign in ▸'}
-          </button>
-        </form>
       </div>
     );
   }
 
-  // ----- Signed in: full dashboard -----
+  // ----- Signed in as the instructor: full dashboard -----
   const challenges = data?.challenges ?? [];
   const days = data?.days ?? [];
 
@@ -244,6 +144,12 @@ export default function AdminPanel() {
           ‹ back to the arena
         </Link>
         <div className="flex items-center gap-2">
+          <Link
+            to="/board"
+            className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/10"
+          >
+            🖥 Present board
+          </Link>
           <button
             onClick={toggleTheme}
             className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
@@ -367,6 +273,44 @@ export default function AdminPanel() {
           >
             ⟲ Reset game
           </button>
+        </div>
+      </section>
+
+      {/* Active Day (which day's leaderboard is "live" for students) */}
+      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
+        <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">▸ Active Day (Leaderboard)</h2>
+        <p className="mb-4 text-xs text-terminal-dim">
+          Students only see the leaderboard for this day. When a day finishes, switch to the next
+          one to start its board fresh — past days&apos; scores are never lost and can still be
+          browsed from the leaderboard&apos;s day selector.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={activeDaySel}
+            onChange={(e) => setActiveDaySel(Number(e.target.value))}
+            className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-2.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
+          >
+            <option value="" disabled>
+              Choose a day…
+            </option>
+            {days.map((d) => (
+              <option key={d.day} value={d.day}>
+                {d.title}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={busy || activeDaySel === ''}
+            onClick={() => run(() => adminSetActiveDay(secret, Number(activeDaySel)), 'Switch the live leaderboard to this day?')}
+            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+          >
+            Set active day
+          </button>
+          <span className="text-xs text-terminal-dim">
+            Currently live: <strong className="text-terminal-green">
+              {days.find((d) => d.day === data?.event?.active_day)?.title ?? `Day ${data?.event?.active_day ?? '—'}`}
+            </strong>
+          </span>
         </div>
       </section>
 

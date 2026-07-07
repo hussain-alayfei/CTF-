@@ -1,4 +1,4 @@
-export type Difficulty = 'easy' | 'medium' | 'hard';
+export type Difficulty = 'easy' | 'medium' | 'hard' | 'danger';
 
 export interface Challenge {
   id: string;
@@ -33,6 +33,9 @@ export interface Player {
   username: string;
   token: string;
   avatar: string;
+  is_admin: boolean;
+  /** Admin session token (the admin_config secret) — only present when is_admin is true. */
+  admin_token?: string | null;
 }
 
 export interface Solve {
@@ -59,6 +62,8 @@ export interface EventConfig {
   ends_at: string | null;
   duration_minutes: number;
   freeze_minutes: number;
+  /** Which day's leaderboard is currently "live" for students. */
+  active_day: number | null;
 }
 
 export interface SubmitResult {

@@ -16,11 +16,12 @@ import Toasts from '../components/Toasts';
 import Podium from '../components/Podium';
 import ProfileModal from '../components/ProfileModal';
 
-const order: Difficulty[] = ['easy', 'medium', 'hard'];
+const order: Difficulty[] = ['easy', 'medium', 'hard', 'danger'];
 const sectionTitle: Record<Difficulty, string> = {
   easy: '🟢 Easy',
   medium: '🟡 Medium',
   hard: '🔴 Very Hard',
+  danger: '☠ Danger',
 };
 
 const UNLOCKED_DAYS_KEY = 'kgsp_ctf_unlocked_days';
@@ -287,6 +288,22 @@ export default function Play() {
           <Timer event={game.event} />
 
           <div className="flex items-center gap-2">
+            {player?.is_admin && (
+              <>
+                <Link
+                  to="/admin"
+                  className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
+                >
+                  🛠 Admin
+                </Link>
+                <Link
+                  to="/board"
+                  className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
+                >
+                  🖥 Board
+                </Link>
+              </>
+            )}
             {player && (
               <button
                 onClick={() => setShowProfile(true)}
@@ -397,7 +414,13 @@ export default function Play() {
         </section>
 
         <aside className="lg:sticky lg:top-24 lg:h-fit">
-          <Leaderboard rows={game.leaderboard} meId={player?.id ?? null} frozen={frozen} />
+          <Leaderboard
+            rows={game.leaderboard}
+            meId={player?.id ?? null}
+            frozen={frozen}
+            days={game.days}
+            activeDay={game.event?.active_day ?? null}
+          />
         </aside>
       </main>
 

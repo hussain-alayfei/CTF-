@@ -1,4 +1,6 @@
-import type { LeaderboardRow } from '../lib/types';
+import { useEffect, useState } from 'react';
+import type { Day, LeaderboardRow } from '../lib/types';
+import { fetchDayLeaderboard } from '../lib/api';
 
 const medal = ['🥇', '🥈', '🥉'];
 
@@ -6,22 +8,75 @@ export default function Leaderboard({
   rows,
   meId,
   frozen = false,
+  days = [],
+  activeDay = null,
 }: {
   rows: LeaderboardRow[];
   meId: string | null;
   frozen?: boolean;
+  /** All days, so students can browse a previous day's board. */
+  days?: Day[];
+  /** The day currently "live" — its board is `rows`, kept in realtime sync. */
+  activeDay?: number | null;
 }) {
-  const ranked = rows.filter((r) => r.total_points > 0 || r.solves_count > 0);
-  const idle = rows.filter((r) => r.total_points === 0 && r.solves_count === 0);
+  const [viewDay, setViewDay] = useState<number | null>(activeDay);
+  const [overrideRows, setOverrideRows] = useState<LeaderboardRow[] | null>(null);
+  const [loadingOverride, setLoadingOverride] = useState(false);
+
+  // If the admin changes the active day while this is open, snap back to it.
+  useEffect(() => {
+    setViewDay(activeDay);
+    setOverrideRows(null);
+  }, [activeDay]);
+
+  const isViewingActive = viewDay === activeDay || viewDay == null;
+  const displayRows = isViewingActive ? rows : overrideRows ?? rows;
+
+  async function handleSelectDay(day: number) {
+    setViewDay(day);
+    if (day === activeDay) {
+      setOverrideRows(null);
+      return;
+    }
+    setLoadingOverride(true);
+    try {
+      setOverrideRows(await fetchDayLeaderboard(day));
+    } catch {
+      setOverrideRows([]);
+    } finally {
+      setLoadingOverride(false);
+    }
+  }
+
+  const ranked = displayRows.filter((r) => r.total_points > 0 || r.solves_count > 0);
+  const idle = displayRows.filter((r) => r.total_points === 0 && r.solves_count === 0);
+  const browsableDays = days.filter((d) => !d.is_rest).slice().sort((a, b) => a.sort_order - b.sort_order);
 
   return (
     <div className="rounded-xl border border-terminal-border bg-terminal-panel">
       <div className="flex items-center justify-between border-b border-terminal-border px-4 py-3">
         <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Leaderboard</h2>
-        <span className="text-xs text-terminal-dim">{rows.length} players</span>
+        <span className="text-xs text-terminal-dim">{displayRows.length} players</span>
       </div>
 
-      {frozen ? (
+      {browsableDays.length > 1 && (
+        <div className="flex items-center gap-2 border-b border-terminal-border/60 px-4 py-2">
+          <span className="text-[10px] uppercase tracking-widest text-terminal-dim">Viewing</span>
+          <select
+            value={viewDay ?? ''}
+            onChange={(e) => handleSelectDay(Number(e.target.value))}
+            className="flex-1 rounded border border-terminal-border bg-terminal-input px-2 py-1 text-xs text-terminal-green outline-none focus:border-terminal-green"
+          >
+            {browsableDays.map((d) => (
+              <option key={d.day} value={d.day}>
+                {d.title} {d.day === activeDay ? '· live' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {frozen && isViewingActive ? (
         <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
           <span className="text-4xl">🕶️</span>
           <p className="font-bold text-terminal-amber">SCOREBOARD FROZEN</p>
@@ -30,6 +85,8 @@ export default function Leaderboard({
             keep solving, the winners are revealed when time runs out!
           </p>
         </div>
+      ) : loadingOverride ? (
+        <p className="px-4 py-10 text-center text-sm text-terminal-dim">Loading…</p>
       ) : (
         <div className="max-h-[60vh] overflow-y-auto">
           {ranked.length === 0 && (

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import {
   fetchChallenges,
+  fetchDayLeaderboard,
   fetchDays,
   fetchEventConfig,
   fetchLeaderboard,
@@ -30,15 +31,28 @@ export function useGame(player: Player | null) {
   const challengesRef = useRef<Challenge[]>([]);
   challengesRef.current = challenges;
 
+  // The "live" leaderboard is scoped to whichever day the admin marked active,
+  // so it naturally resets when a new day begins. Falls back to the all-time
+  // board if no active day has been set yet.
+  const activeDayRef = useRef<number | null>(null);
+
   const refreshBoard = useCallback(async () => {
-    const [s, lb] = await Promise.all([fetchSolves(), fetchLeaderboard()]);
+    const day = activeDayRef.current;
+    const [s, lb] = await Promise.all([
+      fetchSolves(),
+      day != null ? fetchDayLeaderboard(day) : fetchLeaderboard(),
+    ]);
     setSolves(s);
     setLeaderboard(lb);
   }, []);
 
   const refreshEvent = useCallback(async () => {
-    setEvent(await fetchEventConfig());
-  }, []);
+    const ev = await fetchEventConfig();
+    const dayChanged = activeDayRef.current !== (ev.active_day ?? null);
+    activeDayRef.current = ev.active_day ?? null;
+    setEvent(ev);
+    if (dayChanged) void refreshBoard();
+  }, [refreshBoard]);
 
   const refreshDaysAndChallenges = useCallback(async () => {
     const [d, ch] = await Promise.all([fetchDays(), fetchChallenges()]);
@@ -51,12 +65,14 @@ export function useGame(player: Player | null) {
     let alive = true;
     (async () => {
       try {
-        const [ch, d, s, lb, ev] = await Promise.all([
+        const ev = await fetchEventConfig();
+        if (!alive) return;
+        activeDayRef.current = ev.active_day ?? null;
+        const [ch, d, s, lb] = await Promise.all([
           fetchChallenges(),
           fetchDays(),
           fetchSolves(),
-          fetchLeaderboard(),
-          fetchEventConfig(),
+          activeDayRef.current != null ? fetchDayLeaderboard(activeDayRef.current) : fetchLeaderboard(),
         ]);
         if (!alive) return;
         setChallenges(ch);

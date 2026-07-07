@@ -17,104 +17,156 @@ There is **no Supabase Auth**. Instead:
 - **Players** register with username + password + emoji avatar. Passwords are
   bcrypt-hashed (`extensions.crypt`). Each player gets a secret `token` (uuid).
   All player mutations go through `SECURITY DEFINER` RPCs that verify the token.
-- **Admins** share one account: username `KGSP_CTF_ADMIN`, password `KGSP_CTF_ADMIN`.
-  `admin_login(username, password)` returns the `admin_config.secret` as a session
-  token. Every `admin_*` RPC takes that secret. The frontend stores it in React
-  state only (not localStorage).
+- **The admin is a normal player account** with `is_admin = true`: username
+  `kasut_kgsp_ctf`, password `kasut_kgsp_ctf`. There is **no separate `/admin`
+  password screen** — `login_player`/`register_player` are the only login paths.
+  When `is_admin` is true, `login_player` also returns `admin_token` (the
+  `admin_config.secret`), which the frontend stores on the `Player` object and
+  passes as `p_secret` to every `admin_*` RPC. `/admin` and `/board` both check
+  `player.is_admin` from context; if false, they show an "Instructors only"
+  screen instead of the dashboard. The admin account is excluded from the
+  `leaderboard` view, `day_leaderboard()`, `admin_list_players()`, and
+  `admin_overview().players_count`.
 - Flags & hints live in tables with **RLS enabled but no SELECT policy**, so clients
   can never read them — only the RPCs can.
+- **`pg-safeupdate` is enabled** on this Supabase project — any `DELETE`/`UPDATE`
+  without a `WHERE` clause is rejected, even inside `SECURITY DEFINER` functions.
+  Always add `where true` for intentional full-table deletes (see `admin_reset`,
+  `admin_delete_all_players`).
 
 ## Database
 
 ### Key tables
-- `players` — id, username, token, password_hash, avatar, created_at
-- `challenges` — id, title, category, difficulty, points, first_blood_bonus,
-  sort_order, prompt, asset_url, action_url, num_hints, **day**, **is_extra**,
-  **suggested_tool**
+- `players` — id, username, token, password_hash, avatar, created_at, **is_admin**
+- `challenges` — id, title, category, difficulty (`easy`|`medium`|`hard`|`danger`),
+  points, first_blood_bonus, sort_order, prompt, asset_url, action_url, num_hints,
+  day, is_extra, suggested_tool (kept in schema but no longer shown to players)
 - `challenge_flags` — challenge_id, flag (SECRET)
-- `challenge_hints` — challenge_id, hint_number, body, penalty (SECRET)
+- `challenge_hints` — challenge_id, hint_number, body, penalty (SECRET). Only
+  hint_number = 1 is ever surfaced in the UI — treat challenges as single-hint.
 - `solves` — player_id, challenge_id, points_awarded, is_first_blood, solved_at
 - `hint_unlocks` — records penalties per player/challenge/hint
 - `submission_attempts` — rate limiting
 - `days` — day, title, subtitle, is_open, event_label, sort_order, is_rest, requires_code
 - `day_codes` — day, code (SECRET; RLS no-policy)
-- `event_config` — id=1, name, starts_at, ends_at, duration_minutes, freeze_minutes
-- `admin_config` — id=1, secret, username, password_hash
-- `leaderboard` (view) — player_id, username, avatar, total_points, solves_count, last_solve_at
+- `event_config` — id=1, name, starts_at, ends_at, duration_minutes (default 35),
+  freeze_minutes, **active_day** (which day's leaderboard is "live")
+- `admin_config` — id=1, secret, username, password_hash (legacy fields from the
+  old direct `/admin` login; still used only as the source of the `admin_token`)
+- `leaderboard` (view) — all-time board, **excludes is_admin players**
+- `day_leaderboard(p_day int)` (RPC) — the **active, day-scoped** board used for
+  the live UI; every non-admin player appears (0 if no solves that day yet)
 
 ### Key RPCs
-Player: `register_player(username,password,avatar)`, `login_player(username,password)`,
-`submit_flag(...)`, `unlock_hint(...)` (free once solved), `check_day_code(day,code)`.
+Player: `register_player(username,password,avatar)`, `login_player(username,password)`
+(returns `is_admin` + `admin_token`), `submit_flag(...)`, `unlock_hint(...)` (free once
+solved), `check_day_code(day,code)`, `day_leaderboard(day)`.
 
-Admin (all take the secret token from `admin_login`): `admin_login`, `admin_overview`,
-`admin_start_event`, `admin_stop_event`, `admin_reset`, `admin_set_day`,
-`admin_set_freeze`, `admin_set_day_code`, `admin_list_players`, `admin_delete_player`.
+Admin (all take the `admin_token`/secret from a `login_player` call where
+`is_admin = true`): `admin_overview`, `admin_start_event`, `admin_stop_event`,
+`admin_reset`, `admin_set_day`, `admin_set_freeze`, `admin_set_day_code`,
+`admin_set_active_day`, `admin_list_players`, `admin_delete_player`,
+`admin_delete_all_players`. (`admin_login` still exists for direct
+username/password admin auth but is no longer called by the frontend.)
 
 > pgcrypto lives in the `extensions` schema — always call `extensions.crypt` /
-> `extensions.gen_salt` inside functions that set `search_path = public, pg_temp`.
+> `extensions.gen_salt` inside functions that set `search_path = public, extensions, pg_temp`.
 
 ## Day / challenge structure
 
-- Challenges belong to a **day**; each day holds both its labs and any bonus
-  challenges together (there is **no** separate global bonus day).
-- Current: Day 1 & 2 = rest days, Day 3 = Securing Data (code `SECURING-DATA`,
-  labs + crypto/stego/hash), Day 4 = Web & Recon (cookie, chain; locked until opened).
-- Prompt style: short & cryptic (Black Hat / FlagYard). No step-by-step tool names
-  in prompts — those go in optional, point-penalized hints.
-- **`is_extra`** (boolean): marks a challenge as optional bonus practice rather
-  than core lecture content. In `Play.tsx`, each day renders its non-extra
-  challenges first, then any `is_extra` ones under a separate "🎁 Extra
-  Challenges" heading — still inside the same day, never a separate day.
-- **`suggested_tool`** (text, nullable): a short beginner-friendly pointer to
-  the *kind* of tool needed (e.g. "Any online Base64 decoder") — never the
-  technique or answer. Shown in `ChallengeModal.tsx` right under the prompt,
-  and in the admin challenge preview. Since players are beginners, this
-  softens the otherwise cryptic Black-Hat-style prompts without spoiling
-  the challenge.
+- Full 10-day curriculum (from the KGSP 2-week plan): Day 1 Introduction to
+  Cybersecurity, Day 2 Securing Accounts, Day 3 Securing Data (**the only day with
+  live challenges**, open + code-gated `SECURING-DATA`), Day 4 Securing Networks,
+  Day 5 Privacy, Day 6 Introduction to Pentesting, Day 7 Web Applications, Day 8 Web
+  Application Hacking, Day 9 Blockchain Introduction, Day 10 Smart Contracts. Days
+  4-10 are locked placeholders until challenges are authored for them.
+- Challenges belong to a **day**; each day holds both its core and any `is_extra`
+  (bonus) challenges together (there is **no** separate global bonus day).
+- **Difficulty tiers:** `easy` → `medium` → `hard` → `danger` (☠, fuchsia styling,
+  the hardest tier).
+- **Prompt style:** short, clean scenario + artifact + goal. **No tool names, no
+  step-by-step instructions** — students must research and think for themselves.
+  `suggested_tool` still exists as a DB column but the frontend no longer renders
+  it to players.
+- **Hints:** at most **one** hint per challenge (`num_hints` should be 0 or 1).
+  Revealing it always shows a confirmation warning ("this costs points") unless
+  the challenge is already solved, in which case it's free.
+- **`is_extra`** (boolean): marks a challenge as optional bonus practice. In
+  `Play.tsx`, each day renders its non-extra challenges first, then any
+  `is_extra` ones under a "🎁 Extra Challenges" heading — still inside the same day.
+
+## Active-day leaderboard (resets per day, keeps history)
+
+```mermaid
+flowchart LR
+  admin[Admin sets active day] --> cfg[event_config.active_day]
+  cfg --> board[day_leaderboard active_day]
+  solves[solves joined to challenges.day] --> board
+  board --> students[Play.tsx live leaderboard + Podium]
+  board --> projector[/board full-screen page/]
+  students --> browse[Day selector: browse past days, read-only]
+```
+
+- `useGame.ts` fetches `day_leaderboard(activeDay)` instead of the all-time
+  `leaderboard` view for the "live" board (`game.leaderboard`). It refetches
+  automatically whenever `event_config` changes and `active_day` differs.
+- `Leaderboard.tsx` has a day-selector dropdown so students can browse any
+  previous day's board (one-off fetch, not realtime) without affecting the live
+  view. No scores are ever deleted when the active day changes.
+- Personal profile score (`game.myPoints`, shown in the header) stays **all-time**
+  by design — only the competitive ranking board is day-scoped.
 
 ## File map
 
 ```
 src/
-  App.tsx                  routes: / (Play), /admin (AdminPanel), /challenge/admin-panel (CookieChallenge)
+  App.tsx                  routes: / (Play), /admin (AdminPanel), /board (Board), /challenge/admin-panel
   lib/
     api.ts                 all Supabase RPC + table calls
-    types.ts               shared TS types
+    types.ts               shared TS types (Player.is_admin/admin_token, EventConfig.active_day)
     supabase.ts            client (anon key)
-    session.ts             player localStorage (kgsp_ctf_player)
+    session.ts             player localStorage (kgsp_ctf_player) — admin session rides along
     app-context.tsx        player, mute, theme context
-    useGame.ts             loads challenges/days/solves/leaderboard + realtime subscriptions
+    useGame.ts             loads challenges/days/solves/day-scoped leaderboard + realtime
     time.ts                event state (idle/running/ended) + freeze window
-    sounds.ts              Web Audio synthesized cyber SFX (incl. playEventStart/End)
+    sounds.ts              Web Audio synthesized cyber SFX; playFirstBlood() tries
+                            /sounds/first-blood.mp3|.wav before falling back to synth
     theme.ts               dark/light
     constants.ts           AVATARS list
   components/
-    Register.tsx           horizontal login/register (alias + password + avatar)
-    ChallengeCard.tsx      grid card
-    ChallengeModal.tsx     prompt, hints (free once solved), flag submit
-    Leaderboard.tsx        ranked list with avatars
-    Podium.tsx             Kahoot-style 3-2-1 finale with sounds
-    ProfileModal.tsx       slide-out side panel (score, rank, solves, logout)
-    Timer.tsx              countdown with color states
-    Toasts.tsx             live solve / first-blood announcements
-    Prompt.tsx             safe markdown subset renderer
+    Register.tsx           horizontal login/register (alias + password + avatar);
+                            also reused as the login gate on /admin and /board
+    ChallengeCard.tsx       grid card; danger tier styling
+    ChallengeModal.tsx      prompt only (no tool hints shown); single hint w/ warning
+    Leaderboard.tsx         day-scoped board + day-browser dropdown
+    Podium.tsx              Kahoot-style 3-2-1 finale, slow paced with real countdowns
+    ProfileModal.tsx        slide-out side panel (all-time score, rank, solves, logout)
+    Timer.tsx               countdown with color states
+    Toasts.tsx              live solve / first-blood announcements
+    Prompt.tsx              safe markdown subset renderer
   pages/
-    Play.tsx               main arena: days, code gate, event banner, GO overlay
-    AdminPanel.tsx         dashboard: login, event, days+codes, players, challenges, music
-    CookieChallenge.tsx    the cookie-tampering web challenge
+    Play.tsx                main arena: days, code gate, event banner, GO overlay,
+                             admin-only Admin/Board header links
+    AdminPanel.tsx          role-gated (player.is_admin) dashboard: event, active day,
+                             days+codes, players, challenges, music — no password form
+    Board.tsx               admin-only full-screen projector dashboard at /board
+    CookieChallenge.tsx     the cookie-tampering web challenge
 ```
 
 ## Conventions
 
 - **Theme:** terminal palette via CSS variables in `index.css`; Tailwind colors are
-  `terminal-*`. Dark mode is default (`data-theme` on `<html>`).
-- **Sounds:** all synthesized in `sounds.ts` (no audio files). Respect the global mute.
+  `terminal-*`. Dark mode is default (`data-theme` on `<html>`). Danger tier uses
+  Tailwind's built-in `fuchsia-*` since it's outside the terminal palette.
+- **Sounds:** synthesized in `sounds.ts` by default; `playFirstBlood()` can be
+  overridden by dropping `public/sounds/first-blood.mp3` or `.wav`. Respect global mute.
 - **Avatars:** emoji from `constants.ts` `AVATARS`.
 - **Animations:** defined in `tailwind.config.js` (flicker, slide-down, slide-left, pop, pulse-ring, rise).
 - **Realtime:** `useGame.ts` subscribes to `solves`, `players`, `event_config`, `days`.
 
 ## Adding a challenge (quick)
 
-Insert into `challenges` + `challenge_flags` (+ optional `challenge_hints`), set its
-`day`, drop any asset into `public/challenges/...`, then open that day in `/admin`.
-See `ADMIN_MANUAL.md` section 7 for the exact SQL.
+Insert into `challenges` + `challenge_flags` (+ optional single `challenge_hints`
+row), set its `day` and `difficulty` (easy/medium/hard/danger), drop any asset into
+`public/challenges/...`, then open that day in `/admin`. Keep prompts free of tool
+names/steps. See `ADMIN_MANUAL.md` section 10 for the exact SQL.

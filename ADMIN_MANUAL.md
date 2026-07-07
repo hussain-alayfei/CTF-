@@ -11,14 +11,19 @@ add new content without touching the rest.
 
 ## 1. Quick Start
 
-1. Open the site and go to **`/admin`** (e.g. `https://your-site.com/admin`).
-2. Sign in:
-   - **Username:** `KGSP_CTF_ADMIN`
-   - **Password:** `KGSP_CTF_ADMIN`
-   - (All 3 admins share these credentials.)
-3. You're in the **Instructor Dashboard**. From here you can start/stop the event,
-   open/lock days, set day access codes, manage players, preview challenges, and
-   play background music.
+1. Open the site and log in like any player (the normal login/register screen) with:
+   - **Username:** `kasut_kgsp_ctf`
+   - **Password:** `kasut_kgsp_ctf`
+2. Once logged in, an **🛠 Admin** and **🖥 Board** link appear in the header — click
+   **Admin** to open the Instructor Dashboard.
+3. From there you can start/stop the event, set the **active day** (which resets the
+   leaderboard per day), open/lock days, set day access codes, manage players,
+   preview challenges, and play background music.
+
+> There is no separate `/admin` password screen anymore — the instructor account is
+> just a normal login with special privileges. Only this one account (`is_admin = true`
+> in the database) sees the Admin/Board links and can open `/admin` or `/board`.
+> This account is automatically excluded from the leaderboard and participant counts.
 
 ---
 
@@ -28,67 +33,100 @@ The dashboard's **Event control** section is the heart of a live competition.
 
 | Action | What it does |
 |--------|--------------|
-| **Duration (minutes)** | How long the round runs once started. |
+| **Duration (minutes)** | How long the round runs once started (defaults to 35). |
 | **Start / restart event** | Starts the clock now. Players immediately see "Event is LIVE" + hear a start sound + a "GO!" overlay. |
 | **Stop now** | Ends the event immediately for everyone. Submissions close. |
 | **Reset game** | Clears ALL scores/solves and the timer. Players keep their accounts. |
 | **Hide scores in final N minutes** | The "freeze" — leaderboard is hidden in the last N minutes for suspense. |
 
 **Typical flow:**
-1. Set the duration (e.g. 60).
+1. Set the duration (e.g. 35).
 2. Optionally set a freeze (e.g. 15).
 3. Click **Start** — the room's players see the LIVE banner and the countdown.
 4. When the timer hits zero, the **podium finale** auto-launches (3rd → 2nd → 1st,
-   Kahoot-style, with sounds). You can also re-open it via "Show final results".
+   one at a time with a real countdown between each reveal). You can also re-open
+   it via "Show final results".
 
 ---
 
-## 3. Managing Days
+## 3. Active Day (the leaderboard resets per day)
+
+The dashboard has an **▸ Active Day (Leaderboard)** section. This controls which
+day's scores students see on the live leaderboard and finale — completely
+independent of the event timer above.
+
+- Pick a day from the dropdown and click **Set active day**.
+- Students' leaderboard immediately updates to show only that day's scores (0 for
+  everyone who hasn't solved anything yet that day) — it feels like a fresh start.
+- **No scores are ever deleted.** Every past day's results stay in the database
+  forever, and students can still browse them using the small day-selector dropdown
+  above their leaderboard.
+- Use this at the start of each new day: e.g. when Day 3 wraps up and Day 4 begins,
+  switch the active day to 4 so the room sees a clean board for the new challenges.
+
+---
+
+## 4. Managing Days
 
 Each challenge belongs to a **day**. The dashboard's **Days** section controls them.
 
 - **Open / Lock** — toggle whether a day's challenges are visible to players.
-- **Rest days** (😴) — marked days with no challenges (Day 1 & Day 2 currently).
 - **Access code** (🔐) — an optional code students must type to enter that day.
   Click **edit** next to a day to set or clear its code. Leave empty to remove it.
 
-**Current roadmap:**
+**Current 10-day curriculum** (from the 2-week plan; only Day 3 has challenges so far):
 
 | Day | Title | Status |
 |-----|-------|--------|
-| 1 | 😴 Rest Day | Open, no challenges |
-| 2 | 😴 Rest Day | Open, no challenges |
-| 3 | 🔬 Securing Data | Open, **code-gated** (`SECURING-DATA`) — labs + crypto bonus |
-| 4 | 🌐 Web & Recon | Locked until you open it — web + recon challenges |
+| 1 | 🛡️ Introduction to Cybersecurity | Locked |
+| 2 | 🔑 Securing Accounts | Locked |
+| 3 | 🔬 Securing Data | **Open**, code-gated (`SECURING-DATA`) — live challenges |
+| 4 | 📡 Securing Networks | Locked |
+| 5 | 🎭 Privacy | Locked |
+| 6 | 🎯 Introduction to Pentesting | Locked |
+| 7 | 🌐 Web Applications | Locked |
+| 8 | 💥 Web Application Hacking | Locked |
+| 9 | ⛓️ Blockchain Introduction | Locked |
+| 10 | 📜 Smart Contracts | Locked |
 
-> Every day can hold both its **labs** and **bonus** challenges together — there is
-> no separate global "Bonus" section anymore.
+> Every day can hold both its **core** and **extra (bonus)** challenges together —
+> there is no separate global "Bonus" day.
 
 ---
 
-## 4. Player Management
+## 5. Player Management
 
-The **Players** section lists everyone who registered.
+The **Players** section lists everyone who registered (the instructor account is
+excluded from this list — it's for testing only, not a participant).
 
 - See each player's **avatar, username, score, solves, first bloods**.
 - Click a **username** to expand full details (join time + every solve).
 - **Search** by username with the box at the top-right.
 - **🗑 Delete** removes a player and all their solves (asks for confirmation, cannot be undone).
+- **🗑 Delete all** wipes every player and their solves at once — asks for confirmation.
 
 ---
 
-## 5. Challenges & Flags
+## 6. Challenges & Flags
 
 The **Challenges & flags** section lists every challenge grouped by day.
 
 - Click a challenge to **expand a full preview**: the exact prompt players see,
-  the flag, all hints (with point penalties), and any file/action links.
+  the flag, and any file/action links.
 - **👁 Reveal flags / 🙈 Hide flags** toggles flag visibility (keep hidden when projecting).
 
 ### Scoring rules
-- Solving a challenge awards its points (minus any hint penalties you unlocked before solving).
-- **First blood** on a challenge gives a bonus.
-- **Hints are free once you've already solved** that challenge — no penalty after solving.
+- Solving a challenge awards its points (minus the hint penalty if you unlocked it before solving).
+- **First blood** on a challenge gives a bonus, plus plays a dramatic sound for everyone
+  (see Section 8 to customize it).
+- **Only one hint per challenge is ever offered**, and it always costs points — the
+  player gets a confirmation warning before revealing it, so they don't waste points
+  by accident. Hints are free once the player has already solved that challenge.
+
+### Difficulty tiers
+Four tiers are supported: **Easy → Medium → Hard → ☠ Danger**. Danger is the highest
+tier — for the hardest, most involved challenges. It renders with a distinct
+fuchsia/violet glow so it stands out immediately.
 
 ### Main vs. Extra challenges
 Each challenge has an **`is_extra`** flag:
@@ -96,13 +134,16 @@ Each challenge has an **`is_extra`** flag:
 - `true` — optional bonus practice. Automatically grouped under a **"🎁 Extra Challenges"**
   heading, still inside the same day (never a separate day/section elsewhere).
 
-Each challenge can also have a **`suggested_tool`** — a short, beginner-friendly pointer to
-the *kind* of tool needed (e.g. "Any online Base64 decoder"), shown to players right under
-the prompt. It should point to a tool category, never spoil the technique or the answer.
+### Challenge descriptions — no tools, no steps
+Player-facing prompts should describe **what** to find, never **how** — no tool names,
+no step-by-step instructions. Players are meant to think, research, and figure out the
+approach themselves. (This changed from an earlier, more guided style.) The database
+still has a `suggested_tool` field, but it is intentionally **not shown to players**
+anymore — keep it empty or use it purely as your own internal note if useful.
 
 ---
 
-## 6. Competition Music
+## 7. Competition Music
 
 The **Competition music** section plays audio on **your device only** (for room speakers).
 
@@ -114,63 +155,89 @@ The **Competition music** section plays audio on **your device only** (for room 
 
 ---
 
-## 7. Adding New Content Later
+## 8. First-Blood Sound
+
+By default, first blood plays a synthesized siren sound. To use your own sound:
+
+1. Drop an MP3 or WAV file into `public/sounds/` in the project, named exactly:
+   - `first-blood.mp3`, or
+   - `first-blood.wav`
+2. Deploy. The app automatically tries `first-blood.mp3` first, then `.wav`, and
+   only falls back to the built-in siren if neither file is found.
+3. Keep it short (2–5 seconds) and reasonably small — every player's browser
+   downloads it the moment a first blood happens.
+
+---
+
+## 9. Presenting on a Projector
+
+The **🖥 Board** link (in the header once logged in as admin, or from the dashboard)
+opens a dedicated full-screen page at `/board`:
+
+- Large live leaderboard for the active day, a big countdown timer, and a live
+  solve/first-blood feed — all synced in realtime, no manual refreshing needed.
+- Just open it and share your screen. Only the instructor account can access it.
+
+---
+
+## 10. Adding New Content Later
 
 Challenges live in the Supabase database. To add one to **any day**:
 
 1. Open Supabase → **SQL Editor** (or ask the AI agent to do it).
-2. Insert the challenge, its flag, and optional hints:
+2. Insert the challenge and its flag (and an optional single hint):
 
 ```sql
 -- Challenge (metadata; not secret)
 insert into public.challenges
   (id, title, category, difficulty, points, first_blood_bonus, sort_order, num_hints,
-   day, asset_url, action_url, prompt, is_extra, suggested_tool)
+   day, asset_url, action_url, prompt, is_extra)
 values
-  ('my_new_chal', 'My Challenge', 'Web', 'medium', 200, 50, 20, 2, 4, null, null,
-   'Short, cryptic prompt here.',
-   false,                                  -- true = shows under "🎁 Extra Challenges"
-   'Browser DevTools (F12)');              -- optional beginner nudge; null to omit
+  ('my_new_chal', 'My Challenge', 'Web', 'medium', 200, 50, 20, 1, 4, null, null,
+   'Short, cryptic scenario + the artifact. No tool names, no steps.',
+   false);                                 -- true = shows under "🎁 Extra Challenges"
 
 -- Flag (SECRET)
 insert into public.challenge_flags (challenge_id, flag)
 values ('my_new_chal', 'KGSP{the_answer}');
 
--- Hints (SECRET; penalty = points off that challenge)
+-- Hint (SECRET; at most ONE hint per challenge; penalty = points off that challenge)
 insert into public.challenge_hints (challenge_id, hint_number, body, penalty) values
-  ('my_new_chal', 1, 'A gentle nudge.', 20),
-  ('my_new_chal', 2, 'A bigger nudge.', 40);
+  ('my_new_chal', 1, 'A nudge toward the right area — not the answer.', 40);
 ```
 
-3. Set `day` to the day number you want it to appear on. Open that day in the dashboard.
+3. Set `day` to the day number you want it to appear on, and `difficulty` to one of
+   `easy`, `medium`, `hard`, `danger`. Open that day in the dashboard when ready.
 4. If the challenge needs a downloadable file, put it in `public/challenges/...`
    and set `asset_url` to its path (e.g. `/challenges/labs/myfile.bin`).
-5. Set `is_extra = true` if it's optional bonus practice rather than core lecture content —
-   it will automatically appear under its day's "🎁 Extra Challenges" section.
+5. Set `is_extra = true` if it's optional bonus practice rather than core lecture content.
 
 ### Prompt style
-Keep prompts **short and cryptic** (Black Hat / FlagYard style): a one-to-three
-sentence scenario plus the artifact. Do **not** spell out tool names or steps —
-that's what the (optional, penalized) hints are for.
+Keep prompts **short and clean**: a one-to-two sentence scenario plus the artifact
+(file, hash, ciphertext, etc.) and a clear goal. **Do not** mention tool names or
+steps anywhere in the prompt — the point is for students to research and think for
+themselves. `num_hints` should be `0` or `1` — never more than one hint per challenge.
 
 ---
 
-## 8. Troubleshooting
+## 11. Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Can't sign in to `/admin` | Username and password are both `KGSP_CTF_ADMIN` (case-sensitive). |
+| Can't see the Admin/Board links | Make sure you logged in with `kasut_kgsp_ctf` / `kasut_kgsp_ctf`. |
 | Players don't see a day | Make sure the day is **Open** and (if code-gated) they entered the code. |
-| Scores look wrong | Use **Reset game** to clear all solves and start fresh. |
+| Leaderboard still shows yesterday's day | Go to **▸ Active Day** and set it to today's day. |
+| Scores look wrong | Use **Reset game** to clear all solves and start fresh (does not affect Active Day). |
 | Timer not showing for players | You must click **Start** — idle events show "Waiting to start". |
 | Music won't play | Use a direct `.mp3`/`.ogg` URL; some hosts block embedding. |
+| First-blood sound not customized | Confirm the file is named exactly `first-blood.mp3` (or `.wav`) inside `public/sounds/` and was deployed. |
 | Changed the DB but UI is stale | The dashboard auto-refreshes every 5s; players get realtime updates. |
 
 ---
 
-## 9. Reference: Credentials & Codes
+## 12. Reference: Credentials & Codes
 
-- **Admin login:** `KGSP_CTF_ADMIN` / `KGSP_CTF_ADMIN`
+- **Admin login:** `kasut_kgsp_ctf` / `kasut_kgsp_ctf` (log in like a normal player)
 - **Day 3 access code:** `SECURING-DATA`
 - **Supabase project id:** `xehzdlfrzlokwvtcfvjx`
 

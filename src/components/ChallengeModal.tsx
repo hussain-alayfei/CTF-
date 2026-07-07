@@ -45,6 +45,12 @@ export default function ChallengeModal({
   const running = eventStatus === 'running';
 
   async function onUnlock(n: number) {
+    if (
+      !solved &&
+      !window.confirm('Revealing this hint costs points on this challenge. Are you sure you want to see it?')
+    ) {
+      return;
+    }
     unlockAudio();
     playClick();
     try {
@@ -139,16 +145,6 @@ export default function ChallengeModal({
         <div className="space-y-5 p-5">
           <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
 
-          {/* Beginner-friendly nudge toward the right kind of tool (not the answer) */}
-          {challenge.suggested_tool && (
-            <div className="flex items-start gap-2 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 px-3 py-2 text-xs text-terminal-cyan">
-              <span>🧰</span>
-              <span>
-                <strong className="font-bold">Tool to try:</strong> {challenge.suggested_tool}
-              </span>
-            </div>
-          )}
-
           {/* Asset / action buttons */}
           <div className="flex flex-wrap gap-3">
             {challenge.asset_url && (
@@ -170,34 +166,34 @@ export default function ChallengeModal({
             )}
           </div>
 
-          {/* Hints */}
+          {/* Hint — only one is ever offered, and it costs points to reveal. */}
           {challenge.num_hints > 0 && (
             <div className="rounded-lg border border-terminal-border bg-terminal-input/60 p-4">
               <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-amber">
-                {solved ? 'Hints (free — you solved this)' : 'Hints (cost points on this challenge)'}
+                {solved ? 'Hint (free — you solved this)' : '⚠ One hint available — costs points'}
               </h4>
               <div className="space-y-2">
-                {Array.from({ length: challenge.num_hints }, (_, i) => i + 1).map((n) => {
+                {(() => {
+                  const n = 1;
                   const unlocked = hints.get(n);
                   return unlocked ? (
-                    <div key={n} className="rounded border border-terminal-amber/30 bg-terminal-amber/5 p-3 text-sm">
+                    <div className="rounded border border-terminal-amber/30 bg-terminal-amber/5 p-3 text-sm">
                       <span className="mr-2 text-[10px] font-bold uppercase text-terminal-amber">
-                        Hint {n} {unlocked.penalty ? `(−${unlocked.penalty})` : '(free)'}
+                        Hint {unlocked.penalty ? `(−${unlocked.penalty})` : '(free)'}
                       </span>
                       <span className="text-terminal-green/90">{unlocked.body}</span>
                     </div>
                   ) : (
                     <button
-                      key={n}
                       onClick={() => onUnlock(n)}
                       disabled={!running}
                       className="flex w-full items-center justify-between rounded border border-terminal-border px-3 py-2 text-sm text-terminal-dim transition hover:border-terminal-amber/50 hover:text-terminal-amber disabled:opacity-40"
                     >
-                      <span>{solved ? '💡' : '🔒'} Reveal hint {n}</span>
+                      <span>{solved ? '💡' : '🔒'} Reveal the hint</span>
                       <span className="text-xs">{solved ? 'free' : 'costs points'}</span>
                     </button>
                   );
-                })}
+                })()}
               </div>
             </div>
           )}
