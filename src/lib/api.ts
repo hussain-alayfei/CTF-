@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type {
+  AdminLoginResult,
   AdminOverview,
+  AdminPlayersResult,
   Challenge,
   Day,
   EventConfig,
@@ -126,6 +128,30 @@ export async function fetchEventConfig(): Promise<EventConfig> {
 }
 
 // --- admin ---
+export async function adminLogin(username: string, password: string): Promise<AdminLoginResult> {
+  const { data, error } = await supabase.rpc('admin_login', {
+    p_username: username,
+    p_password: password,
+  });
+  if (error) throw new Error(error.message);
+  return data as AdminLoginResult;
+}
+
+export async function adminListPlayers(secret: string): Promise<AdminPlayersResult> {
+  const { data, error } = await supabase.rpc('admin_list_players', { p_secret: secret });
+  if (error) throw new Error(error.message);
+  return data as AdminPlayersResult;
+}
+
+export async function adminDeletePlayer(secret: string, playerId: string) {
+  const { data, error } = await supabase.rpc('admin_delete_player', {
+    p_secret: secret,
+    p_player_id: playerId,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; deleted?: number };
+}
+
 export async function adminStartEvent(secret: string, minutes: number) {
   const { data, error } = await supabase.rpc('admin_start_event', {
     p_secret: secret,

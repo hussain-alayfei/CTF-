@@ -4,6 +4,7 @@ import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState, isFrozen } from '../lib/time';
 import { checkDayCode } from '../lib/api';
+import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
 import type { Challenge, Day, Difficulty } from '../lib/types';
 import Register from '../components/Register';
@@ -41,7 +42,9 @@ export default function Play() {
   const [now, setNow] = useState(Date.now());
   const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showGo, setShowGo] = useState(false);
   const podiumShown = useRef(false);
+  const prevStatus = useRef<string | null>(null);
 
   // Per-day code gate (client-side unlock cache)
   const [unlockedDays, setUnlockedDays] = useState<Set<number>>(loadUnlockedDays);
@@ -68,6 +71,24 @@ export default function Play() {
     }
   }, [eventState.status, game.leaderboard]);
 
+  // Announce event transitions to players (sound + GO overlay).
+  useEffect(() => {
+    const prev = prevStatus.current;
+    if (prev && prev !== eventState.status) {
+      if (prev === 'idle' && eventState.status === 'running') {
+        playEventStart();
+        setShowGo(true);
+        const t = setTimeout(() => setShowGo(false), 3000);
+        prevStatus.current = eventState.status;
+        return () => clearTimeout(t);
+      }
+      if (eventState.status === 'ended') {
+        playEventEnd();
+      }
+    }
+    prevStatus.current = eventState.status;
+  }, [eventState.status]);
+
   const challengesByDay = useMemo(() => {
     const map = new Map<number, Challenge[]>();
     for (const c of game.challenges) {
@@ -83,8 +104,6 @@ export default function Play() {
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
   const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
   const lockedDays = sortedDays.filter((d) => !d.is_open);
-  const bonusDays = activeDays.filter((d) => d.event_label?.toLowerCase() === 'bonus');
-  const regularDays = activeDays.filter((d) => d.event_label?.toLowerCase() !== 'bonus');
 
   const open = game.challenges.find((c) => c.id === openId) ?? null;
   const totalPossible = game.challenges.reduce((s, c) => s + c.points, 0);
@@ -274,13 +293,37 @@ export default function Play() {
         </div>
       </header>
 
-      {/* Ended banner */}
+      {/* Event status banner */}
+      {eventState.status === 'idle' && (
+        <div className="animate-flicker border-b border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-amber">
+          ◷ Waiting for the event to start… get ready, hacker.
+        </div>
+      )}
+      {eventState.status === 'running' && (
+        <div className="border-b border-terminal-green/40 bg-terminal-green/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-green">
+          ● Event is LIVE — submissions are open. Go capture those flags!
+        </div>
+      )}
       {eventState.status === 'ended' && (
-        <div className="border-b border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 text-center text-sm text-terminal-amber">
-          The event has ended.{' '}
-          <button onClick={() => setShowPodium(true)} className="font-bold underline">
+        <div className="border-b border-terminal-red/40 bg-terminal-red/10 px-4 py-2 text-center text-sm font-bold text-terminal-red">
+          ⏹ The event has ended.{' '}
+          <button onClick={() => setShowPodium(true)} className="underline">
             🏁 Show final results
           </button>
+        </div>
+      )}
+
+      {/* GO! overlay on start */}
+      {showGo && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-terminal-bg/70 backdrop-blur-sm">
+          <div className="animate-pop text-center">
+            <div className="text-7xl font-extrabold tracking-widest text-terminal-green drop-shadow-[0_0_20px_rgb(var(--c-green)/0.7)] sm:text-9xl">
+              GO!
+            </div>
+            <div className="mt-2 text-sm uppercase tracking-[0.3em] text-terminal-green">
+              The hunt begins
+            </div>
+          </div>
         </div>
       )}
 
@@ -294,8 +337,8 @@ export default function Play() {
               {/* Rest days */}
               {restDays.map(renderRestDay)}
 
-              {/* Active regular days */}
-              {regularDays.map(renderDay)}
+              {/* Active days (labs + bonus live together per day) */}
+              {activeDays.map(renderDay)}
 
               {/* Locked days */}
               {lockedDays.map((d) => (
@@ -313,19 +356,6 @@ export default function Play() {
                   </span>
                 </div>
               ))}
-
-              {/* Bonus section */}
-              {bonusDays.length > 0 && (
-                <div className="mt-4 rounded-xl border border-dashed border-terminal-green/30 bg-terminal-green/5 p-5">
-                  <h2 className="mb-4 text-center text-lg font-extrabold text-terminal-green">
-                    🎁 Bonus Challenges
-                  </h2>
-                  <p className="mb-5 text-center text-xs text-terminal-dim">
-                    Extra challenges for those who want more practice — not part of the main track.
-                  </p>
-                  {bonusDays.map(renderDay)}
-                </div>
-              )}
             </>
           )}
 

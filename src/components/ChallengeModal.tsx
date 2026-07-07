@@ -159,7 +159,7 @@ export default function ChallengeModal({
           {challenge.num_hints > 0 && (
             <div className="rounded-lg border border-terminal-border bg-terminal-input/60 p-4">
               <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-amber">
-                Hints (cost points on this challenge)
+                {solved ? 'Hints (free — you solved this)' : 'Hints (cost points on this challenge)'}
               </h4>
               <div className="space-y-2">
                 {Array.from({ length: challenge.num_hints }, (_, i) => i + 1).map((n) => {
@@ -167,7 +167,7 @@ export default function ChallengeModal({
                   return unlocked ? (
                     <div key={n} className="rounded border border-terminal-amber/30 bg-terminal-amber/5 p-3 text-sm">
                       <span className="mr-2 text-[10px] font-bold uppercase text-terminal-amber">
-                        Hint {n} (−{unlocked.penalty})
+                        Hint {n} {unlocked.penalty ? `(−${unlocked.penalty})` : '(free)'}
                       </span>
                       <span className="text-terminal-green/90">{unlocked.body}</span>
                     </div>
@@ -178,8 +178,8 @@ export default function ChallengeModal({
                       disabled={!running}
                       className="flex w-full items-center justify-between rounded border border-terminal-border px-3 py-2 text-sm text-terminal-dim transition hover:border-terminal-amber/50 hover:text-terminal-amber disabled:opacity-40"
                     >
-                      <span>🔒 Reveal hint {n}</span>
-                      <span className="text-xs">costs points</span>
+                      <span>{solved ? '💡' : '🔒'} Reveal hint {n}</span>
+                      <span className="text-xs">{solved ? 'free' : 'costs points'}</span>
                     </button>
                   );
                 })}

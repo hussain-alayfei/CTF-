@@ -111,3 +111,37 @@ export interface AdminOverview {
   days?: AdminDay[];
   challenges?: AdminChallenge[];
 }
+
+// ---- Admin auth + player management ----
+export interface AdminLoginResult {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  token?: string;
+  username?: string;
+}
+
+export interface AdminPlayerSolve {
+  challenge_id: string;
+  points: number;
+  first_blood: boolean;
+  solved_at: string;
+}
+
+export interface AdminPlayer {
+  id: string;
+  username: string;
+  avatar: string;
+  created_at: string;
+  total_points: number;
+  solves_count: number;
+  first_bloods: number;
+  solves: AdminPlayerSolve[];
+}
+
+export interface AdminPlayersResult {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  players?: AdminPlayer[];
+}

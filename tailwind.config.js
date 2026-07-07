@@ -35,6 +35,10 @@ export default {
           '0%': { transform: 'translateY(-120%)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        'slide-left': {
+          '0%': { transform: 'translateX(100%)', opacity: '0.4' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
         pop: {
           '0%': { transform: 'scale(0.8)', opacity: '0' },
           '60%': { transform: 'scale(1.05)' },
@@ -52,6 +56,7 @@ export default {
       animation: {
         flicker: 'flicker 3s ease-in-out infinite',
         'slide-down': 'slide-down 0.4s cubic-bezier(0.2,0.8,0.2,1)',
+        'slide-left': 'slide-left 0.3s cubic-bezier(0.2,0.8,0.2,1)',
         pop: 'pop 0.35s cubic-bezier(0.2,0.8,0.2,1)',
         'pulse-ring': 'pulse-ring 1.2s ease-out infinite',
         rise: 'rise 0.6s cubic-bezier(0.2,0.8,0.2,1)',

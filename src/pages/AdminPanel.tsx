@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  adminDeletePlayer,
+  adminListPlayers,
+  adminLogin,
   adminOverview,
   adminReset,
   adminSetDay,
@@ -10,7 +13,7 @@ import {
   adminStopEvent,
 } from '../lib/api';
 import { getEventState } from '../lib/time';
-import type { AdminChallenge, AdminDay, AdminOverview } from '../lib/types';
+import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer } from '../lib/types';
 import { useApp } from '../lib/app-context';
 import Prompt from '../components/Prompt';
 
@@ -22,9 +25,12 @@ const diffColor: Record<string, string> = {
 
 export default function AdminPanel() {
   const { theme, toggleTheme } = useApp();
-  const [secret, setSecret] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [secret, setSecret] = useState(''); // session token returned by admin_login
   const [authed, setAuthed] = useState(false);
   const [data, setData] = useState<AdminOverview | null>(null);
+  const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minutes, setMinutes] = useState(60);
@@ -35,7 +41,7 @@ export default function AdminPanel() {
     async (sec: string) => {
       const res = await adminOverview(sec);
       if (res.error) {
-        setMsg({ ok: false, text: res.message ?? 'Wrong admin secret.' });
+        setMsg({ ok: false, text: res.message ?? 'Session expired — sign in again.' });
         setAuthed(false);
         return false;
       }
@@ -45,18 +51,31 @@ export default function AdminPanel() {
         setMinutes(res.event.duration_minutes ?? 60);
         setFreeze(res.event.freeze_minutes ?? 15);
       }
+      // Refresh the player roster too (best-effort).
+      try {
+        const pl = await adminListPlayers(sec);
+        if (pl.players) setPlayers(pl.players);
+      } catch {
+        /* ignore roster errors */
+      }
       return true;
     },
     [],
   );
 
-  async function unlock(e: React.FormEvent) {
+  async function login(e: React.FormEvent) {
     e.preventDefault();
-    if (!secret.trim()) return;
+    if (!username.trim() || !password) return;
     setBusy(true);
     setMsg(null);
     try {
-      await load(secret);
+      const res = await adminLogin(username.trim(), password);
+      if (res.error || !res.token) {
+        setMsg({ ok: false, text: res.message ?? 'Wrong admin username or password.' });
+        return;
+      }
+      setSecret(res.token);
+      await load(res.token);
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error.' });
     } finally {
@@ -66,7 +85,7 @@ export default function AdminPanel() {
 
   // Auto-refresh the dashboard while signed in.
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || !secret) return;
     const id = setInterval(() => {
       void load(secret).catch(() => {});
     }, 5000);
@@ -102,7 +121,7 @@ export default function AdminPanel() {
         ? 'text-terminal-red'
         : 'text-terminal-amber';
 
-  // ----- Not signed in: secret prompt -----
+  // ----- Not signed in: username + password -----
   if (!authed) {
     return (
       <div className="mx-auto max-w-md px-4 py-16">
@@ -113,19 +132,31 @@ export default function AdminPanel() {
           ‹ back to the arena
         </Link>
         <form
-          onSubmit={unlock}
+          onSubmit={login}
           className="mt-4 rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-neon"
         >
           <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Panel</h1>
           <p className="mt-1 mb-5 text-sm text-terminal-dim">
-            Enter your admin secret to manage the game.
+            Sign in with your admin username and password.
           </p>
+          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+            Username
+          </label>
+          <input
+            autoFocus
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="admin username"
+            className="mb-3 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-terminal-green outline-none focus:border-terminal-green focus:shadow-neon"
+          />
+          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+            Password
+          </label>
           <input
             type="password"
-            autoFocus
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            placeholder="admin secret"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="admin password"
             className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-terminal-green outline-none focus:border-terminal-green focus:shadow-neon"
           />
           {msg && !msg.ok && (
@@ -138,7 +169,7 @@ export default function AdminPanel() {
             disabled={busy}
             className="mt-4 w-full rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-3 font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
           >
-            {busy ? 'checking…' : 'Unlock dashboard ▸'}
+            {busy ? 'checking…' : 'Sign in ▸'}
           </button>
         </form>
       </div>
@@ -247,6 +278,9 @@ export default function AdminPanel() {
         </div>
       </section>
 
+      {/* Background music (admin's browser only) */}
+      <MusicPlayer />
+
       {/* Days */}
       <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
         <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Days</h2>
@@ -297,6 +331,20 @@ export default function AdminPanel() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Players management */}
+      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
+        <PlayersSection
+          players={players}
+          busy={busy}
+          onDelete={(id, name) =>
+            run(
+              () => adminDeletePlayer(secret, id),
+              `Delete player "${name}"? This removes their account and all solves. This cannot be undone.`,
+            )
+          }
+        />
       </section>
 
       {/* Challenges (with flags + preview) */}
@@ -473,5 +521,204 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
         </div>
       )}
     </div>
+  );
+}
+
+// ---- Players management ----
+function PlayersSection({
+  players,
+  busy,
+  onDelete,
+}: {
+  players: AdminPlayer[];
+  busy: boolean;
+  onDelete: (id: string, name: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const filtered = players.filter((p) =>
+    p.username.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
+          ▸ Players ({players.length})
+        </h2>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search username…"
+          className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-1.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-sm text-terminal-dim">
+          {players.length === 0 ? 'No players have registered yet.' : 'No players match your search.'}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((p, i) => {
+            const isOpen = openId === p.id;
+            return (
+              <div key={p.id} className="rounded-lg border border-terminal-border bg-terminal-input/40">
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="w-6 text-center text-xs tabular-nums text-terminal-dim">{i + 1}</span>
+                  <span className="text-lg">{p.avatar}</span>
+                  <button
+                    onClick={() => setOpenId(isOpen ? null : p.id)}
+                    className="flex-1 truncate text-left font-semibold text-terminal-green hover:underline"
+                  >
+                    {p.username}
+                  </button>
+                  <span className="w-16 text-right text-xs tabular-nums text-terminal-dim">
+                    {p.solves_count} solves
+                  </span>
+                  {p.first_bloods > 0 && (
+                    <span className="text-xs text-terminal-red">🩸 {p.first_bloods}</span>
+                  )}
+                  <span className="w-16 text-right font-bold tabular-nums text-terminal-amber">
+                    {p.total_points}
+                  </span>
+                  <button
+                    disabled={busy}
+                    onClick={() => onDelete(p.id, p.username)}
+                    title="Delete player"
+                    className="rounded border border-terminal-red/50 px-2 py-1 text-[11px] font-bold text-terminal-red transition hover:bg-terminal-red/15 disabled:opacity-40"
+                  >
+                    🗑
+                  </button>
+                </div>
+
+                {isOpen && (
+                  <div className="border-t border-terminal-border/60 px-4 py-3 text-xs">
+                    <div className="mb-2 flex flex-wrap gap-4 text-terminal-dim">
+                      <span>Score: <span className="text-terminal-amber">{p.total_points}</span></span>
+                      <span>Solves: <span className="text-terminal-green">{p.solves_count}</span></span>
+                      <span>First bloods: <span className="text-terminal-red">{p.first_bloods}</span></span>
+                      <span>Joined: {new Date(p.created_at).toLocaleString()}</span>
+                    </div>
+                    {p.solves.length === 0 ? (
+                      <p className="text-terminal-dim">No solves yet.</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {p.solves.map((s) => (
+                          <li key={s.challenge_id} className="flex items-center justify-between">
+                            <span className="text-terminal-green">
+                              {s.first_blood && <span className="mr-1">🩸</span>}
+                              {s.challenge_id}
+                            </span>
+                            <span className="text-terminal-dim">
+                              +{s.points} · {new Date(s.solved_at).toLocaleTimeString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Background music player (plays on the admin's device only) ----
+const MUSIC_URL_KEY = 'kgsp_ctf_music_url';
+const MUSIC_VOL_KEY = 'kgsp_ctf_music_vol';
+
+function MusicPlayer() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [url, setUrl] = useState(() => localStorage.getItem(MUSIC_URL_KEY) ?? '');
+  const [volume, setVolume] = useState(() => Number(localStorage.getItem(MUSIC_VOL_KEY) ?? '0.6'));
+  const [playing, setPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+    localStorage.setItem(MUSIC_VOL_KEY, String(volume));
+  }, [volume]);
+
+  function saveUrl(next: string) {
+    setUrl(next);
+    localStorage.setItem(MUSIC_URL_KEY, next);
+  }
+
+  async function toggle() {
+    const el = audioRef.current;
+    if (!el || !url.trim()) return;
+    setError(null);
+    if (playing) {
+      el.pause();
+      setPlaying(false);
+    } else {
+      try {
+        el.volume = volume;
+        await el.play();
+        setPlaying(true);
+      } catch {
+        setError('Could not play. Use a direct audio file URL (.mp3/.ogg) that allows embedding.');
+      }
+    }
+  }
+
+  function stop() {
+    const el = audioRef.current;
+    if (!el) return;
+    el.pause();
+    el.currentTime = 0;
+    setPlaying(false);
+  }
+
+  return (
+    <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
+      <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">
+        ▸ Competition music
+      </h2>
+      <p className="mb-3 text-xs text-terminal-dim">
+        Paste a direct audio file URL (.mp3/.ogg). Plays on this device only — great for the room speakers.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={url}
+          onChange={(e) => saveUrl(e.target.value)}
+          placeholder="https://example.com/track.mp3"
+          className="min-w-[16rem] flex-1 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-sm text-terminal-green outline-none focus:border-terminal-green"
+        />
+        <button
+          onClick={toggle}
+          disabled={!url.trim()}
+          className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+        >
+          {playing ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <button
+          onClick={stop}
+          className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20"
+        >
+          ⏹ Stop
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-terminal-dim">🔊</span>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={volume}
+            onChange={(e) => setVolume(Number(e.target.value))}
+            className="w-28 accent-terminal-green"
+          />
+        </div>
+      </div>
+      {error && <p className="mt-2 text-xs text-terminal-red">{error}</p>}
+      <audio ref={audioRef} src={url || undefined} loop onEnded={() => setPlaying(false)} />
+    </section>
   );
 }

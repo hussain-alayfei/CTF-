@@ -67,61 +67,92 @@ function noise(start: number, dur: number, gain = 0.12) {
   src.start(t0);
 }
 
-/** A short click/keystroke blip. */
+// ============================================================
+//  Cyber / "Black Hat" themed sound palette. Everything leans
+//  dark and digital: detuned squares, glitchy noise bursts,
+//  and terminal-style data blips.
+// ============================================================
+
+/** A short digital keystroke blip. */
 export function playClick() {
-  tone(660, 0, 0.05, { type: 'square', gain: 0.06 });
+  tone(880, 0, 0.035, { type: 'square', gain: 0.05 });
 }
 
-/** Correct answer — rising triumphant arpeggio. */
+/** Correct — a clean "ACCESS GRANTED" data-confirm chirp. */
 export function playCorrect() {
-  const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
-  notes.forEach((f, i) => tone(f, i * 0.09, 0.16, { type: 'triangle', gain: 0.2 }));
+  // Crisp ascending digital triad with a bright confirm tail.
+  tone(523.25, 0, 0.08, { type: 'square', gain: 0.16 });
+  tone(783.99, 0.08, 0.09, { type: 'square', gain: 0.16 });
+  tone(1174.66, 0.17, 0.16, { type: 'triangle', gain: 0.18 });
+  tone(1567.98, 0.28, 0.14, { type: 'sine', gain: 0.12 });
 }
 
-/** Wrong answer — descending buzzer. */
+/** Wrong — harsh "ACCESS DENIED" glitch buzz. */
 export function playWrong() {
-  tone(220, 0, 0.28, { type: 'sawtooth', gain: 0.16, slideTo: 90 });
-  noise(0, 0.12, 0.05);
+  tone(180, 0, 0.22, { type: 'sawtooth', gain: 0.18, slideTo: 70 });
+  tone(90, 0.06, 0.24, { type: 'square', gain: 0.12 });
+  noise(0, 0.18, 0.08);
 }
 
-/** First blood — dramatic alarm siren everyone hears. */
+/** First blood — menacing breach alarm everyone hears. */
 export function playFirstBlood() {
-  // Two-tone siren sweep.
-  tone(880, 0, 0.35, { type: 'sawtooth', gain: 0.22, slideTo: 440 });
-  tone(660, 0.3, 0.35, { type: 'sawtooth', gain: 0.22, slideTo: 990 });
-  tone(880, 0.62, 0.4, { type: 'square', gain: 0.22, slideTo: 1320 });
-  noise(0, 0.2, 0.06);
+  // Deep descending klaxon + rising alert sweep + glitch static.
+  tone(440, 0, 0.4, { type: 'sawtooth', gain: 0.22, slideTo: 220 });
+  tone(330, 0.36, 0.4, { type: 'sawtooth', gain: 0.22, slideTo: 660 });
+  tone(220, 0.72, 0.5, { type: 'square', gain: 0.2, slideTo: 880 });
+  noise(0, 0.3, 0.09);
+  noise(0.7, 0.2, 0.06);
 }
 
-/** A hint being unlocked. */
+/** A hint being unlocked — soft data-decrypt shimmer. */
 export function playHint() {
-  tone(440, 0, 0.1, { type: 'sine', gain: 0.14 });
-  tone(587.33, 0.09, 0.14, { type: 'sine', gain: 0.14 });
+  tone(392, 0, 0.09, { type: 'sine', gain: 0.12 });
+  tone(523.25, 0.08, 0.1, { type: 'sine', gain: 0.12 });
+  tone(659.25, 0.16, 0.12, { type: 'triangle', gain: 0.1 });
 }
 
-/** Countdown tick for the final seconds. */
+/** Countdown tick for the final seconds — sharp terminal blip. */
 export function playTick() {
-  tone(1200, 0, 0.04, { type: 'square', gain: 0.08 });
+  tone(1400, 0, 0.035, { type: 'square', gain: 0.08 });
 }
 
-/** Time's up. */
+/** Time's up — system power-down groan. */
 export function playTimeUp() {
-  tone(392, 0, 0.5, { type: 'sawtooth', gain: 0.2, slideTo: 130 });
-  noise(0, 0.4, 0.08);
+  tone(420, 0, 0.6, { type: 'sawtooth', gain: 0.2, slideTo: 80 });
+  tone(210, 0.1, 0.6, { type: 'square', gain: 0.12, slideTo: 50 });
+  noise(0, 0.5, 0.09);
 }
 
-/** A podium place being revealed (drumroll-ish stab). Pitch rises per place. */
+/** A podium place being revealed (glitchy drumroll stab). Pitch rises per place. */
 export function playReveal(place: number) {
-  const base = place === 3 ? 392 : place === 2 ? 523.25 : 659.25;
-  noise(0, 0.15, 0.05);
-  tone(base, 0.05, 0.22, { type: 'triangle', gain: 0.2 });
-  tone(base * 1.5, 0.12, 0.2, { type: 'triangle', gain: 0.16 });
+  const base = place === 3 ? 330 : place === 2 ? 440 : 587.33;
+  noise(0, 0.18, 0.06);
+  tone(base, 0.06, 0.22, { type: 'square', gain: 0.2 });
+  tone(base * 1.5, 0.14, 0.2, { type: 'triangle', gain: 0.15 });
 }
 
-/** Winner fanfare for 1st place. */
+/** Winner fanfare for 1st place — cinematic cyber victory. */
 export function playFanfare() {
   const seq = [523.25, 659.25, 783.99, 1046.5, 1318.5];
-  seq.forEach((f, i) => tone(f, i * 0.12, 0.3, { type: 'triangle', gain: 0.22 }));
-  tone(1046.5, 0.6, 0.5, { type: 'square', gain: 0.18 });
+  seq.forEach((f, i) => tone(f, i * 0.11, 0.28, { type: 'square', gain: 0.2 }));
+  tone(1046.5, 0.55, 0.4, { type: 'triangle', gain: 0.18 });
+  tone(1567.98, 0.6, 0.5, { type: 'sine', gain: 0.14 });
   noise(0, 0.25, 0.06);
+}
+
+/** Event start — "SYSTEM ONLINE" boot-up sequence. */
+export function playEventStart() {
+  // Rising boot sweep + confirm beeps.
+  tone(120, 0, 0.5, { type: 'sawtooth', gain: 0.16, slideTo: 720 });
+  tone(523.25, 0.5, 0.1, { type: 'square', gain: 0.16 });
+  tone(783.99, 0.62, 0.1, { type: 'square', gain: 0.16 });
+  tone(1046.5, 0.74, 0.22, { type: 'triangle', gain: 0.18 });
+  noise(0, 0.2, 0.05);
+}
+
+/** Event end — "SYSTEM SHUTDOWN" descending power-off. */
+export function playEventEnd() {
+  tone(880, 0, 0.5, { type: 'sawtooth', gain: 0.18, slideTo: 110 });
+  tone(440, 0.12, 0.5, { type: 'square', gain: 0.12, slideTo: 70 });
+  noise(0, 0.45, 0.08);
 }
