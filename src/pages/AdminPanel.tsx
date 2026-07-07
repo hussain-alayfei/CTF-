@@ -12,7 +12,7 @@ import {
   adminStartEvent,
   adminStopEvent,
 } from '../lib/api';
-import { getEventState } from '../lib/time';
+import { formatDuration, getEventState } from '../lib/time';
 import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer } from '../lib/types';
 import { useApp } from '../lib/app-context';
 import Prompt from '../components/Prompt';
@@ -112,14 +112,11 @@ export default function AdminPanel() {
   }
 
   const state = getEventState(data?.event ?? null);
-  const statusLabel =
-    state.status === 'running' ? 'RUNNING' : state.status === 'ended' ? 'ENDED' : 'NOT STARTED';
-  const statusColor =
-    state.status === 'running'
-      ? 'text-terminal-green'
-      : state.status === 'ended'
-        ? 'text-terminal-red'
-        : 'text-terminal-amber';
+  const isIdle = state.status === 'idle';
+  const isRunning = state.status === 'running';
+  const isEnded = state.status === 'ended';
+  const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
+  const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
 
   // ----- Not signed in: username + password -----
   if (!authed) {
@@ -199,6 +196,19 @@ export default function AdminPanel() {
 
       <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
 
+      {/* Result of the last action — always visible right under the title */}
+      {msg && (
+        <div
+          className={`mt-3 rounded-lg px-4 py-3 text-center text-sm font-semibold ${
+            msg.ok
+              ? 'border border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
+              : 'border border-terminal-red/60 bg-terminal-red/10 text-terminal-red'
+          }`}
+        >
+          {msg.text}
+        </div>
+      )}
+
       {/* Stat tiles */}
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Tile label="Status" value={statusLabel} valueClass={statusColor} />
@@ -210,7 +220,15 @@ export default function AdminPanel() {
       {/* Event controls */}
       <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
         <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Event control</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+
+        {/* Big, unambiguous status banner — always tells you what's happening and what to do */}
+        <StatusBanner
+          status={state.status}
+          endsAt={data?.event?.ends_at ?? null}
+          remainingMs={state.remainingMs}
+        />
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div>
             <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
               Duration (minutes)
@@ -251,27 +269,36 @@ export default function AdminPanel() {
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             disabled={busy}
-            onClick={() => run(() => adminStartEvent(secret, minutes))}
-            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20"
+            onClick={() =>
+              run(
+                () => adminStartEvent(secret, minutes),
+                isRunning
+                  ? `An event is already running. Restart it now with a fresh ${minutes}-minute timer? Progress so far is kept, but the clock resets.`
+                  : undefined,
+              )
+            }
+            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
           >
-            ▶ Start / restart {minutes}-min event
+            {isRunning ? `🔁 Restart with ${minutes}-min timer` : `▶ Start ${minutes}-min event`}
           </button>
           <button
-            disabled={busy}
+            disabled={busy || !isRunning}
             onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
-            className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20"
+            title={!isRunning ? 'Nothing is running right now.' : undefined}
+            className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
           >
             ⏹ Stop now
           </button>
           <button
-            disabled={busy}
+            disabled={busy || isIdle}
             onClick={() =>
               run(
                 () => adminReset(secret),
-                'Reset ALL scores and clear the timer? Players keep their names but lose all solves.',
+                'Reset ALL scores and clear the timer? Players keep their names but lose all solves. Do this before starting a brand-new round.',
               )
             }
-            className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20"
+            title={isIdle ? 'Nothing to reset — no event has been started.' : undefined}
+            className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
           >
             ⟲ Reset game
           </button>
@@ -370,18 +397,59 @@ export default function AdminPanel() {
           set their <code className="text-terminal-green">day</code> number.
         </p>
       </section>
+    </div>
+  );
+}
 
-      {msg && (
-        <div
-          className={`mt-5 rounded-lg px-4 py-3 text-center text-sm font-semibold ${
-            msg.ok
-              ? 'border border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
-              : 'border border-terminal-red/60 bg-terminal-red/10 text-terminal-red'
-          }`}
-        >
-          {msg.text}
+// ---- Big, unambiguous "what's happening right now" banner ----
+function StatusBanner({
+  status,
+  endsAt,
+  remainingMs,
+}: {
+  status: 'idle' | 'running' | 'ended';
+  endsAt: string | null;
+  remainingMs: number;
+}) {
+  if (status === 'running') {
+    const endsLabel = endsAt ? new Date(endsAt).toLocaleTimeString() : '—';
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-4 py-3 shadow-neon">
+        <div>
+          <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-green">
+            🟢 LIVE — players can submit flags right now
+          </div>
+          <div className="text-xs text-terminal-dim">Ends at {endsLabel}</div>
         </div>
-      )}
+        <div className="text-2xl font-extrabold tabular-nums text-terminal-green">
+          {formatDuration(remainingMs)}
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'ended') {
+    return (
+      <div className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-3">
+        <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-red">
+          🔴 ENDED — players see &quot;Time&apos;s up&quot;
+        </div>
+        <div className="text-xs text-terminal-dim">
+          Click <strong className="text-terminal-red">Reset game</strong> to clear this before starting a new round,
+          or <strong className="text-terminal-green">Start</strong> to begin fresh immediately.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
+      <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-amber">
+        ⏳ NOT STARTED — players see &quot;Waiting to start&quot;
+      </div>
+      <div className="text-xs text-terminal-dim">
+        Click <strong className="text-terminal-green">Start</strong> below when you&apos;re ready to begin the round.
+      </div>
     </div>
   );
 }

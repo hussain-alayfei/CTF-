@@ -75,7 +75,13 @@ export default function Play() {
   useEffect(() => {
     const prev = prevStatus.current;
     if (prev && prev !== eventState.status) {
-      if (prev === 'idle' && eventState.status === 'running') {
+      // Leaving "ended" (via admin Reset or a fresh Restart) means a new round
+      // is starting — allow the finale to trigger again for this round.
+      if (prev === 'ended' && eventState.status !== 'ended') {
+        podiumShown.current = false;
+        setShowPodium(false);
+      }
+      if ((prev === 'idle' || prev === 'ended') && eventState.status === 'running') {
         playEventStart();
         setShowGo(true);
         const t = setTimeout(() => setShowGo(false), 3000);
