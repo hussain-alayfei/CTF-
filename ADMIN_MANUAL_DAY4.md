@@ -14,7 +14,7 @@ from the evidence instead of copy/pasting the prompt into AI.
 | # | Title | Difficulty | Artifact | Flag |
 |---|-------|------------|----------|------|
 | 1 | Dead Address | Easy | `network-map.txt` | `KGSP{172.16.42.159}` |
-| 2 | Unmasked Port | Easy | `firewall-export.csv` | `KGSP{telnet}` |
+| 2 | Unmasked Port | Easy | `firewall-export.txt` | `KGSP{telnet}` |
 | 3 | Rule Blindspot | Medium | `acl-review.txt` | `KGSP{10.10.10.100}` |
 | 4 | Cleartext Confession | Medium | `http-capture.log` | `KGSP{Pr0t0col_S3cur3}` |
 | 5 | Buried in DNS | Hard | `dns-queries.log` | `KGSP{dns_exfil_detected}` |
@@ -48,12 +48,12 @@ from the evidence instead of copy/pasting the prompt into AI.
 
 ## 2 · Unmasked Port
 
-**Artifact:** `/challenges/day4/firewall-export.csv`
+**Artifact:** `/challenges/day4/firewall-export.txt`
 
 **What students see:** a firewall CSV export with hexadecimal port numbers and many normal entries.
 
 **How to solve:**
-1. Open `firewall-export.csv`.
+1. Open `firewall-export.txt`.
 2. Look for the suspicious temporary exception. The important row is:
    `legacy-admin,198.51.100.77,TCP,0x0017,ALLOW`.
 3. Convert `0x0017` from hex to decimal: `23`.
