@@ -24,8 +24,8 @@ const diffColor: Record<string, string> = {
   hard: 'text-terminal-red',
 };
 
-// The admin session token is kept in sessionStorage so a page refresh keeps
-// you signed in (it clears when the browser/tab is closed).
+// Admin token persisted in localStorage so it survives both page refreshes
+// AND opening /admin in a new tab. Cleared explicitly on Sign out.
 const ADMIN_TOKEN_KEY = 'kgsp_ctf_admin_token';
 
 export default function AdminPanel() {
@@ -44,13 +44,29 @@ export default function AdminPanel() {
   const [showFlags, setShowFlags] = useState(false);
 
   const load = useCallback(
-    async (sec: string) => {
+    async (sec: string, isRestore = false) => {
       const res = await adminOverview(sec);
       if (res.error) {
-        setMsg({ ok: false, text: res.message ?? 'Session expired — sign in again.' });
-        setAuthed(false);
-        setSecret('');
-        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        if (isRestore) {
+          // During restore: only wipe the token if the server explicitly says
+          // the secret is wrong. Ignore transient network/server errors so a
+          // bad Wi-Fi blip doesn't permanently log the admin out.
+          const isAuthError = res.message?.toLowerCase().includes('secret') ||
+                              res.message?.toLowerCase().includes('auth') ||
+                              res.message?.toLowerCase().includes('wrong');
+          if (isAuthError) {
+            localStorage.removeItem(ADMIN_TOKEN_KEY);
+            setAuthed(false);
+            setSecret('');
+          }
+          // Otherwise: silently stay "restoring" finished with no session —
+          // user sees the login form.
+        } else {
+          setMsg({ ok: false, text: res.message ?? 'Session expired — sign in again.' });
+          setAuthed(false);
+          setSecret('');
+          localStorage.removeItem(ADMIN_TOKEN_KEY);
+        }
         return false;
       }
       setData(res);
@@ -71,21 +87,21 @@ export default function AdminPanel() {
     [],
   );
 
-  // Restore a saved admin session on refresh.
+  // Restore a saved admin session on every page load.
   useEffect(() => {
-    const saved = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    const saved = localStorage.getItem(ADMIN_TOKEN_KEY);
     if (!saved) {
       setRestoring(false);
       return;
     }
     setSecret(saved);
-    void load(saved)
+    void load(saved, true)
       .catch(() => {})
       .finally(() => setRestoring(false));
   }, [load]);
 
   function logout() {
-    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
     setSecret('');
     setAuthed(false);
     setData(null);
@@ -106,7 +122,7 @@ export default function AdminPanel() {
         return;
       }
       setSecret(res.token);
-      sessionStorage.setItem(ADMIN_TOKEN_KEY, res.token);
+      localStorage.setItem(ADMIN_TOKEN_KEY, res.token);
       await load(res.token);
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error.' });
