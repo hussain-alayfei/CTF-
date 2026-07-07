@@ -60,7 +60,12 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Subtle CRT scanlines (much lighter in light mode). */
+/* Subtle CRT scanlines (much lighter in light mode).
+   NOTE: intentionally NO mix-blend-mode here. A full-screen fixed element with
+   `mix-blend-mode: overlay` forces the browser to re-blend the entire viewport
+   whenever *anything* underneath repaints (a ticking clock, a pulsing podium
+   countdown, etc.), which made emojis/rows visibly shimmer. A plain alpha
+   overlay is painted once and composited cheaply. */
 body::after {
   content: '';
   position: fixed;
@@ -73,7 +78,6 @@ body::after {
     rgba(0, 0, 0, var(--scanline-alpha)) 3px,
     rgba(0, 0, 0, 0) 4px
   );
-  mix-blend-mode: overlay;
   opacity: var(--scanline-opacity);
   z-index: 9999;
 }

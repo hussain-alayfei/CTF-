@@ -93,12 +93,12 @@ function Leaderboard({
                     {i < 3 ? medal[i] : i + 1}
                   </span>
                   <span
-                    className={`flex-1 truncate font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
+                    className={`flex min-w-0 flex-1 items-center font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
                   >
-                    <span className="mr-1.5">{r.avatar ?? '🕵️'}</span>
-                    {r.username}
+                    <span className="mr-1.5 inline-block w-5 shrink-0 text-center">{r.avatar ?? '🕵️'}</span>
+                    <span className="min-w-0 flex-1 truncate">{r.username}</span>
                     {me && (
-                      <span className="ml-2 text-[10px] uppercase tracking-widest text-terminal-dim">
+                      <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
                         you
                       </span>
                     )}

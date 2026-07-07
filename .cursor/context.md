@@ -189,6 +189,15 @@ src/
 - **Theme:** terminal palette via CSS variables in `index.css`; Tailwind colors are
   `terminal-*`. Dark mode is default (`data-theme` on `<html>`). Danger tier uses
   Tailwind's built-in `fuchsia-*` since it's outside the terminal palette.
+- **Rendering perf (do not regress):** the leaderboard used to visibly "shimmer".
+  Root cause was a full-screen fixed CRT scanline (`body::after`) with
+  `mix-blend-mode: overlay` — any repaint (a ticking clock, a pulsing podium
+  countdown, an `animate-flicker`) forced the whole viewport to re-blend. **Never
+  put `mix-blend-mode` on a full-viewport element**, and avoid full-screen
+  `backdrop-blur` over live content (the Podium/GO/header overlays are plain
+  semi-opaque now). The arena clock (`Play.tsx`) re-renders only at the event's
+  start/end boundaries (`setTimeout`), not every second — the live countdown is
+  driven solely by `<Timer/>`, which itself stops ticking once the event ends.
 - **Sounds:** synthesized in `sounds.ts` by default; `playFirstBlood()` can be
   overridden by dropping `public/sounds/first-blood.mp3` or `.wav`. Respect global mute.
 - **Avatars:** emoji from `constants.ts` `AVATARS`.

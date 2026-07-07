@@ -148,7 +148,7 @@ export default function Podium({
           : 'Locked in.';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-terminal-bg/95 p-6 backdrop-blur">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto bg-terminal-bg/[0.97] p-6">
       <button
         onClick={onClose}
         className="absolute right-4 top-4 rounded border border-terminal-border px-3 py-1 text-sm text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"

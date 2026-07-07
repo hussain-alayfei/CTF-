@@ -8,10 +8,18 @@ export default function Timer({ event }: { event: EventConfig | null }) {
   const lastTickSec = useRef<number>(-1);
   const playedTimeUp = useRef(false);
 
+  // Only tick while the clock is actually counting. Once the event has ended the
+  // display is static ("TIME'S UP"), so there's no reason to keep re-rendering
+  // four times a second — that needless repaint fed the board shimmer.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
+    const end = event?.ends_at ? Date.parse(event.ends_at) : null;
+    if (end != null && Date.now() >= end) return;
+    const id = setInterval(() => {
+      setNow(Date.now());
+      if (end != null && Date.now() >= end + 500) clearInterval(id);
+    }, 250);
     return () => clearInterval(id);
-  }, []);
+  }, [event]);
 
   const state = getEventState(event, now);
 

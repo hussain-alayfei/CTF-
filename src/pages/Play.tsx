@@ -53,10 +53,22 @@ export default function Play() {
   const [codeErrors, setCodeErrors] = useState<Record<number, string>>({});
   const [codeBusy, setCodeBusy] = useState<Record<number, boolean>>({});
 
+  // Re-render only at the event's start/end boundaries instead of every second.
+  // The live countdown is driven independently by <Timer/>, so the arena tree
+  // (leaderboard, cards, podium) no longer repaints once per second — that
+  // per-second repaint, amplified by the podium's backdrop layer, was what made
+  // the board visibly shimmer.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+    const ev = game.event;
+    if (!ev?.starts_at) return;
+    const start = Date.parse(ev.starts_at);
+    const end = ev.ends_at ? Date.parse(ev.ends_at) : null;
+    const t = Date.now();
+    const targets = [start, end].filter((x): x is number => x != null && x > t);
+    if (targets.length === 0) return;
+    const id = window.setTimeout(() => setNow(Date.now()), Math.min(...targets) - t + 60);
+    return () => clearTimeout(id);
+  }, [game.event, now]);
 
   const eventState = getEventState(game.event, now);
 
@@ -317,7 +329,7 @@ export default function Play() {
       <Toasts announcements={game.announcements} />
 
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-terminal-border bg-terminal-bg/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-terminal-border bg-terminal-bg/95">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex flex-col">
             <span className="text-xl font-extrabold tracking-tight text-terminal-green drop-shadow-[0_0_8px_rgb(var(--c-green)/0.5)]">
@@ -403,7 +415,7 @@ export default function Play() {
 
       {/* GO! overlay on start */}
       {showGo && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-terminal-bg/70 backdrop-blur-sm">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-terminal-bg/80">
           <div className="animate-pop text-center">
             <div className="text-7xl font-extrabold tracking-widest text-terminal-green drop-shadow-[0_0_20px_rgb(var(--c-green)/0.7)] sm:text-9xl">
               GO!
