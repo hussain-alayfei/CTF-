@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #0a0e0a;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(57, 255, 20, 0.06), transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(0, 229, 255, 0.05), transparent 45%);
+  color: #d7ffd0;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle CRT scanlines over the whole page. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0px,
+    rgba(0, 0, 0, 0) 2px,
+    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, 0) 4px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+  z-index: 9999;
+}
+
+::selection {
+  background: rgba(57, 255, 20, 0.35);
+  color: #ffffff;
+}
+
+/* Custom scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1c2a1c #0a0e0a;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #24391f;
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Lightweight styling for the markdown-ish challenge prompt text. */
+.prompt code {
+  background: #05270a;
+  color: #7dff6b;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #16371a;
+  font-size: 0.85em;
+  word-break: break-all;
+}
+.prompt strong {
+  color: #fff;
+}

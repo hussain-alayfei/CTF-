@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>// hidden vault //</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0e0a;
+        color: #d7ffd0;
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+        padding: 24px;
+      }
+      .card {
+        max-width: 560px;
+        border: 1px solid #1c2a1c;
+        border-radius: 14px;
+        background: #0f150f;
+        padding: 28px;
+        box-shadow: 0 0 24px rgba(57, 255, 20, 0.18);
+      }
+      h1 {
+        color: #39ff14;
+        text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+        margin: 0 0 6px;
+      }
+      .dim {
+        color: #7a8a7a;
+        font-size: 14px;
+      }
+      img {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        margin: 20px 0;
+        border: 1px solid #24391f;
+        border-radius: 10px;
+      }
+      code {
+        background: #05270a;
+        color: #7dff6b;
+        padding: 1px 6px;
+        border-radius: 4px;
+        border: 1px solid #16371a;
+      }
+      a {
+        color: #00e5ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>🗝 ACCESS NODE // hidden vault</h1>
+      <p class="dim">
+        Nice recon. You decoded the Base64 breadcrumb and found the page crawlers
+        were told to ignore. One step left.
+      </p>
+
+      <img src="/challenges/vault.png" alt="vault" />
+
+      <p>
+        The <strong>final flag</strong> is hidden <em>inside</em> this image —
+        the exact same trick as the <strong>Stego</strong> challenge. Download it and look at
+        the raw bytes:
+      </p>
+      <p class="dim">
+        Linux/Mac: <code>strings vault.png | grep MERAS</code><br />
+        Windows: open <code>vault.png</code> in Notepad and scroll to the very bottom.
+      </p>
+      <p class="dim">
+        Then submit the <code>MERAS{...}</code> flag back in the arena to finish the CTF. 🏁
+      </p>
+      <p><a href="/">&lsaquo; back to the arena</a></p>
+    </div>
+  </body>
+</html>

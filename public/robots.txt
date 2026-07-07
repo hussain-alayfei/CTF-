@@ -1,0 +1,10 @@
+# MERAS CTF // recon
+# Dear web crawlers: please don't index our internal areas below.
+#
+# ops reminder (base64, do NOT index this line):
+#   L3MzY3IzdC12YXVsdC5odG1s
+#
+User-agent: *
+Disallow: /staging/
+Disallow: /private/
+Disallow: /old-backup/
