@@ -1,0 +1,36 @@
+Edge Router Backup - REDACTED
+Hostname: edge-rtr-04
+Exported: 2026-07-07 09:44:12Z
+
+interface wan0
+  address dhcp
+  inspection profile default
+
+interface lan0
+  address 10.40.0.1/16
+
+vpn-profile maintenance
+  enabled false
+  last_used 2026-07-06T22:14:33Z
+
+# TODO: remove temp key after audit
+# maintenance_key_hex = 4e6574776f726b4b657932303236ffaa
+
+inspection bypass
+  mode passive
+  log encrypted
+  vector_hex 0102030405060708090a0b0c0d0e0f10
+
+syslog encrypted_event
+  source 10.40.20.42
+  destination 203.0.113.77
+  algorithm AES-CBC
+  input_encoding hex
+  payload b5dfb94cff30ad3d99493d89b961ca9312bb3e3798a2ddfd5a957c0672768e46
+
+audit_note
+  The plaintext was encrypted before the disk image was collected.
+  Recover the plaintext event from the key material in this config.
+
+Expected answer format:
+  KGSP{...}

@@ -1,0 +1,24 @@
+Packet capture summary - corp-vpn.internal
+Capture filter: host corp-vpn.internal
+
+10:15:02.144 10.40.20.17 -> corp-vpn.internal TCP  SYN
+10:15:02.145 corp-vpn.internal -> 10.40.20.17 TCP  SYN,ACK
+10:15:02.146 10.40.20.17 -> corp-vpn.internal TCP  ACK
+
+10:15:02.210 HTTP stream #18
+direction: client_to_server
+encoding: base64
+body:
+UE9TVCAvbG9naW4gSFRUUC8xLjEKSG9zdDogY29ycC12cG4uaW50ZXJuYWwKQ29udGVudC1UeXBlOiBhcHBsaWNhdGlvbi94LXd3dy1mb3JtLXVybGVuY29kZWQKCnVzZXJuYW1lPXZwbl9hZG1pbiZwYXNzd29yZD1QcjB0MGNvbF9TM2N1cjM=
+
+10:15:02.407 HTTP stream #18
+direction: server_to_client
+status: 302
+location: /dashboard
+
+Analyst note:
+  This request should never have crossed the network without TLS.
+  Recover the exposed password from the stream.
+
+Expected answer format:
+  KGSP{password}

@@ -1,0 +1,35 @@
+Network anomaly ticket: egress-443-2219
+
+Firewall policy:
+  outbound TCP/80   allowed
+  outbound TCP/443  allowed
+  outbound all else denied
+
+Flow:
+  src: 10.40.20.42
+  dst: 203.0.113.77
+  dst_port: 443
+  bytes_out: 384912
+  duration: 00:18:34
+
+TLS inspection:
+  client_hello_seen: false
+  sni: none
+  certificate: none
+
+First payload bytes as ASCII:
+  Client -> Server:
+    SSH-2.0-OpenSSH_9.3
+  Server -> Client:
+    SSH-2.0-OpenSSH_8.9p1 Ubuntu
+
+Recovered client config:
+  Host jump
+    HostName 203.0.113.77
+    Port 443
+
+Question:
+  What protocol was tunneled over port 443?
+
+Expected answer format:
+  KGSP{protocol_name_lowercase}

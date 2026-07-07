@@ -1,0 +1,16 @@
+timestamp,source_zone,destination,proto,port_hex,decision,comment
+2026-07-07T08:10:14Z,guest-wifi,update.microsoft.com,TCP,0x01BB,ALLOW,standard HTTPS
+2026-07-07T08:12:03Z,lab-kali,repo.kali.org,TCP,0x0050,ALLOW,HTTP mirror
+2026-07-07T08:13:49Z,finance,10.20.0.45,TCP,0x015B,DENY,printer admin blocked
+2026-07-07T08:16:20Z,legacy-admin,198.51.100.77,TCP,0x0017,ALLOW,temporary exception
+2026-07-07T08:17:02Z,guest-wifi,8.8.8.8,UDP,0x0035,DENY,direct DNS blocked
+2026-07-07T08:20:33Z,staff,corp-vpn.internal,TCP,0x01BB,ALLOW,vpn portal
+2026-07-07T08:21:01Z,iot-cameras,10.0.0.20,TCP,0x0050,DENY,cameras blocked from web admin
+2026-07-07T08:23:55Z,legacy-admin,198.51.100.77,TCP,0x0017,ALLOW,repeat hit
+2026-07-07T08:29:40Z,siem-mirror,collector.internal,UDP,0x0202,ALLOW,syslog
+
+case_note
+"The deprecated remote-admin protocol is still allowed by one temporary exception. Identify the protocol name from the port."
+
+answer_format
+"KGSP{protocol_name_lowercase}"
