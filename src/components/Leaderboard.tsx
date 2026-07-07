@@ -46,8 +46,6 @@ function Leaderboard({
     }
   }
 
-  const ranked = displayRows.filter((r) => r.total_points > 0 || r.solves_count > 0);
-  const idle = displayRows.filter((r) => r.total_points === 0 && r.solves_count === 0);
   const browsableDays = days.filter((d) => !d.is_rest).slice().sort((a, b) => a.sort_order - b.sort_order);
 
   return (
@@ -73,49 +71,44 @@ function Leaderboard({
         <p className="px-4 py-10 text-center text-sm text-terminal-dim">Loading…</p>
       ) : (
         <div className="max-h-[60vh] overflow-y-auto">
-          {ranked.length === 0 && (
+          {displayRows.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-terminal-dim">
-              No solves yet. Be the first to draw blood. 🩸
+              No one has entered this day yet. 🕵️
             </p>
-          )}
-
-          <ol>
-            {ranked.map((r, i) => {
-              const me = r.player_id === meId;
-              return (
-                <li
-                  key={r.player_id}
-                  className={`flex items-center gap-3 border-b border-terminal-border/50 px-4 py-2.5 ${
-                    me ? 'bg-terminal-green/10' : i < 3 ? 'bg-terminal-strong/[0.04]' : ''
-                  }`}
-                >
-                  <span className="w-7 shrink-0 text-center text-sm font-bold text-terminal-dim">
-                    {i < 3 ? medal[i] : i + 1}
-                  </span>
-                  <span
-                    className={`flex min-w-0 flex-1 items-center font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
+          ) : (
+            <ol>
+              {displayRows.map((r, i) => {
+                const me = r.player_id === meId;
+                const hasPoints = r.total_points > 0;
+                return (
+                  <li
+                    key={r.player_id}
+                    className={`flex items-center gap-3 border-b border-terminal-border/50 px-4 py-2.5 ${
+                      me ? 'bg-terminal-green/10' : hasPoints && i < 3 ? 'bg-terminal-strong/[0.04]' : ''
+                    } ${hasPoints ? '' : 'opacity-60'}`}
                   >
-                    <span className="mr-1.5 inline-block w-5 shrink-0 text-center">{r.avatar ?? '🕵️'}</span>
-                    <span className="min-w-0 flex-1 truncate">{r.username}</span>
-                    {me && (
-                      <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
-                        you
-                      </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-xs text-terminal-dim">{r.solves_count}★</span>
-                  <span className="w-16 shrink-0 text-right font-bold tabular-nums text-terminal-amber">
-                    {r.total_points}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-
-          {idle.length > 0 && (
-            <div className="px-4 py-2 text-[11px] text-terminal-dim">
-              + {idle.length} player{idle.length > 1 ? 's' : ''} waiting to score
-            </div>
+                    <span className="w-7 shrink-0 text-center text-sm font-bold text-terminal-dim">
+                      {hasPoints && i < 3 ? medal[i] : i + 1}
+                    </span>
+                    <span
+                      className={`flex min-w-0 flex-1 items-center font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
+                    >
+                      <span className="mr-1.5 inline-block w-5 shrink-0 text-center">{r.avatar ?? '🕵️'}</span>
+                      <span className="min-w-0 flex-1 truncate">{r.username}</span>
+                      {me && (
+                        <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
+                          you
+                        </span>
+                      )}
+                    </span>
+                    <span className="shrink-0 text-xs text-terminal-dim">{r.solves_count}★</span>
+                    <span className="w-16 shrink-0 text-right font-bold tabular-nums text-terminal-amber">
+                      {r.total_points}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
           )}
         </div>
       )}

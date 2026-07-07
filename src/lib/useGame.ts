@@ -128,6 +128,15 @@ export function useGame(player: Player | null) {
         },
       )
       .on(
+        // A player entering a day's code becomes a competitor — refresh so they
+        // appear on everyone's board (even at 0 points).
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'day_entries' },
+        () => {
+          void refreshBoard();
+        },
+      )
+      .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'event_config' },
         () => {

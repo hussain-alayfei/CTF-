@@ -160,17 +160,21 @@ export default function Play() {
   }
 
   async function submitDayCode(day: number) {
+    if (!player) return;
     const code = (codeInputs[day] ?? '').trim();
     if (!code) return;
     setCodeBusy((p) => ({ ...p, [day]: true }));
     setCodeErrors((p) => ({ ...p, [day]: '' }));
     try {
-      const ok = await checkDayCode(day, code);
+      const ok = await checkDayCode(player, day, code);
       if (ok) {
         const next = new Set(unlockedDays);
         next.add(day);
         setUnlockedDays(next);
         saveUnlockedDays(next);
+        // The server just recorded us as a competitor for this day — refresh so
+        // we show up on the board (even at 0 points).
+        void game.refreshBoard();
       } else {
         setCodeErrors((p) => ({ ...p, [day]: 'Wrong code — ask your instructor.' }));
       }
@@ -185,6 +189,11 @@ export default function Play() {
     if (!d.requires_code) return true;
     return unlockedDays.has(d.day);
   }
+
+  // Which day is the live competition, and has this player legally entered it?
+  const activeDay = game.event?.active_day ?? null;
+  const activeDayObj = sortedDays.find((d) => d.day === activeDay) ?? null;
+  const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
   function renderChallengeGrid(list: Challenge[]) {
     return order.map((diff) => {
@@ -255,6 +264,8 @@ export default function Play() {
     }
 
     const collapsed = collapsedDays.has(d.day);
+    const isLive = d.day === activeDay;
+    const isPast = activeDayObj != null && d.sort_order < activeDayObj.sort_order;
     return (
       <div key={d.day} className="mb-10">
         <button
@@ -269,16 +280,30 @@ export default function Play() {
             <span className="text-[11px] text-terminal-dim">
               {list.length} challenge{list.length === 1 ? '' : 's'}
             </span>
-            {d.event_label && (
+            {isLive ? (
+              <span className="rounded border border-terminal-green/50 bg-terminal-green/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
+                ● Live · scoring
+              </span>
+            ) : isPast ? (
+              <span className="rounded border border-terminal-dim/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
+                ✓ Finished · practice
+              </span>
+            ) : d.event_label ? (
               <span className="rounded border border-terminal-green/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
                 {d.event_label}
               </span>
-            )}
+            ) : null}
           </span>
         </button>
 
         {!collapsed && (
           <>
+            {isPast && (
+              <p className="mb-4 rounded-lg border border-terminal-dim/30 bg-terminal-input/40 px-3 py-2 text-xs text-terminal-dim">
+                ✓ This day is finished. You can still open and solve these for practice, but they
+                no longer count toward the live scoreboard.
+              </p>
+            )}
             {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
 
             {list.length === 0 ? (
@@ -469,12 +494,26 @@ export default function Play() {
         </section>
 
         <aside className="lg:sticky lg:top-24 lg:h-fit">
-          <Leaderboard
-            rows={game.leaderboard}
-            meId={player?.id ?? null}
-            days={boardDays}
-            activeDay={game.event?.active_day ?? null}
-          />
+          {activeDay == null ? (
+            <LockedBoard
+              icon="⏳"
+              title="Leaderboard"
+              text="The leaderboard opens when the instructor makes a day live."
+            />
+          ) : enteredActiveDay ? (
+            <Leaderboard
+              rows={game.leaderboard}
+              meId={player?.id ?? null}
+              days={boardDays}
+              activeDay={activeDay}
+            />
+          ) : (
+            <LockedBoard
+              icon="🔒"
+              title="Leaderboard locked"
+              text={`Enter the access code for ${activeDayObj?.title ?? 'the live day'} to join the competition and see the leaderboard.`}
+            />
+          )}
         </aside>
       </main>
 
@@ -511,6 +550,23 @@ export default function Play() {
 
       {/* Registration gate */}
       {!player && <Register />}
+    </div>
+  );
+}
+
+// Shown in the leaderboard slot when the viewer hasn't unlocked the live day
+// (or no day is live yet) — so only legitimate competitors see the standings.
+function LockedBoard({ icon, title, text }: { icon: string; title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-terminal-border bg-terminal-panel">
+      <div className="flex items-center justify-between border-b border-terminal-border px-4 py-3">
+        <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Leaderboard</h2>
+      </div>
+      <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+        <span className="text-4xl">{icon}</span>
+        <p className="font-bold text-terminal-amber">{title}</p>
+        <p className="text-xs leading-relaxed text-terminal-dim">{text}</p>
+      </div>
     </div>
   );
 }

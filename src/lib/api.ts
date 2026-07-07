@@ -48,8 +48,13 @@ export async function loginPlayer(username: string, password: string): Promise<P
   };
 }
 
-export async function checkDayCode(day: number, code: string): Promise<boolean> {
-  const { data, error } = await supabase.rpc('check_day_code', { p_day: day, p_code: code });
+export async function checkDayCode(player: Player, day: number, code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_day_code', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_day: day,
+    p_code: code,
+  });
   if (error) throw new Error(error.message);
   return data?.ok === true;
 }

@@ -36,8 +36,9 @@ export default function Board() {
 
   const eventState = getEventState(game.event, now);
   const activeDay = game.days.find((d) => d.day === game.event?.active_day);
-  const rows = game.leaderboard.filter((r) => r.total_points > 0 || r.solves_count > 0).slice(0, 15);
-  const idleCount = game.leaderboard.length - rows.length;
+  // Everyone who entered the live day is shown, even at 0 points.
+  const rows = game.leaderboard.slice(0, 20);
+  const overflow = game.leaderboard.length - rows.length;
   const feed = game.announcements.slice(-8).slice().reverse();
 
   const timerLabel =
@@ -87,34 +88,37 @@ export default function Board() {
             <ol className="space-y-2">
               {rows.length === 0 && (
                 <li className="rounded-xl border border-dashed border-terminal-border p-16 text-center text-terminal-dim">
-                  No solves yet — first blood is waiting to be claimed. 🩸
+                  No one has entered this day yet — waiting for competitors. 🕵️
                 </li>
               )}
-              {rows.map((r, i) => (
-                <li
-                  key={r.player_id}
-                  className={`flex items-center gap-4 rounded-xl border px-5 py-3.5 transition sm:px-6 sm:py-4 ${
-                    i < 3
-                      ? 'border-terminal-amber/40 bg-terminal-amber/5 shadow-neon-amber'
-                      : 'border-terminal-border bg-terminal-panel'
-                  }`}
-                >
-                  <span className="w-10 shrink-0 text-center text-2xl font-extrabold text-terminal-dim">
-                    {i < 3 ? medal[i] : i + 1}
-                  </span>
-                  <span className="text-3xl">{r.avatar}</span>
-                  <span className="flex-1 truncate text-lg font-bold text-terminal-green sm:text-xl">
-                    {r.username}
-                  </span>
-                  <span className="shrink-0 text-sm text-terminal-dim">{r.solves_count}★</span>
-                  <span className="w-20 shrink-0 text-right text-2xl font-extrabold tabular-nums text-terminal-amber sm:text-3xl">
-                    {r.total_points}
-                  </span>
-                </li>
-              ))}
-              {idleCount > 0 && (
+              {rows.map((r, i) => {
+                const hasPoints = r.total_points > 0;
+                return (
+                  <li
+                    key={r.player_id}
+                    className={`flex items-center gap-4 rounded-xl border px-5 py-3.5 transition sm:px-6 sm:py-4 ${
+                      hasPoints && i < 3
+                        ? 'border-terminal-amber/40 bg-terminal-amber/5 shadow-neon-amber'
+                        : 'border-terminal-border bg-terminal-panel'
+                    } ${hasPoints ? '' : 'opacity-60'}`}
+                  >
+                    <span className="w-10 shrink-0 text-center text-2xl font-extrabold text-terminal-dim">
+                      {hasPoints && i < 3 ? medal[i] : i + 1}
+                    </span>
+                    <span className="text-3xl">{r.avatar}</span>
+                    <span className="flex-1 truncate text-lg font-bold text-terminal-green sm:text-xl">
+                      {r.username}
+                    </span>
+                    <span className="shrink-0 text-sm text-terminal-dim">{r.solves_count}★</span>
+                    <span className="w-20 shrink-0 text-right text-2xl font-extrabold tabular-nums text-terminal-amber sm:text-3xl">
+                      {r.total_points}
+                    </span>
+                  </li>
+                );
+              })}
+              {overflow > 0 && (
                 <li className="px-2 text-center text-xs text-terminal-dim">
-                  + {idleCount} more player{idleCount > 1 ? 's' : ''} waiting to score
+                  + {overflow} more competitor{overflow > 1 ? 's' : ''}
                 </li>
               )}
             </ol>

@@ -49,6 +49,10 @@ There is **no Supabase Auth**. Instead:
 - `submission_attempts` — rate limiting
 - `days` — day, title, subtitle, is_open, event_label, sort_order, is_rest, requires_code
 - `day_codes` — day, code (SECRET; RLS no-policy)
+- `day_entries` — (player_id, day) — records **who entered (unlocked the code
+  for) each day**. Written only by `check_day_code`. This is what makes the
+  leaderboard show real competitors instead of every registered account. In
+  realtime so a new entrant appears on everyone's board instantly.
 - `event_config` — id=1, name, starts_at, ends_at, duration_minutes (default 35),
   freeze_minutes (**always 0 — the freeze/blackout feature was removed, see
   below**), **active_day** (which day's leaderboard is "live")
@@ -61,7 +65,10 @@ There is **no Supabase Auth**. Instead:
 ### Key RPCs
 Player: `register_player(username,password,avatar)`, `login_player(username,password)`
 (returns `is_admin` + `admin_token`), `submit_flag(...)`, `unlock_hint(...)` (free once
-solved), `check_day_code(day,code)`, `day_leaderboard(day)`.
+solved), `check_day_code(player_id, token, day, code)` (**verifies the token and
+records the player into `day_entries` on success** — this is how "who entered"
+is tracked), `day_leaderboard(day)` (**returns only entrants of that day**, incl.
+0-point ones, admin excluded).
 
 Admin (all take the `admin_token`/secret from a `login_player` call where
 `is_admin = true`): `admin_overview`, `admin_start_event`, `admin_stop_event`,
@@ -115,6 +122,20 @@ flowchart LR
 - `useGame.ts` fetches `day_leaderboard(activeDay)` instead of the all-time
   `leaderboard` view for the "live" board (`game.leaderboard`). It refetches
   automatically whenever `event_config` changes and `active_day` differs.
+- **Entrants only.** The board lists exactly the players who entered the active
+  day's code (`day_entries`) — including those with **0 points** so you can see
+  who's in — never every registered account (that was the runaway "+N waiting to
+  score"). There is no "+N waiting" line anymore; 0-point entrants render as
+  dimmed rows. Both `Leaderboard.tsx` and the projector `Board.tsx` follow this.
+- **Visibility gate.** A player only *sees* the leaderboard once they've entered
+  the active day's code (`Play.tsx` gates the aside on `enteredActiveDay`; a
+  `LockedBoard` placeholder shows otherwise). Entering the code both records them
+  as a competitor and unlocks the board, and `refreshBoard()` is called so they
+  appear immediately.
+- **Finished days = practice.** Any open day *before* the active day (lower
+  `sort_order`) is labelled "✓ Finished · practice" in `Play.tsx`; its challenges
+  stay playable but, because the live board is scoped to `active_day`, solving
+  them doesn't move the live standings.
 - **No freeze/blackout.** The board is live the entire round; standings are never
   hidden mid-event. `isFrozen()` still exists in `time.ts` (dead code, kept in
   case a future freeze feature returns) but nothing calls it, `freeze_minutes` is
@@ -202,7 +223,10 @@ src/
   overridden by dropping `public/sounds/first-blood.mp3` or `.wav`. Respect global mute.
 - **Avatars:** emoji from `constants.ts` `AVATARS`.
 - **Animations:** defined in `tailwind.config.js` (flicker, slide-down, slide-left, pop, pulse-ring, rise).
-- **Realtime:** `useGame.ts` subscribes to `solves`, `players`, `event_config`, `days`.
+- **Realtime:** `useGame.ts` subscribes to `solves`, `players`, `event_config`,
+  `days`, and `day_entries` (so a new competitor appears on everyone's board at
+  once). When the admin unlocks/locks a day or switches the active day, the
+  `days`/`event_config` changes propagate to every client automatically.
 
 ## Adding a challenge (quick)
 
