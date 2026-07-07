@@ -47,7 +47,7 @@ export default function Register() {
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/95 p-4">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg p-4">
       <div className="grid w-full max-w-4xl animate-pop overflow-hidden rounded-2xl border border-terminal-border bg-terminal-panel shadow-neon md:grid-cols-2">
         {/* Left: branding */}
         <div className="relative hidden flex-col justify-between border-r border-terminal-border bg-terminal-input/40 p-8 md:flex">

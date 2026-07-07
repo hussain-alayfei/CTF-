@@ -349,6 +349,13 @@ export default function Play() {
     );
   }
 
+  // Not logged in: show ONLY the registration/login screen. Nothing else — no
+  // arena, no leaderboard, no scores — renders behind it. The leaderboard must
+  // never be visible to anyone who isn't a signed-in competitor.
+  if (!player) {
+    return <Register />;
+  }
+
   return (
     <div className="min-h-full">
       <Toasts announcements={game.announcements} />
@@ -553,9 +560,6 @@ export default function Play() {
       {showPodium && (
         <Podium rows={game.leaderboard} meId={player?.id ?? null} onClose={() => setShowPodium(false)} />
       )}
-
-      {/* Registration gate */}
-      {!player && <Register />}
     </div>
   );
 }
