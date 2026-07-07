@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  adminDeleteAllPlayers,
   adminDeletePlayer,
   adminListPlayers,
   adminLogin,
@@ -23,12 +24,17 @@ const diffColor: Record<string, string> = {
   hard: 'text-terminal-red',
 };
 
+// The admin session token is kept in sessionStorage so a page refresh keeps
+// you signed in (it clears when the browser/tab is closed).
+const ADMIN_TOKEN_KEY = 'kgsp_ctf_admin_token';
+
 export default function AdminPanel() {
   const { theme, toggleTheme } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [secret, setSecret] = useState(''); // session token returned by admin_login
   const [authed, setAuthed] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [data, setData] = useState<AdminOverview | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [busy, setBusy] = useState(false);
@@ -43,6 +49,8 @@ export default function AdminPanel() {
       if (res.error) {
         setMsg({ ok: false, text: res.message ?? 'Session expired — sign in again.' });
         setAuthed(false);
+        setSecret('');
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
         return false;
       }
       setData(res);
@@ -63,6 +71,29 @@ export default function AdminPanel() {
     [],
   );
 
+  // Restore a saved admin session on refresh.
+  useEffect(() => {
+    const saved = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!saved) {
+      setRestoring(false);
+      return;
+    }
+    setSecret(saved);
+    void load(saved)
+      .catch(() => {})
+      .finally(() => setRestoring(false));
+  }, [load]);
+
+  function logout() {
+    sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    setSecret('');
+    setAuthed(false);
+    setData(null);
+    setPlayers([]);
+    setPassword('');
+    setMsg(null);
+  }
+
   async function login(e: React.FormEvent) {
     e.preventDefault();
     if (!username.trim() || !password) return;
@@ -75,6 +106,7 @@ export default function AdminPanel() {
         return;
       }
       setSecret(res.token);
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, res.token);
       await load(res.token);
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : 'Error.' });
@@ -117,6 +149,15 @@ export default function AdminPanel() {
   const isEnded = state.status === 'ended';
   const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
   const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
+
+  // ----- Restoring a saved session on refresh: avoid flashing the login form -----
+  if (restoring && !authed) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-24 text-center text-terminal-dim">
+        Restoring session…
+      </div>
+    );
+  }
 
   // ----- Not signed in: username + password -----
   if (!authed) {
@@ -186,12 +227,20 @@ export default function AdminPanel() {
         >
           ‹ back to the arena
         </Link>
-        <button
-          onClick={toggleTheme}
-          className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button
+            onClick={logout}
+            className="rounded-lg border border-terminal-border px-3 py-2 text-sm font-bold text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
@@ -369,6 +418,12 @@ export default function AdminPanel() {
             run(
               () => adminDeletePlayer(secret, id),
               `Delete player "${name}"? This removes their account and all solves. This cannot be undone.`,
+            )
+          }
+          onDeleteAll={() =>
+            run(
+              () => adminDeleteAllPlayers(secret),
+              'Delete ALL players and their solves? Everyone will be signed out and must register again. This cannot be undone.',
             )
           }
         />
@@ -610,10 +665,12 @@ function PlayersSection({
   players,
   busy,
   onDelete,
+  onDeleteAll,
 }: {
   players: AdminPlayer[];
   busy: boolean;
   onDelete: (id: string, name: string) => void;
+  onDeleteAll: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -628,12 +685,22 @@ function PlayersSection({
         <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
           ▸ Players ({players.length})
         </h2>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search username…"
-          className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-1.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search username…"
+            className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-1.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
+          />
+          <button
+            disabled={busy || players.length === 0}
+            onClick={onDeleteAll}
+            title="Delete every player and their solves"
+            className="whitespace-nowrap rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
+          >
+            🗑 Delete all
+          </button>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

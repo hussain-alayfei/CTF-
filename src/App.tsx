@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AppContext } from './lib/app-context';
-import { loadPlayer, savePlayer } from './lib/session';
+import { clearPlayer, loadPlayer, savePlayer } from './lib/session';
+import { playerStillExists } from './lib/api';
 import { isMuted, setMuted } from './lib/sounds';
 import { applyTheme, getTheme, type Theme } from './lib/theme';
 import type { Player } from './lib/types';
@@ -17,7 +18,25 @@ export default function App() {
   const setPlayer = useCallback((p: Player | null) => {
     setPlayerState(p);
     if (p) savePlayer(p);
+    else clearPlayer();
   }, []);
+
+  // If an admin deleted this account, sign the player out on next load.
+  useEffect(() => {
+    if (!player) return;
+    let alive = true;
+    (async () => {
+      const exists = await playerStillExists(player.id);
+      if (alive && !exists) {
+        clearPlayer();
+        setPlayerState(null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+    // Only re-check when the player identity changes.
+  }, [player?.id]);
 
   const toggleMute = useCallback(() => {
     setMutedState((m) => {

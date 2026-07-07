@@ -40,6 +40,25 @@ export async function checkDayCode(day: number, code: string): Promise<boolean> 
   return data?.ok === true;
 }
 
+/**
+ * Returns true if the player row still exists in the database. Used to log out
+ * players whose account was deleted by an admin. On a network error we return
+ * true so we never sign someone out just because a request failed.
+ */
+export async function playerStillExists(id: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('players')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) return true;
+    return !!data;
+  } catch {
+    return true;
+  }
+}
+
 export async function submitFlag(
   player: Player,
   challengeId: string,
@@ -148,6 +167,12 @@ export async function adminDeletePlayer(secret: string, playerId: string) {
     p_secret: secret,
     p_player_id: playerId,
   });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; deleted?: number };
+}
+
+export async function adminDeleteAllPlayers(secret: string) {
+  const { data, error } = await supabase.rpc('admin_delete_all_players', { p_secret: secret });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string; ok?: boolean; deleted?: number };
 }
