@@ -2,8 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ===== Theme variables (channels for rgb(... / <alpha-value>)) ===== */
+:root,
+:root[data-theme='dark'] {
+  --c-bg: 10 14 10;
+  --c-panel: 15 21 15;
+  --c-border: 28 42 28;
+  --c-green: 57 255 20;
+  --c-dim: 122 138 122;
+  --c-amber: 255 176 0;
+  --c-red: 255 59 59;
+  --c-cyan: 0 229 255;
+  --c-text: 215 255 208;
+  --c-strong: 240 255 236;
+  --c-input: 5 9 5;
+  --scanline-alpha: 0.16;
+  --scanline-opacity: 0.5;
+  --glow1: rgb(57 255 20 / 0.06);
+  --glow2: rgb(0 229 255 / 0.05);
   color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --c-bg: 238 242 237;
+  --c-panel: 255 255 255;
+  --c-border: 205 216 205;
+  --c-green: 21 122 24;
+  --c-dim: 88 102 90;
+  --c-amber: 168 110 0;
+  --c-red: 198 40 40;
+  --c-cyan: 12 122 150;
+  --c-text: 26 38 28;
+  --c-strong: 12 20 12;
+  --c-input: 243 246 242;
+  --scanline-alpha: 0.03;
+  --scanline-opacity: 0.22;
+  --glow1: rgb(21 122 24 / 0.06);
+  --glow2: rgb(12 122 150 / 0.06);
+  color-scheme: light;
 }
 
 html,
@@ -14,16 +50,17 @@ body,
 
 body {
   margin: 0;
-  background-color: #0a0e0a;
+  background-color: rgb(var(--c-bg));
   background-image:
-    radial-gradient(circle at 20% 0%, rgba(57, 255, 20, 0.06), transparent 40%),
-    radial-gradient(circle at 100% 100%, rgba(0, 229, 255, 0.05), transparent 45%);
-  color: #d7ffd0;
+    radial-gradient(circle at 20% 0%, var(--glow1), transparent 40%),
+    radial-gradient(circle at 100% 100%, var(--glow2), transparent 45%);
+  color: rgb(var(--c-text));
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Subtle CRT scanlines over the whole page. */
+/* Subtle CRT scanlines (much lighter in light mode). */
 body::after {
   content: '';
   position: fixed;
@@ -33,46 +70,46 @@ body::after {
     to bottom,
     rgba(0, 0, 0, 0) 0px,
     rgba(0, 0, 0, 0) 2px,
-    rgba(0, 0, 0, 0.16) 3px,
+    rgba(0, 0, 0, var(--scanline-alpha)) 3px,
     rgba(0, 0, 0, 0) 4px
   );
   mix-blend-mode: overlay;
-  opacity: 0.5;
+  opacity: var(--scanline-opacity);
   z-index: 9999;
 }
 
 ::selection {
-  background: rgba(57, 255, 20, 0.35);
-  color: #ffffff;
+  background: rgb(var(--c-green) / 0.35);
+  color: rgb(var(--c-strong));
 }
 
-/* Custom scrollbars. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #1c2a1c #0a0e0a;
+  scrollbar-color: rgb(var(--c-border)) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #24391f;
+  background: rgb(var(--c-border));
   border-radius: 8px;
 }
 *::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Lightweight styling for the markdown-ish challenge prompt text. */
+/* Markdown-ish challenge prompt styling. */
 .prompt code {
-  background: #05270a;
-  color: #7dff6b;
+  background: rgb(var(--c-green) / 0.12);
+  color: rgb(var(--c-green));
   padding: 1px 6px;
   border-radius: 4px;
-  border: 1px solid #16371a;
+  border: 1px solid rgb(var(--c-green) / 0.3);
   font-size: 0.85em;
   word-break: break-all;
 }
 .prompt strong {
-  color: #fff;
+  color: rgb(var(--c-strong));
+  font-weight: 700;
 }

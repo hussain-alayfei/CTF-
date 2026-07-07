@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from './supabase';
 import {
   fetchChallenges,
+  fetchDays,
   fetchEventConfig,
   fetchLeaderboard,
   fetchSolves,
 } from './api';
-import type { Challenge, EventConfig, LeaderboardRow, Player, Solve } from './types';
+import type { Challenge, Day, EventConfig, LeaderboardRow, Player, Solve } from './types';
 
 export interface Announcement {
   id: string;
@@ -18,6 +19,7 @@ export interface Announcement {
 
 export function useGame(player: Player | null) {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [days, setDays] = useState<Day[]>([]);
   const [solves, setSolves] = useState<Solve[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [event, setEvent] = useState<EventConfig | null>(null);
@@ -37,19 +39,27 @@ export function useGame(player: Player | null) {
     setEvent(await fetchEventConfig());
   }, []);
 
+  const refreshDaysAndChallenges = useCallback(async () => {
+    const [d, ch] = await Promise.all([fetchDays(), fetchChallenges()]);
+    setDays(d);
+    setChallenges(ch);
+  }, []);
+
   // Initial load.
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [ch, s, lb, ev] = await Promise.all([
+        const [ch, d, s, lb, ev] = await Promise.all([
           fetchChallenges(),
+          fetchDays(),
           fetchSolves(),
           fetchLeaderboard(),
           fetchEventConfig(),
         ]);
         if (!alive) return;
         setChallenges(ch);
+        setDays(d);
         setSolves(s);
         setLeaderboard(lb);
         setEvent(ev);
@@ -65,7 +75,7 @@ export function useGame(player: Player | null) {
   // Realtime subscriptions.
   useEffect(() => {
     const channel = supabase
-      .channel('meras-ctf-game')
+      .channel('kgsp-ctf-game')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'solves' },
@@ -106,12 +116,19 @@ export function useGame(player: Player | null) {
           void refreshEvent();
         },
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'days' },
+        () => {
+          void refreshDaysAndChallenges();
+        },
+      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [refreshBoard, refreshEvent]);
+  }, [refreshBoard, refreshEvent, refreshDaysAndChallenges]);
 
   const mySolvedIds = useMemo(() => {
     const set = new Set<string>();
@@ -138,6 +155,7 @@ export function useGame(player: Player | null) {
 
   return {
     challenges,
+    days,
     solves,
     leaderboard,
     event,

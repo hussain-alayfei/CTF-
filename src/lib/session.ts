@@ -1,6 +1,6 @@
 import type { Player } from './types';
 
-const KEY = 'meras_ctf_player';
+const KEY = 'kgsp_ctf_player';
 
 export function loadPlayer(): Player | null {
   try {

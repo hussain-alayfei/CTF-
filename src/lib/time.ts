@@ -16,6 +16,18 @@ export function getEventState(event: EventConfig | null, now = Date.now()): Even
   return { status: 'running', remainingMs: end - now };
 }
 
+/**
+ * The scoreboard "blackout": during the final `freeze_minutes` of a running
+ * event the live leaderboard is hidden to build suspense (like a real CTF
+ * freeze). Returns true only while the event is running and inside that window.
+ */
+export function isFrozen(event: EventConfig | null, now = Date.now()): boolean {
+  const state = getEventState(event, now);
+  if (state.status !== 'running') return false;
+  const freezeMs = (event?.freeze_minutes ?? 0) * 60_000;
+  return freezeMs > 0 && state.remainingMs <= freezeMs;
+}
+
 export function formatDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);

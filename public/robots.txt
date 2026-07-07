@@ -1,4 +1,4 @@
-# MERAS CTF // recon
+# KGSP CTF // recon
 # Dear web crawlers: please don't index our internal areas below.
 #
 # ops reminder (base64, do NOT index this line):

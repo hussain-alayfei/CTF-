@@ -31,7 +31,7 @@ export default function Timer({ event }: { event: EventConfig | null }) {
 
   if (state.status === 'idle') {
     return (
-      <div className="flex flex-col items-center rounded-lg border border-terminal-border bg-black/40 px-4 py-1.5">
+      <div className="flex flex-col items-center rounded-lg border border-terminal-border bg-terminal-input/60 px-4 py-1.5">
         <span className="text-[10px] uppercase tracking-widest text-terminal-dim">status</span>
         <span className="animate-flicker font-bold text-terminal-amber">◷ WAITING TO START</span>
       </div>
@@ -58,7 +58,7 @@ export default function Timer({ event }: { event: EventConfig | null }) {
       : 'border-terminal-green/50 shadow-neon';
 
   return (
-    <div className={`flex flex-col items-center rounded-lg border bg-black/40 px-5 py-1.5 ${border}`}>
+    <div className={`flex flex-col items-center rounded-lg border bg-terminal-input/60 px-5 py-1.5 ${border}`}>
       <span className="text-[10px] uppercase tracking-widest text-terminal-dim">time left</span>
       <span className={`text-2xl font-extrabold tabular-nums tracking-wider ${color} ${danger ? 'animate-flicker' : ''}`}>
         {formatDuration(state.remainingMs)}

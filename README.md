@@ -1,13 +1,18 @@
-# MERAS CTF 🚩
+# KGSP CTF 🚩
 
-A beginner-friendly **Capture The Flag** platform for the Meras cybersecurity
-course. Players register with a hacker alias, solve 6 challenges in a timed
-1-hour event, and race up a **live leaderboard** with **first-blood** alerts and
-synthesized hacker sound effects.
+A beginner-friendly **Capture The Flag** platform for the **KGSP** cybersecurity
+course, delivered by **KUAST Academy**. Players register with a hacker alias,
+solve challenges in a timed event, and race up a **live leaderboard** with
+**first-blood** alerts and synthesized hacker sound effects.
 
 Built with **Vite + React + TypeScript + Tailwind** on the frontend and
 **Supabase** (Postgres + Row Level Security + Realtime) on the backend. No
 server to run — the whole game loop lives in secure Postgres functions.
+
+**Features:** live realtime leaderboard · first-blood sirens · light & dark mode ·
+multi-day challenge roadmap (lock/unlock days) · score **freeze** in the final
+minutes · a **Kahoot-style podium reveal** (3rd → 2nd → 1st with sound) when the
+clock ends · hints with point penalties · an instructor dashboard.
 
 ---
 
@@ -25,7 +30,8 @@ Each maps to a topic from the 2-week course. Difficulty sets the base points; th
 | 5 | 🟡 Medium | Trust No Cookie | Why the browser can't be trusted (cookie tampering) | 300 |
 | 6 | 🔴 Very Hard | The Deep Web | Recon → decode → stego, all chained together | 500 |
 
-All flags look like `MERAS{...}`.
+All flags look like `KGSP{...}`. Today's event is **Day 1**; future days appear
+locked ("⏳ Wait") until the instructor unlocks them from the dashboard.
 
 > **Instructors:** the full answer key (every flag + how to solve it) and your
 > **admin secret** were given to you separately when this project was set up —

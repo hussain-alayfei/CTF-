@@ -1,32 +1,36 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: ['selector', '[data-theme="dark"]'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
       },
+      // Colors are driven by CSS variables (see index.css) so the whole app
+      // re-themes between light and dark by swapping the variables.
       colors: {
         terminal: {
-          bg: '#0a0e0a',
-          panel: '#0f150f',
-          border: '#1c2a1c',
-          green: '#39ff14',
-          dim: '#7a8a7a',
-          amber: '#ffb000',
-          red: '#ff3b3b',
-          cyan: '#00e5ff',
+          bg: 'rgb(var(--c-bg) / <alpha-value>)',
+          panel: 'rgb(var(--c-panel) / <alpha-value>)',
+          border: 'rgb(var(--c-border) / <alpha-value>)',
+          green: 'rgb(var(--c-green) / <alpha-value>)',
+          dim: 'rgb(var(--c-dim) / <alpha-value>)',
+          amber: 'rgb(var(--c-amber) / <alpha-value>)',
+          red: 'rgb(var(--c-red) / <alpha-value>)',
+          cyan: 'rgb(var(--c-cyan) / <alpha-value>)',
+          text: 'rgb(var(--c-text) / <alpha-value>)',
+          strong: 'rgb(var(--c-strong) / <alpha-value>)',
+          input: 'rgb(var(--c-input) / <alpha-value>)',
         },
       },
       boxShadow: {
-        neon: '0 0 8px rgba(57,255,20,0.6), 0 0 24px rgba(57,255,20,0.25)',
-        'neon-red': '0 0 8px rgba(255,59,59,0.6), 0 0 24px rgba(255,59,59,0.25)',
+        neon: '0 0 8px rgb(var(--c-green) / 0.55), 0 0 24px rgb(var(--c-green) / 0.22)',
+        'neon-red': '0 0 8px rgb(var(--c-red) / 0.55), 0 0 24px rgb(var(--c-red) / 0.22)',
+        'neon-amber': '0 0 8px rgb(var(--c-amber) / 0.5), 0 0 20px rgb(var(--c-amber) / 0.2)',
       },
       keyframes: {
-        flicker: {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.85' },
-        },
+        flicker: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.85' } },
         'slide-down': {
           '0%': { transform: 'translateY(-120%)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
@@ -37,8 +41,12 @@ export default {
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
         'pulse-ring': {
-          '0%': { boxShadow: '0 0 0 0 rgba(255,59,59,0.5)' },
-          '100%': { boxShadow: '0 0 0 18px rgba(255,59,59,0)' },
+          '0%': { boxShadow: '0 0 0 0 rgb(var(--c-red) / 0.5)' },
+          '100%': { boxShadow: '0 0 0 18px rgb(var(--c-red) / 0)' },
+        },
+        rise: {
+          '0%': { transform: 'translateY(40px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
         },
       },
       animation: {
@@ -46,6 +54,7 @@ export default {
         'slide-down': 'slide-down 0.4s cubic-bezier(0.2,0.8,0.2,1)',
         pop: 'pop 0.35s cubic-bezier(0.2,0.8,0.2,1)',
         'pulse-ring': 'pulse-ring 1.2s ease-out infinite',
+        rise: 'rise 0.6s cubic-bezier(0.2,0.8,0.2,1)',
       },
     },
   },

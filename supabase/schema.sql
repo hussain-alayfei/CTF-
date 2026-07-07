@@ -1,5 +1,5 @@
 -- ============================================================
---  MERAS CTF — full database schema (safe to commit; no flags)
+--  KGSP CTF — full database schema (safe to commit; no flags)
 --  Apply this to a fresh Supabase project, then run seed.sql
 --  (build your own from seed.example.sql) to load challenges.
 --
@@ -82,7 +82,7 @@ create index if not exists idx_attempts_player_time
 
 create table if not exists public.event_config (
   id               int primary key default 1 check (id = 1),
-  name             text not null default 'Meras CTF',
+  name             text not null default 'KGSP CTF',
   starts_at        timestamptz,
   ends_at          timestamptz,
   duration_minutes int  not null default 60,
@@ -285,3 +285,89 @@ grant select on public.leaderboard to anon, authenticated;
 alter publication supabase_realtime add table public.solves;
 alter publication supabase_realtime add table public.players;
 alter publication supabase_realtime add table public.event_config;
+
+-- ============================================================
+--  v2 additions: multi-day roadmap, score freeze, admin dashboard
+-- ============================================================
+
+-- Each challenge belongs to a "day".
+alter table public.challenges add column if not exists day int not null default 1;
+
+-- Day roadmap (Day 1 open today, future days locked until unlocked).
+create table if not exists public.days (
+  day         int primary key,
+  title       text not null,
+  subtitle    text,
+  is_open     boolean not null default false,
+  event_label text,
+  sort_order  int not null default 0
+);
+alter table public.days enable row level security;
+drop policy if exists sel_days on public.days;
+create policy sel_days on public.days for select to anon, authenticated using (true);
+
+-- Score-freeze window (hide the leaderboard in the final N minutes).
+alter table public.event_config add column if not exists freeze_minutes int not null default 15;
+
+-- Only challenges on an OPEN day are visible to clients.
+drop policy if exists sel_challenges on public.challenges;
+create policy sel_challenges on public.challenges for select to anon, authenticated
+using (exists (select 1 from public.days d where d.day = challenges.day and d.is_open));
+
+-- NOTE: submit_flag also gains a "day must be open" check — see the app's
+-- migration history. The definitive function body lives in the database.
+
+-- Admin: full overview (returns flags + per-challenge stats + day status).
+create or replace function public.admin_overview(p_secret text)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ok boolean;
+begin
+  select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
+  if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
+  return jsonb_build_object(
+    'ok', true,
+    'event', (select to_jsonb(e) from (
+        select name, starts_at, ends_at, duration_minutes, freeze_minutes from public.event_config where id=1) e),
+    'players_count', (select count(*) from public.players),
+    'total_solves', (select count(*) from public.solves),
+    'days', (select coalesce(jsonb_agg(to_jsonb(d) order by d.sort_order, d.day),'[]'::jsonb) from (
+        select day, title, subtitle, is_open, event_label, sort_order from public.days) d),
+    'challenges', (select coalesce(jsonb_agg(to_jsonb(x) order by x.day, x.sort_order),'[]'::jsonb) from (
+        select c.id, c.title, c.day, c.category, c.difficulty, c.points, c.first_blood_bonus,
+               c.sort_order, c.num_hints, f.flag,
+               (select count(*) from public.solves s where s.challenge_id = c.id) as solves_count,
+               (select p.username from public.solves s join public.players p on p.id = s.player_id
+                 where s.challenge_id = c.id and s.is_first_blood limit 1) as first_blood_by,
+               (select coalesce(jsonb_agg(jsonb_build_object('n',h.hint_number,'body',h.body,'penalty',h.penalty)
+                        order by h.hint_number),'[]'::jsonb)
+                  from public.challenge_hints h where h.challenge_id = c.id) as hints
+        from public.challenges c left join public.challenge_flags f on f.challenge_id = c.id) x)
+  );
+end; $$;
+
+create or replace function public.admin_set_day(p_secret text, p_day int, p_is_open boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ok boolean;
+begin
+  select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
+  if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
+  update public.days set is_open = p_is_open where day = p_day;
+  return jsonb_build_object('ok', true, 'day', p_day, 'is_open', p_is_open);
+end; $$;
+
+create or replace function public.admin_set_freeze(p_secret text, p_minutes int)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ok boolean;
+begin
+  select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
+  if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
+  if p_minutes < 0 or p_minutes > 120 then p_minutes := 15; end if;
+  update public.event_config set freeze_minutes = p_minutes, updated_at = now() where id = 1;
+  return jsonb_build_object('ok', true, 'freeze_minutes', p_minutes);
+end; $$;
+
+grant execute on function public.admin_overview(text)            to anon, authenticated;
+grant execute on function public.admin_set_day(text,int,boolean) to anon, authenticated;
+grant execute on function public.admin_set_freeze(text,int)      to anon, authenticated;
+
+alter publication supabase_realtime add table public.days;

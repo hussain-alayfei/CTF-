@@ -36,11 +36,14 @@ export default function Register() {
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-terminal-bg/95 p-4">
       <div className="w-full max-w-md animate-pop rounded-xl border border-terminal-border bg-terminal-panel p-8 shadow-neon">
         <div className="mb-1 text-center text-xs uppercase tracking-[0.3em] text-terminal-dim">
-          Meras // Cyber Range
+          KGSP // Cyber Range
         </div>
-        <h1 className="mb-2 text-center text-4xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgba(57,255,20,0.5)]">
-          CAPTURE<span className="text-white"> THE </span>FLAG
+        <h1 className="mb-1 text-center text-4xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgb(var(--c-green)/0.5)]">
+          CAPTURE<span className="text-terminal-strong"> THE </span>FLAG
         </h1>
+        <div className="mb-4 text-center text-[11px] uppercase tracking-[0.25em] text-terminal-dim">
+          delivered by KUAST Academy
+        </div>
         <p className="mb-6 text-center text-sm text-terminal-dim">
           Enter your hacker alias to join the arena. Solve challenges, grab
           flags, climb the leaderboard.
@@ -57,7 +60,7 @@ export default function Register() {
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
               placeholder="n30_h4ck3r"
-              className="w-full rounded-lg border border-terminal-border bg-black/50 px-4 py-3 text-lg text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon"
+              className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-lg text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon"
             />
           </div>
 
@@ -78,7 +81,7 @@ export default function Register() {
 
         <p className="mt-5 text-center text-[11px] leading-relaxed text-terminal-dim">
           Your alias is saved on this device so you keep your score if you
-          refresh. Flags look like <code className="text-terminal-green">MERAS&#123;...&#125;</code>
+          refresh. Flags look like <code className="text-terminal-green">KGSP&#123;...&#125;</code>
         </p>
       </div>
     </div>

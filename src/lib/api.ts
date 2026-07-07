@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type {
+  AdminOverview,
   Challenge,
+  Day,
   EventConfig,
   HintResult,
   LeaderboardRow,
@@ -55,6 +57,15 @@ export async function fetchChallenges(): Promise<Challenge[]> {
   return (data ?? []) as Challenge[];
 }
 
+export async function fetchDays(): Promise<Day[]> {
+  const { data, error } = await supabase
+    .from('days')
+    .select('*')
+    .order('sort_order', { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as Day[];
+}
+
 export async function fetchSolves(): Promise<Solve[]> {
   const { data, error } = await supabase
     .from('solves')
@@ -81,11 +92,17 @@ export async function fetchLeaderboard(): Promise<LeaderboardRow[]> {
 export async function fetchEventConfig(): Promise<EventConfig> {
   const { data, error } = await supabase
     .from('event_config')
-    .select('name, starts_at, ends_at, duration_minutes')
+    .select('name, starts_at, ends_at, duration_minutes, freeze_minutes')
     .eq('id', 1)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data ?? { name: 'Meras CTF', starts_at: null, ends_at: null, duration_minutes: 60 }) as EventConfig;
+  return (data ?? {
+    name: 'KGSP CTF',
+    starts_at: null,
+    ends_at: null,
+    duration_minutes: 60,
+    freeze_minutes: 15,
+  }) as EventConfig;
 }
 
 // --- admin ---
@@ -108,4 +125,29 @@ export async function adminReset(secret: string) {
   const { data, error } = await supabase.rpc('admin_reset', { p_secret: secret });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string };
+}
+
+export async function adminOverview(secret: string): Promise<AdminOverview> {
+  const { data, error } = await supabase.rpc('admin_overview', { p_secret: secret });
+  if (error) throw new Error(error.message);
+  return data as AdminOverview;
+}
+
+export async function adminSetDay(secret: string, day: number, isOpen: boolean) {
+  const { data, error } = await supabase.rpc('admin_set_day', {
+    p_secret: secret,
+    p_day: day,
+    p_is_open: isOpen,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean };
+}
+
+export async function adminSetFreeze(secret: string, minutes: number) {
+  const { data, error } = await supabase.rpc('admin_set_freeze', {
+    p_secret: secret,
+    p_minutes: minutes,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; freeze_minutes?: number };
 }

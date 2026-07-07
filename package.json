@@ -1,9 +1,9 @@
 {
-  "name": "meras-ctf",
+  "name": "kgsp-ctf",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Beginner-friendly Capture The Flag platform for the Meras cybersecurity course.",
+  "description": "Beginner-friendly Capture The Flag platform for the KGSP cybersecurity course (KUAST Academy).",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

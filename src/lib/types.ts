@@ -12,6 +12,16 @@ export interface Challenge {
   asset_url: string | null;
   action_url: string | null;
   num_hints: number;
+  day: number;
+}
+
+export interface Day {
+  day: number;
+  title: string;
+  subtitle: string | null;
+  is_open: boolean;
+  event_label: string | null;
+  sort_order: number;
 }
 
 export interface Player {
@@ -42,6 +52,7 @@ export interface EventConfig {
   starts_at: string | null;
   ends_at: string | null;
   duration_minutes: number;
+  freeze_minutes: number;
 }
 
 export interface SubmitResult {
@@ -60,4 +71,32 @@ export interface HintResult {
   already_unlocked?: boolean;
   message?: string;
   error?: string;
+}
+
+// ---- Admin overview (secret-gated) ----
+export interface AdminChallenge {
+  id: string;
+  title: string;
+  day: number;
+  category: string;
+  difficulty: Difficulty;
+  points: number;
+  first_blood_bonus: number;
+  sort_order: number;
+  num_hints: number;
+  flag: string;
+  solves_count: number;
+  first_blood_by: string | null;
+  hints: { n: number; body: string; penalty: number }[];
+}
+
+export interface AdminOverview {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  event?: EventConfig;
+  players_count?: number;
+  total_solves?: number;
+  days?: Day[];
+  challenges?: AdminChallenge[];
 }

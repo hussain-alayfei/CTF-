@@ -109,3 +109,19 @@ export function playTimeUp() {
   tone(392, 0, 0.5, { type: 'sawtooth', gain: 0.2, slideTo: 130 });
   noise(0, 0.4, 0.08);
 }
+
+/** A podium place being revealed (drumroll-ish stab). Pitch rises per place. */
+export function playReveal(place: number) {
+  const base = place === 3 ? 392 : place === 2 ? 523.25 : 659.25;
+  noise(0, 0.15, 0.05);
+  tone(base, 0.05, 0.22, { type: 'triangle', gain: 0.2 });
+  tone(base * 1.5, 0.12, 0.2, { type: 'triangle', gain: 0.16 });
+}
+
+/** Winner fanfare for 1st place. */
+export function playFanfare() {
+  const seq = [523.25, 659.25, 783.99, 1046.5, 1318.5];
+  seq.forEach((f, i) => tone(f, i * 0.12, 0.3, { type: 'triangle', gain: 0.22 }));
+  tone(1046.5, 0.6, 0.5, { type: 'square', gain: 0.18 });
+  noise(0, 0.25, 0.06);
+}

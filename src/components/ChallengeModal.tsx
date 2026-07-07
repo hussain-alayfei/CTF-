@@ -157,7 +157,7 @@ export default function ChallengeModal({
 
           {/* Hints */}
           {challenge.num_hints > 0 && (
-            <div className="rounded-lg border border-terminal-border bg-black/30 p-4">
+            <div className="rounded-lg border border-terminal-border bg-terminal-input/60 p-4">
               <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-amber">
                 Hints (cost points on this challenge)
               </h4>
@@ -205,9 +205,9 @@ export default function ChallengeModal({
                 <input
                   value={flag}
                   onChange={(e) => setFlag(e.target.value)}
-                  placeholder="MERAS{...}"
+                  placeholder="KGSP{...}"
                   disabled={!running || busy}
-                  className="flex-1 rounded-lg border border-terminal-border bg-black/50 px-4 py-3 text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon disabled:opacity-50"
                 />
                 <button
                   type="submit"

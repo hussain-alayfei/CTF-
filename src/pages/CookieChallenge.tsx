@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const FLAG = 'MERAS{c00kies_can_be_edited}';
+const FLAG = 'KGSP{c00kies_can_be_edited}';
 
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
@@ -27,7 +27,10 @@ export default function CookieChallenge() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <Link to="/" className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green">
+      <Link
+        to="/"
+        className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+      >
         ‹ back to the arena
       </Link>
 
@@ -37,7 +40,7 @@ export default function CookieChallenge() {
           Internal tool — authorised administrators only.
         </p>
 
-        <div className="mt-6 rounded-lg border border-terminal-border bg-black/40 p-4 text-sm">
+        <div className="mt-6 rounded-lg border border-terminal-border bg-terminal-input/60 p-4 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-terminal-dim">Your current role:</span>
             <span className={isAdmin ? 'font-bold text-terminal-green' : 'font-bold text-terminal-amber'}>
@@ -49,8 +52,10 @@ export default function CookieChallenge() {
         {isAdmin ? (
           <div className="mt-6 animate-pop rounded-lg border border-terminal-green/60 bg-terminal-green/10 p-6 text-center shadow-neon">
             <div className="text-sm uppercase tracking-widest text-terminal-dim">Access granted</div>
-            <div className="mt-2 text-lg text-terminal-green">Welcome, administrator. Here is the flag:</div>
-            <code className="mt-3 inline-block select-all rounded bg-black/60 px-4 py-2 text-lg font-bold text-terminal-green">
+            <div className="mt-2 text-lg text-terminal-green">
+              Welcome, administrator. Here is the flag:
+            </div>
+            <code className="mt-3 inline-block select-all rounded bg-terminal-input px-4 py-2 text-lg font-bold text-terminal-green">
               {FLAG}
             </code>
             <p className="mt-3 text-xs text-terminal-dim">
@@ -61,15 +66,15 @@ export default function CookieChallenge() {
           <div className="mt-6 rounded-lg border border-terminal-red/50 bg-terminal-red/10 p-6 text-center">
             <div className="text-lg font-bold text-terminal-red">⛔ Access Denied</div>
             <p className="mt-2 text-sm text-terminal-green/90">
-              You are signed in as <strong className="text-white">{role ?? 'guest'}</strong>. This
-              page is for <strong className="text-white">admins</strong> only.
+              You are signed in as <strong className="text-terminal-strong">{role ?? 'guest'}</strong>.
+              This page is for <strong className="text-terminal-strong">admins</strong> only.
             </p>
             <p className="mt-4 text-xs leading-relaxed text-terminal-dim">
               But wait… how does this page decide who is an admin? It only checks something stored in{' '}
-              <strong className="text-terminal-amber">your own browser</strong>. Open DevTools
-              (F12) → Application → Cookies, or run this in the Console:
+              <strong className="text-terminal-amber">your own browser</strong>. Open DevTools (F12) →
+              Application → Cookies, or run this in the Console:
             </p>
-            <code className="mt-2 inline-block rounded bg-black/60 px-3 py-1 text-xs text-terminal-cyan">
+            <code className="mt-2 inline-block rounded bg-terminal-input px-3 py-1 text-xs text-terminal-cyan">
               document.cookie = "role=admin"
             </code>
           </div>
