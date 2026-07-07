@@ -52,7 +52,9 @@ function Leaderboard({
     <div className="rounded-xl border border-terminal-border bg-terminal-panel">
       <div className="flex items-center justify-between border-b border-terminal-border px-4 py-3">
         <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Leaderboard</h2>
-        <span className="text-xs text-terminal-dim">{displayRows.length} players</span>
+        <span className="text-xs text-terminal-dim">
+          {displayRows.length} {displayRows.length === 1 ? 'competitor' : 'competitors'}
+        </span>
       </div>
 
       {browsableDays.length > 1 && (
@@ -85,7 +87,7 @@ function Leaderboard({
                     key={r.player_id}
                     className={`flex items-center gap-3 border-b border-terminal-border/50 px-4 py-2.5 ${
                       me ? 'bg-terminal-green/10' : hasPoints && i < 3 ? 'bg-terminal-strong/[0.04]' : ''
-                    } ${hasPoints ? '' : 'opacity-60'}`}
+                    }`}
                   >
                     <span className="w-7 shrink-0 text-center text-sm font-bold text-terminal-dim">
                       {hasPoints && i < 3 ? medal[i] : i + 1}
@@ -98,6 +100,11 @@ function Leaderboard({
                       {me && (
                         <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
                           you
+                        </span>
+                      )}
+                      {!hasPoints && !me && (
+                        <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
+                          entered
                         </span>
                       )}
                     </span>

@@ -106,14 +106,19 @@ export default function Board() {
                       hasPoints && i < 3
                         ? 'border-terminal-amber/40 bg-terminal-amber/5 shadow-neon-amber'
                         : 'border-terminal-border bg-terminal-panel'
-                    } ${hasPoints ? '' : 'opacity-60'}`}
+                    }`}
                   >
                     <span className="w-10 shrink-0 text-center text-2xl font-extrabold text-terminal-dim">
                       {hasPoints && i < 3 ? medal[i] : i + 1}
                     </span>
                     <span className="text-3xl">{r.avatar}</span>
-                    <span className="flex-1 truncate text-lg font-bold text-terminal-green sm:text-xl">
-                      {r.username}
+                    <span className="flex flex-1 items-center gap-2 truncate text-lg font-bold text-terminal-green sm:text-xl">
+                      <span className="truncate">{r.username}</span>
+                      {!hasPoints && (
+                        <span className="shrink-0 rounded border border-terminal-dim/40 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
+                          entered
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 text-sm text-terminal-dim">{r.solves_count}★</span>
                     <span className="w-20 shrink-0 text-right text-2xl font-extrabold tabular-nums text-terminal-amber sm:text-3xl">
