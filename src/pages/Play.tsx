@@ -84,9 +84,14 @@ export default function Play() {
     });
   }
 
+  // Only auto-show the podium if the status transitioned to 'ended' while this
+  // player was already on the page (prevStatus was 'running'). Logging in while
+  // the event is already over must NOT pop the podium automatically — the player
+  // missed the live reveal and can use "Show final results" if needed.
   useEffect(() => {
     if (
       eventState.status === 'ended' &&
+      prevStatus.current === 'running' &&
       !podiumShown.current &&
       game.leaderboard.some((r) => r.total_points > 0)
     ) {
