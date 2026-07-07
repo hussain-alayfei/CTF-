@@ -500,18 +500,24 @@ export default function Play() {
               title="Leaderboard"
               text="The leaderboard opens when the instructor makes a day live."
             />
-          ) : enteredActiveDay ? (
+          ) : !enteredActiveDay ? (
+            <LockedBoard
+              icon="🔒"
+              title="Leaderboard locked"
+              text={`Enter the access code for ${activeDayObj?.title ?? 'the live day'} to join the competition.`}
+            />
+          ) : eventState.status !== 'ended' ? (
+            <LockedBoard
+              icon="🙈"
+              title="Standings hidden"
+              text="The leaderboard stays hidden while the round is live — no peeking! Keep hacking; the full results are revealed the moment time runs out."
+            />
+          ) : (
             <Leaderboard
               rows={game.leaderboard}
               meId={player?.id ?? null}
               days={boardDays}
               activeDay={activeDay}
-            />
-          ) : (
-            <LockedBoard
-              icon="🔒"
-              title="Leaderboard locked"
-              text={`Enter the access code for ${activeDayObj?.title ?? 'the live day'} to join the competition and see the leaderboard.`}
             />
           )}
         </aside>

@@ -3,9 +3,42 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState, formatDuration } from '../lib/time';
+import type { EventConfig } from '../lib/types';
 import Register from '../components/Register';
 
 const medal = ['🥇', '🥈', '🥉'];
+
+// The countdown owns its own 1s tick, so the once-per-second repaint stays
+// isolated here and never re-renders the ranking list (which caused the
+// top-3 rows to visibly shimmer/loop while projecting).
+function BoardTimer({ event }: { event: EventConfig | null }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const state = getEventState(event, now);
+  const label =
+    state.status === 'running'
+      ? formatDuration(state.remainingMs)
+      : state.status === 'ended'
+        ? "TIME'S UP"
+        : 'WAITING';
+  const color =
+    state.status === 'running'
+      ? 'text-terminal-green'
+      : state.status === 'ended'
+        ? 'text-terminal-red'
+        : 'text-terminal-amber';
+  return (
+    <div className="text-right">
+      <div className="text-xs uppercase tracking-widest text-terminal-dim">
+        {state.status === 'running' ? 'Time remaining' : 'Status'}
+      </div>
+      <div className={`text-4xl font-extrabold tabular-nums sm:text-5xl ${color}`}>{label}</div>
+    </div>
+  );
+}
 
 // Full-screen, admin-only "present to the class" dashboard. Shares the same
 // realtime data feed as the main arena, so it's always in sync — no manual
@@ -13,12 +46,6 @@ const medal = ['🥇', '🥈', '🥉'];
 export default function Board() {
   const { player } = useApp();
   const game = useGame(player);
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   if (!player) return <Register />;
 
@@ -34,25 +61,11 @@ export default function Board() {
     );
   }
 
-  const eventState = getEventState(game.event, now);
   const activeDay = game.days.find((d) => d.day === game.event?.active_day);
   // Everyone who entered the live day is shown, even at 0 points.
   const rows = game.leaderboard.slice(0, 20);
   const overflow = game.leaderboard.length - rows.length;
   const feed = game.announcements.slice(-8).slice().reverse();
-
-  const timerLabel =
-    eventState.status === 'running'
-      ? formatDuration(eventState.remainingMs)
-      : eventState.status === 'ended'
-        ? "TIME'S UP"
-        : 'WAITING';
-  const timerColor =
-    eventState.status === 'running'
-      ? 'text-terminal-green'
-      : eventState.status === 'ended'
-        ? 'text-terminal-red'
-        : 'text-terminal-amber';
 
   return (
     <div className="min-h-screen bg-terminal-bg p-6 text-terminal-text sm:p-10">
@@ -73,14 +86,7 @@ export default function Board() {
               {activeDay?.title ?? 'No active day set'}
             </h1>
           </div>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-widest text-terminal-dim">
-              {eventState.status === 'running' ? 'Time remaining' : 'Status'}
-            </div>
-            <div className={`text-4xl font-extrabold tabular-nums sm:text-5xl ${timerColor}`}>
-              {timerLabel}
-            </div>
-          </div>
+          <BoardTimer event={game.event} />
         </header>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
