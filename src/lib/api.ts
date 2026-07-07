@@ -11,11 +11,31 @@ import type {
   SubmitResult,
 } from './types';
 
-export async function registerPlayer(username: string): Promise<Player> {
-  const { data, error } = await supabase.rpc('register_player', { p_username: username });
+export async function registerPlayer(username: string, password: string, avatar: string): Promise<Player> {
+  const { data, error } = await supabase.rpc('register_player', {
+    p_username: username,
+    p_password: password,
+    p_avatar: avatar,
+  });
   if (error) throw new Error(error.message);
   if (data?.error) throw new Error(data.message ?? 'Registration failed.');
-  return { id: data.player_id, token: data.token, username: data.username };
+  return { id: data.player_id, token: data.token, username: data.username, avatar: data.avatar };
+}
+
+export async function loginPlayer(username: string, password: string): Promise<Player> {
+  const { data, error } = await supabase.rpc('login_player', {
+    p_username: username,
+    p_password: password,
+  });
+  if (error) throw new Error(error.message);
+  if (data?.error) throw new Error(data.message ?? 'Login failed.');
+  return { id: data.player_id, token: data.token, username: data.username, avatar: data.avatar };
+}
+
+export async function checkDayCode(day: number, code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('check_day_code', { p_day: day, p_code: code });
+  if (error) throw new Error(error.message);
+  return data?.ok === true;
 }
 
 export async function submitFlag(
@@ -150,4 +170,14 @@ export async function adminSetFreeze(secret: string, minutes: number) {
   });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string; freeze_minutes?: number };
+}
+
+export async function adminSetDayCode(secret: string, day: number, code: string) {
+  const { data, error } = await supabase.rpc('admin_set_day_code', {
+    p_secret: secret,
+    p_day: day,
+    p_code: code,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean };
 }

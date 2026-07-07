@@ -54,6 +54,7 @@ export default function Leaderboard({
                   <span
                     className={`flex-1 truncate font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
                   >
+                    <span className="mr-1.5">{r.avatar ?? '🕵️'}</span>
                     {r.username}
                     {me && (
                       <span className="ml-2 text-[10px] uppercase tracking-widest text-terminal-dim">

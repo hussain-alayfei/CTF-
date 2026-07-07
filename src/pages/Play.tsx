@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState, isFrozen } from '../lib/time';
+import { checkDayCode } from '../lib/api';
+import { clearPlayer } from '../lib/session';
 import type { Challenge, Day, Difficulty } from '../lib/types';
 import Register from '../components/Register';
 import Timer from '../components/Timer';
@@ -11,6 +13,7 @@ import ChallengeCard from '../components/ChallengeCard';
 import ChallengeModal from '../components/ChallengeModal';
 import Toasts from '../components/Toasts';
 import Podium from '../components/Podium';
+import ProfileModal from '../components/ProfileModal';
 
 const order: Difficulty[] = ['easy', 'medium', 'hard'];
 const sectionTitle: Record<Difficulty, string> = {
@@ -19,13 +22,32 @@ const sectionTitle: Record<Difficulty, string> = {
   hard: '🔴 Very Hard',
 };
 
+const UNLOCKED_DAYS_KEY = 'kgsp_ctf_unlocked_days';
+
+function loadUnlockedDays(): Set<number> {
+  try {
+    const raw = localStorage.getItem(UNLOCKED_DAYS_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+}
+function saveUnlockedDays(s: Set<number>) {
+  localStorage.setItem(UNLOCKED_DAYS_KEY, JSON.stringify([...s]));
+}
+
 export default function Play() {
-  const { player, muted, toggleMute, theme, toggleTheme } = useApp();
+  const { player, setPlayer, muted, toggleMute, theme, toggleTheme } = useApp();
   const game = useGame(player);
   const [openId, setOpenId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const [showPodium, setShowPodium] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const podiumShown = useRef(false);
+
+  // Per-day code gate (client-side unlock cache)
+  const [unlockedDays, setUnlockedDays] = useState<Set<number>>(loadUnlockedDays);
+  const [codeInputs, setCodeInputs] = useState<Record<number, string>>({});
+  const [codeErrors, setCodeErrors] = useState<Record<number, string>>({});
+  const [codeBusy, setCodeBusy] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -35,7 +57,6 @@ export default function Play() {
   const eventState = getEventState(game.event, now);
   const frozen = isFrozen(game.event, now);
 
-  // Auto-launch the Kahoot-style finale once, when the clock hits zero.
   useEffect(() => {
     if (
       eventState.status === 'ended' &&
@@ -57,13 +78,91 @@ export default function Play() {
     return map;
   }, [game.challenges]);
 
-  const openDays = game.days.filter((d) => d.is_open);
-  const lockedDays = game.days.filter((d) => !d.is_open);
+  // Day categories
+  const sortedDays = [...game.days].sort((a, b) => a.sort_order - b.sort_order);
+  const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
+  const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
+  const lockedDays = sortedDays.filter((d) => !d.is_open);
+  const bonusDays = activeDays.filter((d) => d.event_label?.toLowerCase() === 'bonus');
+  const regularDays = activeDays.filter((d) => d.event_label?.toLowerCase() !== 'bonus');
+
   const open = game.challenges.find((c) => c.id === openId) ?? null;
   const totalPossible = game.challenges.reduce((s, c) => s + c.points, 0);
 
+  function handleLogout() {
+    clearPlayer();
+    setPlayer(null);
+    setShowProfile(false);
+  }
+
+  async function submitDayCode(day: number) {
+    const code = (codeInputs[day] ?? '').trim();
+    if (!code) return;
+    setCodeBusy((p) => ({ ...p, [day]: true }));
+    setCodeErrors((p) => ({ ...p, [day]: '' }));
+    try {
+      const ok = await checkDayCode(day, code);
+      if (ok) {
+        const next = new Set(unlockedDays);
+        next.add(day);
+        setUnlockedDays(next);
+        saveUnlockedDays(next);
+      } else {
+        setCodeErrors((p) => ({ ...p, [day]: 'Wrong code — ask your instructor.' }));
+      }
+    } catch {
+      setCodeErrors((p) => ({ ...p, [day]: 'Could not verify code.' }));
+    } finally {
+      setCodeBusy((p) => ({ ...p, [day]: false }));
+    }
+  }
+
+  function isDayAccessible(d: Day): boolean {
+    if (!d.requires_code) return true;
+    return unlockedDays.has(d.day);
+  }
+
   function renderDay(d: Day) {
     const list = (challengesByDay.get(d.day) ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+
+    // Code gate
+    if (d.requires_code && !isDayAccessible(d)) {
+      return (
+        <div key={d.day} className="mb-10">
+          <div className="mb-3 flex items-center justify-between gap-3 border-b border-terminal-border pb-2">
+            <h2 className="text-lg font-extrabold text-terminal-green">{d.title}</h2>
+            <span className="rounded border border-terminal-amber/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
+              🔐 code required
+            </span>
+          </div>
+          {d.subtitle && <p className="mb-3 text-xs text-terminal-dim">{d.subtitle}</p>}
+          <div className="rounded-xl border border-dashed border-terminal-amber/50 bg-terminal-amber/5 p-5 text-center">
+            <div className="text-2xl">🔐</div>
+            <p className="mt-2 text-sm text-terminal-amber">Enter the access code to unlock this day.</p>
+            <div className="mx-auto mt-3 flex max-w-xs gap-2">
+              <input
+                value={codeInputs[d.day] ?? ''}
+                onChange={(e) => setCodeInputs((p) => ({ ...p, [d.day]: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && submitDayCode(d.day)}
+                placeholder="ACCESS-CODE"
+                className="flex-1 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-sm text-terminal-green caret-terminal-green outline-none focus:border-terminal-green"
+              />
+              <button
+                onClick={() => submitDayCode(d.day)}
+                disabled={codeBusy[d.day]}
+                className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+              >
+                {codeBusy[d.day] ? '…' : 'Unlock'}
+              </button>
+            </div>
+            {codeErrors[d.day] && (
+              <p className="mt-2 text-xs text-terminal-red">{codeErrors[d.day]}</p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={d.day} className="mb-10">
         <div className="mb-3 flex items-center justify-between gap-3 border-b border-terminal-border pb-2">
@@ -106,6 +205,22 @@ export default function Play() {
     );
   }
 
+  function renderRestDay(d: Day) {
+    return (
+      <div
+        key={d.day}
+        className="mb-6 rounded-xl border border-terminal-border bg-terminal-panel/50 p-5 text-center"
+      >
+        <div className="text-3xl">😴</div>
+        <h2 className="mt-2 text-lg font-bold text-terminal-dim">{d.title}</h2>
+        <p className="text-sm text-terminal-dim">{d.subtitle ?? 'Rest day — no challenges today.'}</p>
+        <span className="mt-2 inline-block rounded border border-terminal-dim/40 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-terminal-dim">
+          Rest Day
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full">
       <Toasts announcements={game.announcements} />
@@ -126,14 +241,20 @@ export default function Play() {
 
           <div className="flex items-center gap-2">
             {player && (
-              <div className="rounded-lg border border-terminal-border bg-terminal-input/60 px-3 py-1.5 text-right">
-                <div className="max-w-[9rem] truncate text-sm font-bold text-terminal-green">
-                  {player.username}
+              <button
+                onClick={() => setShowProfile(true)}
+                className="group flex items-center gap-2 rounded-lg border border-terminal-border bg-terminal-input/60 px-3 py-1.5 transition hover:border-terminal-green hover:shadow-neon"
+              >
+                <span className="text-lg">{player.avatar}</span>
+                <div className="text-right">
+                  <div className="max-w-[9rem] truncate text-sm font-bold text-terminal-green group-hover:underline">
+                    {player.username}
+                  </div>
+                  <div className="text-[11px] text-terminal-dim">
+                    <span className="text-terminal-amber">{game.myPoints}</span> / {totalPossible} pts
+                  </div>
                 </div>
-                <div className="text-[11px] text-terminal-dim">
-                  <span className="text-terminal-amber">{game.myPoints}</span> / {totalPossible} pts
-                </div>
-              </div>
+              </button>
             )}
             <button
               onClick={toggleTheme}
@@ -170,23 +291,41 @@ export default function Play() {
             <p className="py-20 text-center text-terminal-dim">Loading challenges…</p>
           ) : (
             <>
-              {openDays.map(renderDay)}
+              {/* Rest days */}
+              {restDays.map(renderRestDay)}
 
+              {/* Active regular days */}
+              {regularDays.map(renderDay)}
+
+              {/* Locked days */}
               {lockedDays.map((d) => (
                 <div
                   key={d.day}
                   className="mb-6 rounded-xl border border-dashed border-terminal-border bg-terminal-panel/50 p-6 text-center"
                 >
-                  <div className="text-3xl">🔒</div>
+                  <div className="text-3xl">{d.is_rest ? '😴' : '🔒'}</div>
                   <h2 className="mt-2 text-lg font-bold text-terminal-dim">{d.title}</h2>
                   <p className="text-sm text-terminal-dim">
-                    {d.subtitle ?? 'Locked — coming soon.'}
+                    {d.subtitle ?? (d.is_rest ? 'Rest day — not open yet.' : 'Locked — coming soon.')}
                   </p>
                   <span className="mt-3 inline-block rounded border border-terminal-amber/40 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-terminal-amber">
                     ⏳ Wait — unlocks later
                   </span>
                 </div>
               ))}
+
+              {/* Bonus section */}
+              {bonusDays.length > 0 && (
+                <div className="mt-4 rounded-xl border border-dashed border-terminal-green/30 bg-terminal-green/5 p-5">
+                  <h2 className="mb-4 text-center text-lg font-extrabold text-terminal-green">
+                    🎁 Bonus Challenges
+                  </h2>
+                  <p className="mb-5 text-center text-xs text-terminal-dim">
+                    Extra challenges for those who want more practice — not part of the main track.
+                  </p>
+                  {bonusDays.map(renderDay)}
+                </div>
+              )}
             </>
           )}
 
@@ -214,6 +353,19 @@ export default function Play() {
           eventStatus={eventState.status}
           onClose={() => setOpenId(null)}
           onSolved={() => void game.refreshBoard()}
+        />
+      )}
+
+      {/* Profile modal */}
+      {showProfile && player && (
+        <ProfileModal
+          player={player}
+          leaderboard={game.leaderboard}
+          solves={game.solves}
+          challenges={game.challenges}
+          myPoints={game.myPoints}
+          onClose={() => setShowProfile(false)}
+          onLogout={handleLogout}
         />
       )}
 

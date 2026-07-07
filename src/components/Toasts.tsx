@@ -44,6 +44,7 @@ export default function Toasts({ announcements }: { announcements: Announcement[
                 First Blood!
               </div>
               <div className="text-sm text-terminal-green">
+                <span className="mr-1">{t.avatar}</span>
                 <strong className="text-terminal-strong">{t.username}</strong> owned{' '}
                 <strong className="text-terminal-strong">{t.challengeTitle}</strong> (+{t.points})
               </div>
@@ -54,6 +55,7 @@ export default function Toasts({ announcements }: { announcements: Announcement[
             key={t.key}
             className="animate-slide-down rounded-lg border border-terminal-green/40 bg-terminal-panel/90 px-4 py-2 text-sm text-terminal-green backdrop-blur"
           >
+            <span className="mr-1">{t.avatar}</span>
             <strong className="text-terminal-strong">{t.username}</strong> solved{' '}
             <strong className="text-terminal-green">{t.challengeTitle}</strong> (+{t.points})
           </div>

@@ -4,13 +4,15 @@ import {
   adminOverview,
   adminReset,
   adminSetDay,
+  adminSetDayCode,
   adminSetFreeze,
   adminStartEvent,
   adminStopEvent,
 } from '../lib/api';
 import { getEventState } from '../lib/time';
-import type { AdminChallenge, AdminOverview } from '../lib/types';
+import type { AdminChallenge, AdminDay, AdminOverview } from '../lib/types';
 import { useApp } from '../lib/app-context';
+import Prompt from '../components/Prompt';
 
 const diffColor: Record<string, string> = {
   easy: 'text-terminal-green',
@@ -248,40 +250,56 @@ export default function AdminPanel() {
       {/* Days */}
       <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
         <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Days</h2>
-        <div className="space-y-2">
-          {days.map((d) => (
+        <div className="space-y-3">
+          {days.map((d: AdminDay) => (
             <div
               key={d.day}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
+              className="rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
             >
-              <div>
-                <div className="font-bold text-terminal-green">{d.title}</div>
-                {d.subtitle && <div className="text-xs text-terminal-dim">{d.subtitle}</div>}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  {d.is_rest && <span title="Rest day">😴</span>}
+                  <div>
+                    <div className="font-bold text-terminal-green">{d.title}</div>
+                    {d.subtitle && <div className="text-xs text-terminal-dim">{d.subtitle}</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {d.requires_code && (
+                    <span className="rounded border border-terminal-amber/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
+                      🔐 code
+                    </span>
+                  )}
+                  <span
+                    className={`text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
+                  >
+                    {d.is_open ? '● Open' : '○ Locked'}
+                  </span>
+                  <button
+                    disabled={busy}
+                    onClick={() => run(() => adminSetDay(secret, d.day, !d.is_open))}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
+                      d.is_open
+                        ? 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber hover:bg-terminal-amber/20'
+                        : 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
+                    }`}
+                  >
+                    {d.is_open ? 'Lock' : 'Unlock'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
-                >
-                  {d.is_open ? '● Open' : '○ Locked'}
-                </span>
-                <button
-                  disabled={busy}
-                  onClick={() => run(() => adminSetDay(secret, d.day, !d.is_open))}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
-                    d.is_open
-                      ? 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber hover:bg-terminal-amber/20'
-                      : 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
-                  }`}
-                >
-                  {d.is_open ? 'Lock' : 'Unlock'}
-                </button>
-              </div>
+              {/* Day access code editor */}
+              <DayCodeEditor
+                currentCode={d.code ?? ''}
+                busy={busy}
+                onSave={(code) => run(() => adminSetDayCode(secret, d.day, code))}
+              />
             </div>
           ))}
         </div>
       </section>
 
-      {/* Challenges (with flags) */}
+      {/* Challenges (with flags + preview) */}
       <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
@@ -294,45 +312,14 @@ export default function AdminPanel() {
             {showFlags ? '🙈 Hide flags' : '👁 Reveal flags'}
           </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-widest text-terminal-dim">
-                <th className="px-2 py-2">Day</th>
-                <th className="px-2 py-2">Challenge</th>
-                <th className="px-2 py-2">Diff</th>
-                <th className="px-2 py-2">Pts</th>
-                <th className="px-2 py-2">Flag</th>
-                <th className="px-2 py-2">Solves</th>
-                <th className="px-2 py-2">First blood</th>
-              </tr>
-            </thead>
-            <tbody>
-              {challenges.map((c: AdminChallenge) => (
-                <tr key={c.id} className="border-t border-terminal-border/60">
-                  <td className="px-2 py-2 text-terminal-dim">{c.day}</td>
-                  <td className="px-2 py-2 font-semibold text-terminal-green">{c.title}</td>
-                  <td className={`px-2 py-2 text-xs font-bold uppercase ${diffColor[c.difficulty]}`}>
-                    {c.difficulty}
-                  </td>
-                  <td className="px-2 py-2 tabular-nums text-terminal-amber">{c.points}</td>
-                  <td className="px-2 py-2">
-                    <code className="rounded bg-terminal-input px-2 py-0.5 text-xs text-terminal-green">
-                      {showFlags ? c.flag : '••••••••'}
-                    </code>
-                  </td>
-                  <td className="px-2 py-2 tabular-nums text-terminal-dim">{c.solves_count}</td>
-                  <td className="px-2 py-2 text-xs text-terminal-red">
-                    {c.first_blood_by ? `🩸 ${c.first_blood_by}` : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {challenges.map((c: AdminChallenge) => (
+            <ChallengeAdminCard key={c.id} c={c} showFlags={showFlags} />
+          ))}
         </div>
-        <p className="mt-3 text-[11px] text-terminal-dim">
-          Tip: to add challenges to Day 2+, ask your setup assistant, or add rows in the Supabase
-          tables and set their <code className="text-terminal-green">day</code>.
+        <p className="mt-4 text-[11px] text-terminal-dim">
+          Tip: to add challenges to any day, insert rows in the Supabase <code className="text-terminal-green">challenges</code> table and
+          set their <code className="text-terminal-green">day</code> number.
         </p>
       </section>
 
@@ -364,6 +351,127 @@ function Tile({
     <div className="rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-center">
       <div className="text-[10px] uppercase tracking-widest text-terminal-dim">{label}</div>
       <div className={`mt-1 text-lg font-extrabold ${valueClass}`}>{value}</div>
+    </div>
+  );
+}
+
+function DayCodeEditor({
+  currentCode,
+  busy,
+  onSave,
+}: {
+  currentCode: string;
+  busy: boolean;
+  onSave: (code: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [code, setCode] = useState(currentCode);
+
+  if (!editing) {
+    return (
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-[11px] text-terminal-dim">
+          Access code: {currentCode ? <code className="text-terminal-amber">{currentCode}</code> : <span className="italic">none (open)</span>}
+        </span>
+        <button
+          onClick={() => { setCode(currentCode); setEditing(true); }}
+          className="text-[11px] text-terminal-cyan underline decoration-dotted hover:text-terminal-green"
+        >
+          edit
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <input
+        value={code}
+        onChange={(e) => setCode(e.target.value)}
+        placeholder="Leave empty to remove code"
+        className="flex-1 rounded border border-terminal-border bg-terminal-input px-2 py-1 text-xs text-terminal-green outline-none focus:border-terminal-green"
+      />
+      <button
+        disabled={busy}
+        onClick={() => { onSave(code); setEditing(false); }}
+        className="rounded border border-terminal-green/60 bg-terminal-green/10 px-2 py-1 text-[11px] font-bold text-terminal-green hover:bg-terminal-green/20"
+      >
+        Save
+      </button>
+      <button
+        onClick={() => setEditing(false)}
+        className="rounded border border-terminal-border px-2 py-1 text-[11px] text-terminal-dim hover:text-terminal-red"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+}
+
+function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-terminal-border bg-terminal-input/40">
+      <button
+        onClick={() => setExpanded((e) => !e)}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-terminal-green/5"
+      >
+        <span className="w-8 text-center text-xs tabular-nums text-terminal-dim">D{c.day}</span>
+        <span className="flex-1 font-semibold text-terminal-green">{c.title}</span>
+        <span className={`text-xs font-bold uppercase ${diffColor[c.difficulty]}`}>{c.difficulty}</span>
+        <span className="w-12 text-right tabular-nums text-terminal-amber">{c.points}</span>
+        <span className="w-12 text-right text-xs tabular-nums text-terminal-dim">{c.solves_count} ★</span>
+        <span className="text-xs text-terminal-red">
+          {c.first_blood_by ? `🩸 ${c.first_blood_by}` : '—'}
+        </span>
+        <span className="text-terminal-dim">{expanded ? '▴' : '▾'}</span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-terminal-border/60 px-4 py-3 space-y-3">
+          {/* Prompt preview */}
+          <div>
+            <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Prompt preview</h4>
+            <div className="rounded border border-terminal-border bg-terminal-bg p-3">
+              <Prompt text={c.prompt ?? ''} className="text-sm text-terminal-green/90" />
+            </div>
+          </div>
+
+          {/* Flag */}
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Flag:</span>
+            <code className="rounded bg-terminal-input px-2 py-0.5 text-xs text-terminal-green">
+              {showFlags ? c.flag : '••••••••'}
+            </code>
+          </div>
+
+          {/* Hints */}
+          {c.hints && c.hints.length > 0 && (
+            <div>
+              <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Hints</h4>
+              <ul className="space-y-1">
+                {c.hints.map((h) => (
+                  <li key={h.n} className="rounded border border-terminal-amber/20 bg-terminal-amber/5 px-3 py-1.5 text-xs">
+                    <span className="font-bold text-terminal-amber">#{h.n} (−{h.penalty}pts):</span>{' '}
+                    <span className="text-terminal-green/80">{h.body}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Links */}
+          <div className="flex gap-3 text-xs">
+            {c.asset_url && (
+              <span className="text-terminal-cyan">📎 {c.asset_url}</span>
+            )}
+            {c.action_url && (
+              <span className="text-terminal-cyan">🔗 {c.action_url}</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

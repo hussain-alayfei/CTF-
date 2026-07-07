@@ -22,12 +22,15 @@ export interface Day {
   is_open: boolean;
   event_label: string | null;
   sort_order: number;
+  is_rest: boolean;
+  requires_code: boolean;
 }
 
 export interface Player {
   id: string;
   username: string;
   token: string;
+  avatar: string;
 }
 
 export interface Solve {
@@ -42,6 +45,7 @@ export interface Solve {
 export interface LeaderboardRow {
   player_id: string;
   username: string;
+  avatar: string;
   total_points: number;
   solves_count: number;
   last_solve_at: string | null;
@@ -84,10 +88,17 @@ export interface AdminChallenge {
   first_blood_bonus: number;
   sort_order: number;
   num_hints: number;
+  prompt: string;
+  asset_url: string | null;
+  action_url: string | null;
   flag: string;
   solves_count: number;
   first_blood_by: string | null;
   hints: { n: number; body: string; penalty: number }[];
+}
+
+export interface AdminDay extends Day {
+  code?: string | null;
 }
 
 export interface AdminOverview {
@@ -97,6 +108,6 @@ export interface AdminOverview {
   event?: EventConfig;
   players_count?: number;
   total_solves?: number;
-  days?: Day[];
+  days?: AdminDay[];
   challenges?: AdminChallenge[];
 }

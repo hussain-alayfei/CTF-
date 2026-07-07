@@ -13,6 +13,7 @@ export interface Announcement {
   id: string;
   type: 'first_blood' | 'solve';
   username: string;
+  avatar: string;
   challengeTitle: string;
   points: number;
 }
@@ -84,7 +85,7 @@ export function useGame(player: Player | null) {
           const ch = challengesRef.current.find((c) => c.id === s.challenge_id);
           const { data } = await supabase
             .from('players')
-            .select('username')
+            .select('username, avatar')
             .eq('id', s.player_id)
             .maybeSingle();
           setAnnouncements((prev) =>
@@ -94,6 +95,7 @@ export function useGame(player: Player | null) {
                 id: s.id,
                 type: s.is_first_blood ? 'first_blood' : 'solve',
                 username: data?.username ?? 'Someone',
+                avatar: data?.avatar ?? '🕵️',
                 challengeTitle: ch?.title ?? s.challenge_id,
                 points: s.points_awarded,
               } as Announcement,

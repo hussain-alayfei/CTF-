@@ -68,6 +68,7 @@ export default function Podium({
         {shown && (
           <div className="mb-2 animate-rise text-center">
             <div className="text-3xl">{medals[place]}</div>
+            <div className="text-2xl">{row.avatar ?? '🕵️'}</div>
             <div className="max-w-[8rem] truncate text-sm font-bold text-terminal-green">
               {row.username}
               {row.player_id === meId && (

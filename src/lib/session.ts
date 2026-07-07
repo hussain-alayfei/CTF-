@@ -7,7 +7,10 @@ export function loadPlayer(): Player | null {
     const raw = localStorage.getItem(KEY);
     if (!raw) return null;
     const p = JSON.parse(raw) as Player;
-    if (p && p.id && p.token && p.username) return p;
+    if (p && p.id && p.token && p.username) {
+      if (!p.avatar) p.avatar = '🕵️';
+      return p;
+    }
     return null;
   } catch {
     return null;
