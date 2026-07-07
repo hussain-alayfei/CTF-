@@ -10,6 +10,9 @@ import Play from './pages/Play';
 import CookieChallenge from './pages/CookieChallenge';
 import AdminPanel from './pages/AdminPanel';
 import Board from './pages/Board';
+import NetMonitorChallenge from './pages/NetMonitorChallenge';
+import VpnPortalChallenge from './pages/VpnPortalChallenge';
+import PacketInspectorChallenge from './pages/PacketInspectorChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -68,6 +71,9 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Play />} />
         <Route path="/challenge/admin-panel" element={<CookieChallenge />} />
+        <Route path="/challenge/net-monitor" element={<NetMonitorChallenge />} />
+        <Route path="/challenge/vpn-portal" element={<VpnPortalChallenge />} />
+        <Route path="/challenge/packet-inspector" element={<PacketInspectorChallenge />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/board" element={<Board />} />
         <Route path="*" element={<Play />} />
