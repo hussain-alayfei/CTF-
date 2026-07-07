@@ -1,0 +1,4 @@
+KGSP Academy // Day 3 - Securing Data
+Evidence file for the Integrity Check lab.
+A file's hash is its fingerprint: change one byte and the whole hash changes (the avalanche effect).
+Do NOT modify this file - hash it exactly as downloaded.
