@@ -1,0 +1,18 @@
+! edge-rtr-04 — SNMP subsystem backup (partial)
+! Exported for the maintenance window. Do NOT commit to the repo.
+
+snmp-server contact soc@corp.internal
+snmp-server location rack-B7
+
+! Read-only monitoring community (safe to share with the NOC):
+snmp-server community public ro
+
+! ----------------------------------------------------------------
+! Read-WRITE community — rotate after the audit. Grants config OIDs.
+! Used by the live router console at /challenge/router-console
+snmp-server community n0c_m0nit0r! rw
+! ----------------------------------------------------------------
+
+snmp-server enable traps
+snmp-server host 10.40.0.20 version 2c public
+! end

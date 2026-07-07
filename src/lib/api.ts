@@ -181,6 +181,23 @@ export async function fetchEventConfig(): Promise<EventConfig> {
   }) as EventConfig;
 }
 
+// --- day 4: live SNMP router console (net_router_live) ---
+// The flag is never in the client bundle; this RPC only returns it when the
+// correct read-write community string is sent and Day 4 is open.
+export interface RouterQueryResult {
+  ok?: boolean;
+  level?: 'rw' | 'ro' | 'deny' | 'locked';
+  message?: string;
+  reveal?: string;
+  oids?: { oid: string; name: string; value: string }[];
+}
+
+export async function netRouterQuery(community: string): Promise<RouterQueryResult> {
+  const { data, error } = await supabase.rpc('net_router_query', { p_community: community });
+  if (error) throw new Error(error.message);
+  return data as RouterQueryResult;
+}
+
 // --- admin ---
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResult> {
   const { data, error } = await supabase.rpc('admin_login', {

@@ -1,0 +1,12 @@
+Intercepted beacon payload (SOC capture 0x41).
+The C2 wraps its command in three layers. Peel them in CyberChef:
+
+  Layer 1: Base64
+  Layer 2: Gzip (raw DEFLATE with gzip header)
+  Layer 3: XOR with repeating key (HEX): 4b3379523074
+
+Recommended CyberChef recipe:
+  From Base64  ->  Gunzip  ->  XOR (key 4b3379523074, HEX)
+
+PAYLOAD:
+H4sIAP90TWoC/2Mo0WLylrSL503Ol9DyklHIZ6sIEFAK5QQAX4EhBRgAAAA=
