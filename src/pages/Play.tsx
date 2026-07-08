@@ -169,8 +169,12 @@ export default function Play() {
     return game.days.filter((d) => withScore.has(d.day));
   }, [game.challenges, game.solves, game.days, game.event?.active_day]);
 
-  // Day categories
+  // Which day is the live competition?
+  const activeDay = game.event?.active_day ?? null;
   const sortedDays = [...game.days].sort((a, b) => a.sort_order - b.sort_order);
+  const activeDayObj = sortedDays.find((d) => d.day === activeDay) ?? null;
+
+  // Day categories
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
   const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
   // Locked days: split into "finished" (before active in sort order) and truly future
@@ -224,9 +228,7 @@ export default function Play() {
     return unlockedDays.has(d.day);
   }
 
-  // Which day is the live competition, and has this player legally entered it?
-  const activeDay = game.event?.active_day ?? null;
-  const activeDayObj = sortedDays.find((d) => d.day === activeDay) ?? null;
+  // Has this player legally entered the live day?
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
   function renderChallengeGrid(list: Challenge[], isDone = false) {
