@@ -1,22 +1,31 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useApp } from '../lib/app-context';
+import { verifyChallengeAnswer } from '../lib/api';
+import { playClick, playCorrect, playWrong, unlockAudio } from '../lib/sounds';
 
-const FLAG = 'KGSP{c00kies_can_be_edited}';
-
+// "Trust No Cookie" — now per-player. There is NO flag string in this file
+// anymore (it used to be hardcoded, so anyone reading the JS bundle had it for
+// free). The lesson is unchanged — the page trusts a client-side cookie for
+// auth — but once the visitor has forged the `role=admin` cookie, the flag is
+// minted server-side by verify_challenge_answer and is unique to them.
 function getCookie(name: string): string | null {
   const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
   return match ? decodeURIComponent(match[1]) : null;
 }
 
 export default function CookieChallenge() {
+  const { player } = useApp();
   const [role, setRole] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [claim, setClaim] = useState<{ ok: boolean; message: string; flag?: string } | null>(null);
 
   function refresh() {
     setRole(getCookie('role'));
+    setClaim(null);
   }
 
   useEffect(() => {
-    // Give every visitor a normal "guest" cookie to discover and tamper with.
     if (!getCookie('role')) {
       document.cookie = 'role=guest; path=/; SameSite=Lax';
     }
@@ -24,6 +33,26 @@ export default function CookieChallenge() {
   }, []);
 
   const isAdmin = role === 'admin';
+
+  async function claimFlag() {
+    if (!player || busy) return;
+    unlockAudio();
+    playClick();
+    setBusy(true);
+    try {
+      // Submit whatever role the browser cookie currently claims — the whole
+      // point is that the server was never the one deciding it.
+      const r = await verifyChallengeAnswer(player, 'cookie', role ?? '');
+      setClaim({ ok: !!r.ok, message: r.message ?? '', flag: r.flag });
+      if (r.ok) playCorrect();
+      else playWrong();
+    } catch {
+      setClaim({ ok: false, message: 'Could not reach the server — try again.' });
+      playWrong();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -50,17 +79,37 @@ export default function CookieChallenge() {
         </div>
 
         {isAdmin ? (
-          <div className="mt-6 animate-pop rounded-lg border border-terminal-green/60 bg-terminal-green/10 p-6 text-center shadow-neon">
+          <div className="mt-6 rounded-lg border border-terminal-green/60 bg-terminal-green/10 p-6 text-center shadow-neon">
             <div className="text-sm uppercase tracking-widest text-terminal-dim">Access granted</div>
-            <div className="mt-2 text-lg text-terminal-green">
-              Welcome, administrator. Here is the flag:
-            </div>
-            <code className="mt-3 inline-block select-all rounded bg-terminal-input px-4 py-2 text-lg font-bold text-terminal-green">
-              {FLAG}
-            </code>
-            <p className="mt-3 text-xs text-terminal-dim">
-              Copy it and submit it back in the arena to score the points.
+            <p className="mt-2 text-terminal-green">
+              The page believed your cookie. Claim your personal flag from the server:
             </p>
+            {!player && (
+              <p className="mt-3 text-sm text-terminal-amber">
+                Log in from the arena first, then come back and re-check.
+              </p>
+            )}
+            {player && !claim?.ok && (
+              <button
+                onClick={claimFlag}
+                disabled={busy}
+                className="mt-4 rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+              >
+                {busy ? '…' : 'Claim flag ▸'}
+              </button>
+            )}
+            {claim?.ok && claim.flag && (
+              <div className="mt-4 animate-pop">
+                <div className="text-terminal-green">This flag is personal to your account:</div>
+                <code className="mt-3 inline-block select-all rounded bg-terminal-input px-4 py-2 text-lg font-bold text-terminal-green">
+                  {claim.flag}
+                </code>
+                <p className="mt-3 text-xs text-terminal-dim">Paste it into the arena flag box to score.</p>
+              </div>
+            )}
+            {claim && !claim.ok && (
+              <p className="mt-3 text-sm text-terminal-red">{claim.message}</p>
+            )}
           </div>
         ) : (
           <div className="mt-6 rounded-lg border border-terminal-red/50 bg-terminal-red/10 p-6 text-center">

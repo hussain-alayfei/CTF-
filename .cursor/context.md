@@ -141,6 +141,21 @@ instead of doing a `challenge_flags` lookup.
   by `scripts/gen-day4-artifacts.py`; always grep the output for the answer
   string and for `KGSP` before shipping (a human running `strings` shouldn't
   solve it for free either).
+- **Day 4 also has 5 `is_extra` bonus challenges, all per-player dynamic:**
+  - **Tool-forced trio** (`net_extra_nmap` "Rogue Port", `net_extra_sniff`
+    "Tapped Wire", `net_extra_dns` "Rogue Resolver") — solved with **nmap /
+    Wireshark / dig** against a live host the instructor runs:
+    `target-box/server.py` (pure-stdlib: TCP banner :8021, plain HTTP :8080,
+    DNS TXT udp/8053; tokens configurable via env). These are the most
+    AI-resistant challenges here — the answer only exists on the instructor's
+    box, unreachable by any chatbot. No downloadable file; reuse the generic
+    `/challenge/verify/:id` page. See `target-box/README.md`.
+  - **`cookie` "Trust No Cookie"** and **`chain` "The Deep Web"** were made
+    per-player dynamic (they used to hardcode the flag in the JS bundle / in
+    `vault.png` respectively). `CookieChallenge.tsx` now mints the flag via
+    `verify_challenge_answer` after the `role=admin` cookie is forged (answer =
+    `admin`); the Deep Web chain's `vault.png` now yields a recovery code, not
+    a `KGSP{}` flag, entered on `/challenge/verify/chain`.
 - Challenges belong to a **day**; each day holds both its core and any `is_extra`
   (bonus) challenges together (there is **no** separate global bonus day).
 - **Difficulty tiers:** `easy` → `medium` → `hard` → `danger` (☠, fuchsia styling,
@@ -253,7 +268,9 @@ src/
                              collapsible headers), music — no password form, no freeze
     Board.tsx               admin-only full-screen projector dashboard at /board,
                              with a "‹ Back to arena" link; always live (no freeze)
-    CookieChallenge.tsx     the cookie-tampering web challenge
+    CookieChallenge.tsx     the cookie-tampering web challenge; per-player now
+                             (mints its flag via verify_challenge_answer, no
+                             hardcoded flag in the bundle)
     RouterConsoleChallenge.tsx  Day 4 SNMP console (bespoke flavor); calls the
                              shared verify_challenge_answer RPC for its personal flag
     AnswerVerifyChallenge.tsx   generic Day 4 page used by 6 of 7 challenges: shows

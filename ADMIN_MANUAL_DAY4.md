@@ -204,11 +204,51 @@ Decrypt `payload.enc.hex` with them (CyberChef *From Hex → AES Decrypt*, or
 
 ---
 
+## Extra challenges (optional bonus)
+
+Day 4 also carries five `is_extra` bonus challenges. All are per-player
+dynamic now (no static flag in the source or in any file).
+
+### Tool-forced extras — need the target box
+
+`Rogue Port` (nmap), `Tapped Wire` (Wireshark), `Rogue Resolver` (dig) are
+solved by running real tools against a live host **you run** during the event:
+`target-box/server.py` (`python3 server.py`, no dependencies). See
+`target-box/README.md` for setup. These are the most AI-resistant challenges in
+the whole event — the answer lives only on your box, so a student can't get it
+from a chatbot; they must run the tool.
+
+| Challenge | Tool | Service on the box | Answer to recover |
+|-----------|------|--------------------|--------------------|
+| Rogue Port | nmap + nc | TCP banner, port 8021 | `r0gue_p0rt_f0und` |
+| Tapped Wire | Wireshark | plain HTTP, port 8080 | `cl34rtext_sn1ff3d` |
+| Rogue Resolver | dig / nslookup | DNS TXT, udp/8053 | `dns_txt_l00kup` |
+
+Students submit the recovered code on `/challenge/verify/<id>`, which mints
+their personal flag. **Checklist before the round:** run the box, share its IP,
+open TCP 8021/8080 + UDP 8053 through your firewall, and test with
+`nmap <box-ip>` from another machine. Rotate answers via env vars (see the box
+README) — if you do, update `challenge_answer_keys` to match.
+
+### Web extras — now per-player
+
+- **Trust No Cookie** (`/challenge/admin-panel`): forge `role=admin` in your
+  browser, then the page mints your personal flag from the server. The flag is
+  no longer hardcoded in the JavaScript. Answer key: role = `admin`.
+- **The Deep Web** (chain): `robots.txt` → base64 breadcrumb →
+  `/s3cr3t-vault.html` → `strings vault.png`. The image now yields a
+  **recovery code** (`d33p_w3b_tr4v3ler`), not a flag; the student enters it on
+  `/challenge/verify/chain` for their personal flag. (Residual note: the chain
+  is public static content, so an AI that can browse the URL can still follow
+  it — the per-player change stops flag-sharing and source-reading, not a
+  browsing agent. Truly closing that needs server-gated steps.)
+
 ## Interactive / live routes
 
 | Challenge | Route |
 |-----------|-------|
 | The Chatty Router | `/challenge/router-console` (bespoke page) |
+| Trust No Cookie | `/challenge/admin-panel` (bespoke page) |
 | Everything else with a live component | `/challenge/verify/<challenge_id>` (generic page) |
 
 ---
