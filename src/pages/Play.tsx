@@ -8,7 +8,7 @@ import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
 import type { Challenge, Day, Difficulty } from '../lib/types';
 import Register from '../components/Register';
-import Timer from '../components/Timer';
+import Timer, { ArenaTimerBanner } from '../components/Timer';
 import Leaderboard from '../components/Leaderboard';
 import ChallengeCard from '../components/ChallengeCard';
 import ChallengeModal from '../components/ChallengeModal';
@@ -173,7 +173,16 @@ export default function Play() {
   const sortedDays = [...game.days].sort((a, b) => a.sort_order - b.sort_order);
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
   const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
-  const lockedDays = sortedDays.filter((d) => !d.is_open);
+  // Locked days: split into "finished" (before active in sort order) and truly future
+  const finishedLockedDays = sortedDays.filter(
+    (d) => !d.is_open && !d.is_rest && activeDayObj != null && d.sort_order < activeDayObj.sort_order,
+  );
+  const futureDays = sortedDays.filter(
+    (d) =>
+      !d.is_open &&
+      !d.is_rest &&
+      (activeDayObj == null || d.sort_order >= activeDayObj.sort_order),
+  );
 
   const open = game.challenges.find((c) => c.id === openId) ?? null;
   const totalPossible = game.challenges.reduce((s, c) => s + c.points, 0);
@@ -220,7 +229,7 @@ export default function Play() {
   const activeDayObj = sortedDays.find((d) => d.day === activeDay) ?? null;
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
-  function renderChallengeGrid(list: Challenge[]) {
+  function renderChallengeGrid(list: Challenge[], isDone = false) {
     return order.map((diff) => {
       const group = list.filter((c) => c.difficulty === diff);
       if (group.length === 0) return null;
@@ -237,6 +246,7 @@ export default function Play() {
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
                 onOpen={() => setOpenId(c.id)}
+                done={isDone}
               />
             ))}
           </div>
@@ -245,10 +255,17 @@ export default function Play() {
     });
   }
 
-  function renderDay(d: Day) {
+  function renderDay(d: Day, forceFinished = false) {
     const list = (challengesByDay.get(d.day) ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
     const mainList = list.filter((c) => !c.is_extra);
     const extraList = list.filter((c) => c.is_extra);
+
+    const isPast = activeDayObj != null && d.sort_order < activeDayObj.sort_order;
+    const isLive = d.day === activeDay;
+    // Show challenges as "done" (dimmed + strikethrough) for:
+    //  - days before the active day in sort order
+    //  - the active/live day when the event has ended
+    const isDone = forceFinished || isPast || (isLive && eventState.status === 'ended');
 
     // Code gate
     if (d.requires_code && !isDayAccessible(d)) {
@@ -289,8 +306,6 @@ export default function Play() {
     }
 
     const collapsed = collapsedDays.has(d.day);
-    const isLive = d.day === activeDay;
-    const isPast = activeDayObj != null && d.sort_order < activeDayObj.sort_order;
     return (
       <div key={d.day} className="mb-10">
         <button
@@ -305,11 +320,11 @@ export default function Play() {
             <span className="text-[11px] text-terminal-dim">
               {list.length} challenge{list.length === 1 ? '' : 's'}
             </span>
-            {isLive ? (
+            {isLive && eventState.status === 'running' ? (
               <span className="rounded border border-terminal-green/50 bg-terminal-green/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
                 ● Live · scoring
               </span>
-            ) : isPast ? (
+            ) : isDone ? (
               <span className="rounded border border-terminal-dim/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
                 ✓ Finished · practice
               </span>
@@ -323,19 +338,19 @@ export default function Play() {
 
         {!collapsed && (
           <>
-            {isPast && (
+            {isDone && (
               <p className="mb-4 rounded-lg border border-terminal-dim/30 bg-terminal-input/40 px-3 py-2 text-xs text-terminal-dim">
-                ✓ This day is finished. You can still open and solve these for practice, but they
+                ✓ This day is finished. You can still open and solve these for practice — they
                 no longer count toward the live scoreboard.
               </p>
             )}
             {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
 
             {list.length === 0 ? (
-              <p className="text-sm text-terminal-dim">Challenges will appear here.</p>
+              <p className="text-sm text-terminal-dim">Challenges will appear here when this day is opened.</p>
             ) : (
               <>
-                {mainList.length > 0 && renderChallengeGrid(mainList)}
+                {mainList.length > 0 && renderChallengeGrid(mainList, isDone)}
 
                 {extraList.length > 0 && (
                   <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
@@ -347,7 +362,7 @@ export default function Play() {
                         </span>
                       </h3>
                     )}
-                    {renderChallengeGrid(extraList)}
+                    {renderChallengeGrid(extraList, isDone)}
                   </div>
                 )}
               </>
@@ -388,15 +403,17 @@ export default function Play() {
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-terminal-border bg-terminal-bg/95">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex flex-col">
+          {/* Logo — clickable home link */}
+          <Link to="/" className="flex flex-col no-underline">
             <span className="text-xl font-extrabold tracking-tight text-terminal-green drop-shadow-[0_0_8px_rgb(var(--c-green)/0.5)]">
               KGSP<span className="text-terminal-strong">//</span>CTF
             </span>
             <span className="text-[9px] uppercase tracking-[0.25em] text-terminal-dim">
               KUAST Academy
             </span>
-          </div>
+          </Link>
 
+          {/* Sound-only timer — plays tick/time-up sounds, no visual */}
           <Timer event={game.event} />
 
           <div className="flex items-center gap-2">
@@ -450,6 +467,9 @@ export default function Play() {
         </div>
       </header>
 
+      {/* Large prominent timer display */}
+      <ArenaTimerBanner event={game.event} />
+
       {/* Event status banner */}
       {eventState.status === 'idle' && (
         <div className="animate-flicker border-b border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-amber">
@@ -494,11 +514,14 @@ export default function Play() {
               {/* Rest days */}
               {restDays.map(renderRestDay)}
 
-              {/* Active days (labs + bonus live together per day) */}
-              {activeDays.map(renderDay)}
+              {/* Finished locked days — show with strikethrough (before active day) */}
+              {finishedLockedDays.map((d) => renderDay(d, true))}
 
-              {/* Locked days */}
-              {lockedDays.map((d) => (
+              {/* Active / open days */}
+              {activeDays.map((d) => renderDay(d))}
+
+              {/* Future locked days — truly coming soon */}
+              {futureDays.map((d) => (
                 <div
                   key={d.day}
                   className="mb-6 rounded-xl border border-dashed border-terminal-border bg-terminal-panel/50 p-6 text-center"
@@ -526,7 +549,18 @@ export default function Play() {
         </section>
 
         <aside className="lg:sticky lg:top-24 lg:h-fit">
-          {activeDay == null ? (
+          {/* Show an empty leaderboard shell during initial load to avoid flashing
+              LockedBoard → Leaderboard every time the player returns from a challenge. */}
+          {game.loading ? (
+            <div className="rounded-xl border border-terminal-border bg-terminal-panel">
+              <div className="border-b border-terminal-border px-4 py-3">
+                <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Leaderboard</h2>
+              </div>
+              <div className="flex items-center justify-center py-10 text-sm text-terminal-dim">
+                <span className="animate-pulse">Loading…</span>
+              </div>
+            </div>
+          ) : activeDay == null ? (
             <LockedBoard
               icon="⏳"
               title="Leaderboard"

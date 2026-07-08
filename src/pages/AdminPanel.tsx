@@ -38,6 +38,16 @@ export default function AdminPanel() {
   const [freezeMin, setFreezeMin] = useState(15);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
+  const [autoLockMin, setAutoLockMin] = useState<number | null>(null);
+
+  // Refs to track whether the admin is actively editing the duration/freeze inputs.
+  // If they are, the 5-second auto-refresh must not overwrite what they're typing.
+  const editingMinutes = useRef(false);
+  const editingFreeze = useRef(false);
+
+  // Track the ends_at we already started an auto-lock countdown for (avoid restarting
+  // the interval on every 5s refresh cycle).
+  const autoLockState = useRef<{ endsAt: string; interval: number } | null>(null);
 
   // Admin identity is just a normal logged-in player with is_admin = true.
   // Their session (including the admin token) persists exactly like any
@@ -53,8 +63,8 @@ export default function AdminPanel() {
     }
     setData(res);
     if (res.event) {
-      setMinutes(res.event.duration_minutes ?? 35);
-      setFreezeMin(res.event.freeze_minutes ?? 15);
+      if (!editingMinutes.current) setMinutes(res.event.duration_minutes ?? 35);
+      if (!editingFreeze.current) setFreezeMin(res.event.freeze_minutes ?? 15);
       setActiveDaySel(res.event.active_day ?? '');
     }
     try {
@@ -75,6 +85,53 @@ export default function AdminPanel() {
     const id = setInterval(() => void load(), 5000);
     return () => clearInterval(id);
   }, [secret, load]);
+
+  // Auto-lock the active day 30 minutes after the event ends. Shows a countdown
+  // banner so the instructor knows what's happening.
+  useEffect(() => {
+    const endsAt = data?.event?.ends_at;
+    const activeD = data?.event?.active_day;
+    // Compute ended state directly from event timestamps to avoid the forward-ref issue
+    const eventIsEnded = !!endsAt && Date.now() >= Date.parse(endsAt);
+
+    if (!eventIsEnded || !endsAt || activeD == null) {
+      // Clear any running countdown when event is not ended
+      if (autoLockState.current) {
+        clearInterval(autoLockState.current.interval);
+        autoLockState.current = null;
+      }
+      setAutoLockMin(null);
+      return;
+    }
+
+    // Don't restart the countdown if we already have one running for this round
+    if (autoLockState.current?.endsAt === endsAt) return;
+
+    // Clear any old countdown
+    if (autoLockState.current) clearInterval(autoLockState.current.interval);
+
+    const lockTime = Date.parse(endsAt) + 30 * 60 * 1000;
+
+    const tick = () => {
+      const rem = Math.max(0, Math.ceil((lockTime - Date.now()) / 60000));
+      setAutoLockMin(rem);
+      if (rem === 0) {
+        if (autoLockState.current) clearInterval(autoLockState.current.interval);
+        autoLockState.current = null;
+        // Lock the active day automatically
+        void adminSetDay(secret, activeD, false).then(() => void load());
+      }
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 30_000); // update every 30 s
+    autoLockState.current = { endsAt, interval };
+
+    return () => {
+      clearInterval(interval);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.event?.ends_at, data?.event?.active_day, secret]);
 
   function logout() {
     clearPlayer();
@@ -212,6 +269,32 @@ export default function AdminPanel() {
           remainingMs={state.remainingMs}
         />
 
+        {/* Auto-lock countdown — shown after the event ends */}
+        {isEnded && autoLockMin !== null && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
+            <div>
+              <div className="text-sm font-bold text-terminal-amber">
+                ⏳ Active day auto-locks in ~{autoLockMin} minute{autoLockMin === 1 ? '' : 's'}
+              </div>
+              <div className="text-[11px] text-terminal-dim">
+                30 minutes after the event ended — or lock it now to start fresh.
+              </div>
+            </div>
+            <button
+              disabled={busy || data?.event?.active_day == null}
+              onClick={() =>
+                run(
+                  () => adminSetDay(secret, data!.event!.active_day!, false),
+                  'Lock the active day now?',
+                )
+              }
+              className="ml-4 shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+            >
+              Lock now
+            </button>
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap gap-6">
           <div className="max-w-xs">
             <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
@@ -222,6 +305,8 @@ export default function AdminPanel() {
               min={1}
               max={600}
               value={minutes}
+              onFocus={() => { editingMinutes.current = true; }}
+              onBlur={() => { editingMinutes.current = false; }}
               onChange={(e) => setMinutes(Number(e.target.value))}
               className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
             />
@@ -237,6 +322,8 @@ export default function AdminPanel() {
                 min={0}
                 max={120}
                 value={freezeMin}
+                onFocus={() => { editingFreeze.current = true; }}
+                onBlur={() => { editingFreeze.current = false; }}
                 onChange={(e) => setFreezeMin(Number(e.target.value))}
                 className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
               />
@@ -832,96 +919,147 @@ function PlayersSection({
   );
 }
 
-// ---- Background music player (plays on the admin's device only) ----
+// ---- YouTube background music player (admin device only) ----
 const MUSIC_URL_KEY = 'kgsp_ctf_music_url';
-const MUSIC_VOL_KEY = 'kgsp_ctf_music_vol';
+
+/** Extract a YouTube video ID and optional start-time from any YouTube URL. */
+function parseYoutubeUrl(raw: string): { id: string; start?: number } | null {
+  try {
+    const u = new URL(raw.trim());
+    let id: string | null = null;
+    if (u.hostname.includes('youtu.be')) {
+      id = u.pathname.slice(1).split(/[?#]/)[0];
+    } else {
+      id = u.searchParams.get('v');
+      if (!id) {
+        const m = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+        if (m) id = m[1];
+      }
+    }
+    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return null;
+    const t = u.searchParams.get('t');
+    const start = t ? parseInt(t.replace(/[^0-9]/g, ''), 10) : undefined;
+    return { id, start: start && !isNaN(start) ? start : undefined };
+  } catch {
+    return null;
+  }
+}
 
 function MusicPlayer() {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [url, setUrl] = useState(() => localStorage.getItem(MUSIC_URL_KEY) ?? '');
-  const [volume, setVolume] = useState(() => Number(localStorage.getItem(MUSIC_VOL_KEY) ?? '0.6'));
   const [playing, setPlaying] = useState(false);
+  const [videoId, setVideoId] = useState<string | null>(null);
+  const [startSec, setStartSec] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-    localStorage.setItem(MUSIC_VOL_KEY, String(volume));
-  }, [volume]);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   function saveUrl(next: string) {
     setUrl(next);
     localStorage.setItem(MUSIC_URL_KEY, next);
+    setError(null);
   }
 
-  async function toggle() {
-    const el = audioRef.current;
-    if (!el || !url.trim()) return;
+  /** Send a command to the embedded YouTube player via postMessage. */
+  function ytCmd(func: string) {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: 'command', func, args: [] }),
+      '*',
+    );
+  }
+
+  function play() {
+    const parsed = parseYoutubeUrl(url);
+    if (!parsed) {
+      setError('Could not find a YouTube video ID in that URL. Try: https://www.youtube.com/watch?v=...');
+      return;
+    }
     setError(null);
-    if (playing) {
-      el.pause();
-      setPlaying(false);
+    if (videoId === parsed.id) {
+      // Already loaded — just unpause
+      ytCmd('playVideo');
+      setPlaying(true);
     } else {
-      try {
-        el.volume = volume;
-        await el.play();
-        setPlaying(true);
-      } catch {
-        setError('Could not play. Use a direct audio file URL (.mp3/.ogg) that allows embedding.');
-      }
+      // Load a new video (iframe mounts with autoplay=1)
+      setVideoId(parsed.id);
+      setStartSec(parsed.start);
+      setPlaying(true);
     }
   }
 
-  function stop() {
-    const el = audioRef.current;
-    if (!el) return;
-    el.pause();
-    el.currentTime = 0;
+  function pause() {
+    ytCmd('pauseVideo');
     setPlaying(false);
   }
 
+  function stop() {
+    ytCmd('stopVideo');
+    setVideoId(null);
+    setStartSec(undefined);
+    setPlaying(false);
+  }
+
+  const embedSrc = videoId
+    ? `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&loop=1&playlist=${videoId}${startSec ? `&start=${startSec}` : ''}`
+    : null;
+
   return (
     <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-      <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">
+      <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">
         ▸ Competition music
       </h2>
       <p className="mb-3 text-xs text-terminal-dim">
-        Paste a direct audio file URL (.mp3/.ogg). Plays on this device only — great for the room speakers.
+        Paste a YouTube video URL. Plays on this device only — great for the room speakers.
+        The video plays in the background; only audio is heard.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={url}
           onChange={(e) => saveUrl(e.target.value)}
-          placeholder="https://example.com/track.mp3"
+          placeholder="https://www.youtube.com/watch?v=..."
           className="min-w-[16rem] flex-1 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-sm text-terminal-green outline-none focus:border-terminal-green"
         />
-        <button
-          onClick={toggle}
-          disabled={!url.trim()}
-          className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-        >
-          {playing ? '⏸ Pause' : '▶ Play'}
-        </button>
+        {!playing ? (
+          <button
+            onClick={play}
+            disabled={!url.trim()}
+            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+          >
+            ▶ Play
+          </button>
+        ) : (
+          <button
+            onClick={pause}
+            className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20"
+          >
+            ⏸ Pause
+          </button>
+        )}
         <button
           onClick={stop}
-          className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20"
+          disabled={!videoId}
+          className="rounded-lg border border-terminal-red/50 bg-terminal-red/5 px-4 py-2 text-sm font-bold text-terminal-red/80 transition hover:bg-terminal-red/15 disabled:opacity-40"
         >
           ⏹ Stop
         </button>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-terminal-dim">🔊</span>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
-            className="w-28 accent-terminal-green"
-          />
-        </div>
       </div>
       {error && <p className="mt-2 text-xs text-terminal-red">{error}</p>}
-      <audio ref={audioRef} src={url || undefined} loop onEnded={() => setPlaying(false)} />
+      {playing && videoId && (
+        <p className="mt-2 text-[11px] text-terminal-green">
+          ♪ Now playing — YouTube audio is active on this device.
+        </p>
+      )}
+
+      {/* Hidden YouTube iframe — only mounted when a video is selected */}
+      {embedSrc && (
+        <iframe
+          key={videoId}
+          ref={iframeRef}
+          src={embedSrc}
+          title="Background music"
+          allow="autoplay; encrypted-media"
+          className="pointer-events-none absolute h-0 w-0 opacity-0"
+        />
+      )}
     </section>
   );
 }

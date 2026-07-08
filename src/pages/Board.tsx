@@ -248,7 +248,9 @@ export default function Board() {
               </h2>
               <ul className="space-y-2.5 text-sm">
                 {feed.length === 0 && (
-                  <li className="text-terminal-dim">Waiting for the first solve…</li>
+                  <li className="text-terminal-dim">
+                    {game.loading ? 'Loading…' : 'No solves yet — waiting for the first flag! 🚩'}
+                  </li>
                 )}
                 {feed.map((a) => (
                   <li

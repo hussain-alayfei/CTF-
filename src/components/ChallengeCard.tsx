@@ -19,11 +19,14 @@ export default function ChallengeCard({
   solved,
   firstBloodBy,
   onOpen,
+  done = false,
 }: {
   challenge: Challenge;
   solved: boolean;
   firstBloodBy?: string;
   onOpen: () => void;
+  /** True when the day this challenge belongs to has finished — dims card and strikes through title. */
+  done?: boolean;
 }) {
   const isDanger = challenge.difficulty === 'danger';
 
@@ -31,6 +34,10 @@ export default function ChallengeCard({
     <button
       onClick={onOpen}
       className={`group relative flex flex-col rounded-xl border bg-terminal-panel p-4 text-left transition hover:-translate-y-0.5 hover:border-terminal-green/60 hover:shadow-neon ${
+        done
+          ? 'opacity-55 hover:opacity-80'
+          : ''
+      } ${
         solved
           ? 'border-terminal-green/60'
           : isDanger
@@ -49,7 +56,7 @@ export default function ChallengeCard({
         </span>
       </div>
 
-      <h3 className="mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green">
+      <h3 className={`mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green ${done ? 'line-through' : ''}`}>
         {solved && <span className="text-terminal-green">✓</span>}
         {challenge.title}
       </h3>
@@ -59,7 +66,9 @@ export default function ChallengeCard({
           {challenge.points}
           <span className="ml-1 text-xs font-normal text-terminal-dim">pts</span>
         </span>
-        {firstBloodBy ? (
+        {done ? (
+          <span className="text-[11px] text-terminal-dim">finished</span>
+        ) : firstBloodBy ? (
           <span className="truncate text-[11px] text-terminal-red" title={`First blood: ${firstBloodBy}`}>
             🩸 {firstBloodBy}
           </span>

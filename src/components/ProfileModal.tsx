@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { Player, LeaderboardRow, Solve, Challenge } from '../lib/types';
 import useLockBodyScroll from '../lib/useLockBodyScroll';
 
@@ -29,10 +30,26 @@ export default function ProfileModal({
   const firstBloods = mySolves.filter((s) => s.is_first_blood).length;
   const rankBadge = rank >= 1 && rank <= 3 ? medals[rank - 1] : rank > 0 ? `#${rank}` : '—';
 
+  // Group solves by day for the per-day breakdown
+  const perDay = useMemo(() => {
+    const challDay = new Map(challenges.map((c) => [c.id, c]));
+    const dayMap = new Map<number, { solves: Solve[]; pts: number; title: string }>();
+    for (const s of mySolves) {
+      const ch = challDay.get(s.challenge_id);
+      const dayNum = ch?.day ?? 0;
+      const title = dayNum > 0 ? `Day ${dayNum}` : 'Other';
+      const entry = dayMap.get(dayNum) ?? { solves: [], pts: 0, title };
+      entry.solves.push(s);
+      entry.pts += s.points_awarded;
+      dayMap.set(dayNum, entry);
+    }
+    return [...dayMap.entries()].sort((a, b) => a[0] - b[0]);
+  }, [mySolves, challenges]);
+
   const solvedChallenges = mySolves.map((s) => {
     const ch = challenges.find((c) => c.id === s.challenge_id);
-    return { ...s, title: ch?.title ?? s.challenge_id, category: ch?.category ?? '—' };
-  });
+    return { ...s, title: ch?.title ?? s.challenge_id, category: ch?.category ?? '—', day: ch?.day ?? 0 };
+  }).sort((a, b) => (b.solved_at > a.solved_at ? 1 : -1));
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-sm" onClick={onClose}>
@@ -82,6 +99,36 @@ export default function ProfileModal({
               {myPoints} / {totalPossible} pts ({pct}% complete)
             </p>
           </div>
+
+          {/* Per-day breakdown */}
+          {perDay.length > 0 && (
+            <div className="border-t border-terminal-border px-5 py-4">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-dim">
+                Score by day
+              </h3>
+              <div className="space-y-2">
+                {perDay.map(([dayNum, info]) => (
+                  <div
+                    key={dayNum}
+                    className="flex items-center justify-between rounded-lg border border-terminal-border bg-terminal-input/30 px-3 py-2"
+                  >
+                    <div>
+                      <div className="text-xs font-bold text-terminal-green">{info.title}</div>
+                      <div className="text-[10px] text-terminal-dim">
+                        {info.solves.length} solve{info.solves.length !== 1 ? 's' : ''}
+                        {info.solves.some((s) => s.is_first_blood) && (
+                          <span className="ml-1 text-terminal-red">🩸</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="font-extrabold tabular-nums text-terminal-amber">
+                      +{info.pts}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Solved list */}
           <div className="border-t border-terminal-border px-5 py-4">
