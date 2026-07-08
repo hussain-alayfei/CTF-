@@ -42,25 +42,39 @@ function saveUnlockedDays(s: Set<number>) {
 export default function Play() {
   const { player, setPlayer, muted, toggleMute, theme, toggleTheme } = useApp();
   const game = useGame(player);
-  const [openId, setOpenId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // A challenge page links back here as `/?c=<challengeId>` so pressing "back to
   // the challenge" reopens the exact challenge the player was on, instead of
-  // dumping them at the top of the arena. Consume the param once (after
-  // challenges load) and strip it so a later close/refresh doesn't reopen it.
-  const consumedChallengeParam = useRef(false);
+  // dumping them at the top of the arena. This MUST be read synchronously in
+  // the initial useState (not in a useEffect) — an effect only runs after the
+  // very first paint, so the arena would render once with no modal and then
+  // immediately re-render with it open, a visible "arena flashes then the
+  // challenge appears" flicker. Reading it eagerly here means the modal is
+  // already part of the very first render.
+  const [openId, setOpenId] = useState<string | null>(() => searchParams.get('c'));
+
+  // Strip the `c` param from the URL once, independent of whether the
+  // challenge list has finished loading, so a later close/refresh never
+  // reopens it and the address bar doesn't linger on a stale param.
+  const cleanedChallengeParam = useRef(false);
   useEffect(() => {
-    if (consumedChallengeParam.current) return;
-    const c = searchParams.get('c');
-    if (!c) return;
-    if (game.challenges.length === 0) return; // wait for the list to load
-    consumedChallengeParam.current = true;
-    if (game.challenges.some((ch) => ch.id === c)) setOpenId(c);
+    if (cleanedChallengeParam.current) return;
+    if (!searchParams.get('c')) return;
+    cleanedChallengeParam.current = true;
     const next = new URLSearchParams(searchParams);
     next.delete('c');
     setSearchParams(next, { replace: true });
-  }, [game.challenges, searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams]);
+
+  // Once the challenge list has actually loaded, if the id from the URL turns
+  // out to not exist (bad link, deleted challenge, locked day), close it
+  // instead of leaving the modal stuck trying to render a missing challenge.
+  useEffect(() => {
+    if (openId && game.challenges.length > 0 && !game.challenges.some((c) => c.id === openId)) {
+      setOpenId(null);
+    }
+  }, [openId, game.challenges]);
   const [now, setNow] = useState(Date.now());
   const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
