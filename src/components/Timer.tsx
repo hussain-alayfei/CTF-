@@ -58,7 +58,11 @@ export function ArenaTimerBanner({ event }: { event: EventConfig | null }) {
 
   const state = getEventState(event, now);
 
-  if (state.status === 'idle') {
+  // After 30 min past the end, stop showing "TIME'S UP" and go back to standby
+  const endedAt = event?.ends_at ? Date.parse(event.ends_at) : null;
+  const staleEnded = state.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
+
+  if (state.status === 'idle' || staleEnded) {
     return (
       <div className="flex items-center justify-center gap-3 border-b border-terminal-amber/30 bg-terminal-amber/5 py-4">
         <span className="animate-flicker text-4xl font-extrabold tracking-widest text-terminal-amber sm:text-5xl">

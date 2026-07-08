@@ -174,18 +174,25 @@ export default function Play() {
   const sortedDays = [...game.days].sort((a, b) => a.sort_order - b.sort_order);
   const activeDayObj = sortedDays.find((d) => d.day === activeDay) ?? null;
 
+  // After the event ends, treat the ended state as "idle" once 30 min have passed
+  // so the page refreshes cleanly for the next day instead of showing "TIME'S UP" forever.
+  const endedAt = game.event?.ends_at ? Date.parse(game.event.ends_at) : null;
+  const staleEnded = eventState.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
+  const effectiveStatus = staleEnded ? 'idle' : eventState.status;
+
   // Day categories
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
   const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
-  // Locked days: split into "finished" (before active in sort order) and truly future
+  // Locked days: split into "finished" (at or before active day in sort order) and truly future
+  const activeSortOrder = activeDayObj?.sort_order ?? -1;
   const finishedLockedDays = sortedDays.filter(
-    (d) => !d.is_open && !d.is_rest && activeDayObj != null && d.sort_order < activeDayObj.sort_order,
+    (d) => !d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order <= activeSortOrder,
   );
   const futureDays = sortedDays.filter(
     (d) =>
       !d.is_open &&
       !d.is_rest &&
-      (activeDayObj == null || d.sort_order >= activeDayObj.sort_order),
+      (activeSortOrder < 0 || d.sort_order > activeSortOrder),
   );
 
   const open = game.challenges.find((c) => c.id === openId) ?? null;
@@ -267,7 +274,7 @@ export default function Play() {
     // Show challenges as "done" (dimmed + strikethrough) for:
     //  - days before the active day in sort order
     //  - the active/live day when the event has ended
-    const isDone = forceFinished || isPast || (isLive && eventState.status === 'ended');
+    const isDone = forceFinished || isPast || (isLive && effectiveStatus === 'ended');
 
     // Code gate
     if (d.requires_code && !isDayAccessible(d)) {
@@ -322,7 +329,7 @@ export default function Play() {
             <span className="text-[11px] text-terminal-dim">
               {list.length} challenge{list.length === 1 ? '' : 's'}
             </span>
-            {isLive && eventState.status === 'running' ? (
+            {isLive && effectiveStatus === 'running' ? (
               <span className="rounded border border-terminal-green/50 bg-terminal-green/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
                 ● Live · scoring
               </span>
@@ -473,17 +480,17 @@ export default function Play() {
       <ArenaTimerBanner event={game.event} />
 
       {/* Event status banner */}
-      {eventState.status === 'idle' && (
+      {effectiveStatus === 'idle' && (
         <div className="animate-flicker border-b border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-amber">
           ◷ Waiting for the event to start… get ready, hacker.
         </div>
       )}
-      {eventState.status === 'running' && (
+      {effectiveStatus === 'running' && (
         <div className="border-b border-terminal-green/40 bg-terminal-green/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-green">
           ● Event is LIVE — submissions are open. Go capture those flags!
         </div>
       )}
-      {eventState.status === 'ended' && (
+      {effectiveStatus === 'ended' && (
         <div className="border-b border-terminal-red/40 bg-terminal-red/10 px-4 py-2 text-center text-sm font-bold text-terminal-red">
           ⏹ The event has ended.{' '}
           <button onClick={() => setShowPodium(true)} className="underline">
@@ -574,7 +581,7 @@ export default function Play() {
               title="Leaderboard locked"
               text={`Enter the access code for ${activeDayObj?.title ?? 'the live day'} to join the competition.`}
             />
-          ) : eventState.status !== 'ended' ? (
+          ) : effectiveStatus !== 'ended' ? (
             <LockedBoard
               icon="🙈"
               title="Standings hidden"
@@ -598,7 +605,7 @@ export default function Play() {
           player={player}
           solved={game.mySolvedIds.has(open.id)}
           firstBloodBy={game.firstBloodByChallenge.get(open.id)}
-          eventStatus={eventState.status}
+          eventStatus={effectiveStatus}
           onClose={() => setOpenId(null)}
           onSolved={() => void game.refreshBoard()}
         />
