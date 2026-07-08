@@ -7,8 +7,47 @@ Update it whenever the architecture, schema, or conventions change.
 
 - **Frontend:** Vite + React 18 + TypeScript + Tailwind CSS (SPA)
 - **Backend:** Supabase (Postgres + RLS + Realtime). **No Supabase Auth.**
-- **Hosting:** Vercel (SPA rewrite to `index.html`)
-- **Supabase project id:** `xehzdlfrzlokwvtcfvjx`
+- **Hosting:** Vercel (SPA rewrite to `index.html`; auto-deploys on push to `master`)
+- **Supabase project id:** `xehzdlfrzlokwvtcfvjx` (org project name `meras-ctf`)
+
+## Current state at a glance (updated 2026-07-08)
+
+- **Live event day:** **Day 4 "Securing Networks"** is the only `is_open` day (the
+  active authored day). Day 3 "Securing Data" has authored challenges but is
+  currently closed; Days 5–10 are locked placeholders.
+- **Day 4 = 7 core + 5 extra, ALL `is_dynamic` (per-player flags).** Core =
+  artifact/tool challenges (Wireshark pcap, file-carving, EXIF+maps, CyberChef,
+  AES, live SNMP). Extras = a **tool-forced trio (nmap / Wireshark / dig)** solved
+  against an instructor-run host in **`target-box/`**, plus reworked `cookie`
+  (cookie-tamper) and `chain` (recon/stego).
+- **Day 3 = 4 core + 3 extra, ALL static** (`challenge_flags`, simple text answers):
+  core `lab_stego, lab_encrypt, hash, lab_vault`; extra `base64, caesar, stego`.
+- **No Day 4 flag is a static string in the client bundle or the DB** — every one is
+  minted server-side per player (`verify_challenge_answer`, HMAC of `player_id`).
+  This anti-AI / anti-sharing rework was the dominant recent effort; the full "why"
+  and design rules live in `ADMIN_MANUAL_DAY4.md`.
+- **In progress (not yet built):** a **5-challenge live-capture Wireshark lab set**
+  for Dr. Mudassar's Lab_Day04 (extends `target-box/server.py`; students sniff their
+  own session to the box). Designed and checkpointed in agent memory
+  (`wireshark-lab-challenges-inflight`); placement (own day vs Day 4) still open.
+
+## Repository layout
+
+```
+src/                  the SPA (detailed File map below)
+public/               static assets served at web root
+  challenges/         downloadable challenge artifacts (day4/*.pcap|png|jpg|zip|txt,
+                      vault.png, hidden.png) + s3cr3t-vault.html, robots.txt
+target-box/           instructor-run practice host for the nmap/Wireshark/dig extras:
+                      server.py (pure-stdlib: TCP banner 8021, plain HTTP 8080,
+                      DNS TXT udp/8053), Dockerfile, README. `python3 server.py`.
+scripts/              gen-day4-artifacts.py (regenerates Day 4 binary artifacts),
+                      gen-stego.mjs
+supabase/             schema.sql + seed.example.sql — a REFERENCE dump only; the live
+                      Supabase project is the source of truth (migrations applied via MCP)
+ADMIN_MANUAL.md       general instructor run-sheet
+ADMIN_MANUAL_DAY4.md  Day 4 answer key + AI-resistance design rules + box setup
+```
 
 ## Identity model (important)
 
@@ -321,3 +360,29 @@ artifact, e.g. a decode key). Point `action_url` at
 prompt, file, or hint — see the "Design rules" section in
 `ADMIN_MANUAL_DAY4.md` for the full checklist and the incident that motivated
 it.
+
+## Operational notes (deploying & editing the live project)
+
+- **Deploying:** the live DB *is* production and the frontend auto-deploys on push
+  to `master`. When a change spans both (e.g. converting a challenge to dynamic, or
+  retiring an RPC the current frontend still calls), **ship the frontend first, then
+  apply the DB change** — otherwise the deployed site briefly runs against a schema
+  it doesn't expect. This session did exactly this for the Day 4 v2 flip and the
+  cookie/chain conversion. Verify no live event is running and check `day4` solve
+  counts before destructive DB edits.
+- **`git` binary hygiene:** `.gitattributes` pins `*.pcap|png|jpg|zip|gz|…` as binary
+  because `core.autocrlf=true` on Windows would otherwise silently CRLF-corrupt a
+  downloadable artifact with no error at commit time. Never remove it.
+- **No flag/answer strings in the client bundle:** after any Day 4 change, rebuild and
+  `grep -roE "KGSP\{[^}]*\}" dist/assets/` (only the input placeholder `KGSP{...}` and
+  the by-design Day-3 `stego` client reveal should appear) and grep the bundle for the
+  raw answer tokens too. Also grep generated artifacts for the answer + `KGSP` — a
+  human running `strings` shouldn't win for free.
+- **Supabase writes via MCP can trip a Cloudflare WAF** when the SQL body contains
+  shell-command syntax (`nmap -p-`, `@<ip>`, backticks, angle-bracketed placeholders).
+  Symptom: the call returns a Cloudflare "you have been blocked" HTML page, not a DB
+  error. Fix: split the statement and keep command syntax OUT of DB text — put exact
+  copy-paste commands in `ADMIN_MANUAL_*.md`, keep `challenge_hints` prose-only.
+- **Artifact tooling:** regenerating Day 4 artifacts needs `pip install Pillow piexif`;
+  `scripts/gen-day4-artifacts.py` has built-in assertions that fail if a flag/recipe
+  leaks into an artifact.
