@@ -10,29 +10,25 @@ Update it whenever the architecture, schema, or conventions change.
 - **Hosting:** Vercel (SPA rewrite to `index.html`; auto-deploys on push to `master`)
 - **Supabase project id:** `xehzdlfrzlokwvtcfvjx` (org project name `meras-ctf`)
 
-## Current state at a glance (updated 2026-07-08)
+## Current state at a glance (updated 2026-07-09)
 
 - **Live event day:** **Day 4 "Securing Networks"** is the active authored day.
   Day 3 "Securing Data" has authored challenges but is closed; **Day 5 "Privacy"
-  has NO challenges** — all 6 were removed 2026-07-08 (see below); Days 6–10 are
-  placeholders.
+  now has 10 authored challenges** (3 easy, 5 medium, 2 hard, all dynamic);
+  Days 6–10 are placeholders.
 - **Day 4 = 7 core + 2 extra, ALL `is_dynamic` (per-player flags).** Core =
   artifact/tool challenges (Wireshark pcap, file-carving, EXIF+maps, CyberChef,
   AES, live SNMP). Extras = reworked `cookie` (cookie-tamper) and `chain`
   (recon/stego). (The 3 "target box" nmap/Wireshark/dig extras that needed an
   instructor-shared IP were **removed 2026-07-08** — 0 solves, no scores lost;
   `target-box/` is gone.)
-- **Day 5 = Privacy, currently EMPTY.** The original 6 per-player dynamic
-  challenges (Cookie Crumbs, Metadata Betrayal, Exit Node Eyes, Zero-Width
-  Whisper, Peeling the Onion Router, The De-Anonymizer) were fully **removed
-  2026-07-08** at the instructor's request — 0 solves on all six, so no scores
-  were lost. Removed: DB rows (`challenges`/`challenge_answer_keys`/
-  `challenge_hints`), `public/challenges/day5/*` artifacts,
-  `scripts/gen-day5-artifacts.py`, the `CookieCrumbsChallenge.tsx` page + its
-  `/challenge/cookie-crumbs` route, and `ADMIN_MANUAL_DAY5.md`. The `days` row
-  for day 5 (title, access code, `day_entries` history) was intentionally left
-  alone — the day slot is still there for a future re-author. See
-  `.cursor/skills/manage-ctf-challenges/SKILL.md` for the add/edit/delete workflow.
+- **Day 5 = Privacy rebuilt (2026-07-09).** It now has 10 exploratory challenges:
+  `p5_cookie_trail`, `p5_firefox_profile_hunt`, `p5_consent_trap`,
+  `p5_gpc_unlock`, `p5_history_reconstruction`, `p5_tracker_hunter`,
+  `p5_storage_split`, `p5_metadata_leak`, `p5_fingerprint_spoof`,
+  `p5_tor_access_gate`. All are `is_dynamic = true` with one hint each and use
+  `/challenge/verify/:challengeId`; the two hard challenges also use
+  `challenge_live_material` keys.
 - **Day 3 = 4 core + 3 extra, ALL static** (`challenge_flags`, simple text answers):
   core `lab_stego, lab_encrypt, hash, lab_vault`; extra `base64, caesar, stego`.
 - **No Day 4/5 flag is a static string in the client bundle or the DB** — every one
@@ -45,9 +41,8 @@ Update it whenever the architecture, schema, or conventions change.
 ```
 src/                  the SPA (detailed File map below)
 public/               static assets served at web root
-  challenges/         downloadable challenge artifacts (day4/*,
+  challenges/         downloadable challenge artifacts (day4/*, day5/*,
                       vault.png, hidden.png) + s3cr3t-vault.html, robots.txt
-                      (day5/ is currently empty — see Day 5 note above)
 scripts/              gen-day4-artifacts.py (regenerate challenge artifacts),
                       gen-stego.mjs
 supabase/             schema.sql (accurate reference snapshot) + migrations/ +
@@ -55,6 +50,7 @@ supabase/             schema.sql (accurate reference snapshot) + migrations/ +
                       truth (migrations applied via MCP)
 ADMIN_MANUAL.md       general instructor run-sheet
 ADMIN_MANUAL_DAY4.md  Day 4 answer key + AI-resistance design rules + box setup
+ADMIN_MANUAL_DAY5.md  Day 5 answer map + expected recoveries
 .cursor/skills/manage-ctf-challenges/SKILL.md   add/edit/delete challenge workflow
 ```
 
@@ -160,12 +156,12 @@ instead of doing a `challenge_flags` lookup.
   2 "Securing Accounts" were deleted from the `days` table — they were empty
   placeholders with no challenges/codes/solves attached, so the roadmap now
   starts at Day 3). **Day 3 Securing Data** (code `SECURING-DATA`) and **Day 4
-  Securing Networks** both have authored challenges; Day 5 Privacy, Day 6
+  Securing Networks** and **Day 5 Privacy** have authored challenges; Day 6
   Introduction to Pentesting, Day 7 Web Applications, Day 8 Web Application
   Hacking, Day 9 Blockchain Introduction, Day 10 Smart Contracts are locked
-  placeholders until challenges are authored for them. Day numbers are stored
-  as plain integers (no re-sequencing needed after the delete — `day` is not an
-  array index).
+  placeholders until challenges are authored for them. Day numbers are stored as
+  plain integers (no re-sequencing needed after the delete — `day` is not an array
+  index).
 - **Day 4 is deliberately AI-resistant — v2.** All 7 core challenges
   (`net_pcap_creds`, `net_carve_png`, `net_exif_geo`, `net_router_live`,
   `net_cyberchef`, `net_pcap_hunt`, `net_chain_danger`) are `is_dynamic = true`

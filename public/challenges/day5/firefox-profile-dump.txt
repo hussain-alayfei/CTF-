@@ -1,0 +1,21 @@
+# Simulated Firefox profile triage export
+# Case: PF-7781
+
+[cookies.sqlite]
+host=.intranet.local; name=session_pref; value=dark
+host=.intranet.local; name=profile_tag; value=U0lMRU5URk9Y
+host=.updates.local; name=notice; value=ok
+
+[places.sqlite::history]
+2026-07-05T07:14:44Z https://intranet.local/wiki/privacy-basics
+2026-07-05T07:20:01Z https://repo.local/briefs/q3-plan
+2026-07-05T07:23:55Z https://files.local/transfers/archive/intake
+2026-07-05T07:29:10Z https://mail.local/inbox
+
+[downloads.sqlite]
+2026-07-05T07:24:12Z filename=briefing.pdf source=https://files.local/transfers/archive/briefing.pdf
+2026-07-05T07:25:09Z filename=handoff.txt source=https://files.local/transfers/archive/handoff.txt
+
+[analyst-note]
+Expected submit format:
+<decoded profile_tag in lowercase>_<last directory in successful download source>
