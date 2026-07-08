@@ -188,12 +188,7 @@ export default function Play() {
   const finishedLockedDays = sortedDays.filter(
     (d) => !d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order <= activeSortOrder,
   );
-  const futureDays = sortedDays.filter(
-    (d) =>
-      !d.is_open &&
-      !d.is_rest &&
-      (activeSortOrder < 0 || d.sort_order > activeSortOrder),
-  );
+  // Future locked days are intentionally not rendered — students shouldn't see them.
 
   const open = game.challenges.find((c) => c.id === openId) ?? null;
   const totalPossible = game.challenges.reduce((s, c) => s + c.points, 0);
@@ -238,7 +233,7 @@ export default function Play() {
   // Has this player legally entered the live day?
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
-  function renderChallengeGrid(list: Challenge[], isDone = false) {
+  function renderChallengeGrid(list: Challenge[]) {
     return order.map((diff) => {
       const group = list.filter((c) => c.difficulty === diff);
       if (group.length === 0) return null;
@@ -255,7 +250,6 @@ export default function Play() {
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
                 onOpen={() => setOpenId(c.id)}
-                done={isDone}
               />
             ))}
           </div>
@@ -264,20 +258,15 @@ export default function Play() {
     });
   }
 
-  function renderDay(d: Day, forceFinished = false) {
+  function renderDay(d: Day, finished = false) {
     const list = (challengesByDay.get(d.day) ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
     const mainList = list.filter((c) => !c.is_extra);
     const extraList = list.filter((c) => c.is_extra);
 
-    const isPast = activeDayObj != null && d.sort_order < activeDayObj.sort_order;
     const isLive = d.day === activeDay;
-    // Show challenges as "done" (dimmed + strikethrough) for:
-    //  - days before the active day in sort order
-    //  - the active/live day when the event has ended
-    const isDone = forceFinished || isPast || (isLive && effectiveStatus === 'ended');
 
-    // Code gate
-    if (d.requires_code && !isDayAccessible(d)) {
+    // Code gate — only for non-finished days (finished days are always accessible)
+    if (!finished && d.requires_code && !isDayAccessible(d)) {
       return (
         <div key={d.day} className="mb-10">
           <div className="mb-3 flex items-center justify-between gap-3 border-b border-terminal-border pb-2">
@@ -314,14 +303,20 @@ export default function Play() {
       );
     }
 
-    const collapsed = collapsedDays.has(d.day);
+    // Finished days start collapsed, live days start expanded
+    const collapsed = finished ? !collapsedDays.has(d.day) : collapsedDays.has(d.day);
+    function toggle() {
+      // For finished days we invert the logic (default = collapsed, click = expanded)
+      toggleDay(d.day);
+    }
+
     return (
-      <div key={d.day} className="mb-10">
+      <div key={d.day} className={`mb-10 ${finished ? 'opacity-70' : ''}`}>
         <button
-          onClick={() => toggleDay(d.day)}
+          onClick={toggle}
           className="mb-3 flex w-full items-center justify-between gap-3 border-b border-terminal-border pb-2 text-left transition hover:border-terminal-green/50"
         >
-          <h2 className="flex items-center gap-2 text-lg font-extrabold text-terminal-green">
+          <h2 className={`flex items-center gap-2 text-lg font-extrabold ${finished ? 'text-terminal-dim line-through' : 'text-terminal-green'}`}>
             <span className={`text-terminal-dim transition-transform ${collapsed ? '' : 'rotate-90'}`}>▸</span>
             {d.title}
           </h2>
@@ -333,9 +328,9 @@ export default function Play() {
               <span className="rounded border border-terminal-green/50 bg-terminal-green/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
                 ● Live · scoring
               </span>
-            ) : isDone ? (
+            ) : finished ? (
               <span className="rounded border border-terminal-dim/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
-                ✓ Finished · practice
+                ✓ Finished
               </span>
             ) : d.event_label ? (
               <span className="rounded border border-terminal-green/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
@@ -347,19 +342,18 @@ export default function Play() {
 
         {!collapsed && (
           <>
-            {isDone && (
+            {finished && (
               <p className="mb-4 rounded-lg border border-terminal-dim/30 bg-terminal-input/40 px-3 py-2 text-xs text-terminal-dim">
-                ✓ This day is finished. You can still open and solve these for practice — they
-                no longer count toward the live scoreboard.
+                ✓ This day is finished. You can still open challenges for practice.
               </p>
             )}
             {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
 
             {list.length === 0 ? (
-              <p className="text-sm text-terminal-dim">Challenges will appear here when this day is opened.</p>
+              <p className="text-sm text-terminal-dim">No challenges available for this day.</p>
             ) : (
               <>
-                {mainList.length > 0 && renderChallengeGrid(mainList, isDone)}
+                {mainList.length > 0 && renderChallengeGrid(mainList)}
 
                 {extraList.length > 0 && (
                   <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
@@ -371,7 +365,7 @@ export default function Play() {
                         </span>
                       </h3>
                     )}
-                    {renderChallengeGrid(extraList, isDone)}
+                    {renderChallengeGrid(extraList)}
                   </div>
                 )}
               </>
@@ -520,31 +514,25 @@ export default function Play() {
             <p className="py-20 text-center text-terminal-dim">Loading challenges…</p>
           ) : (
             <>
-              {/* Rest days */}
+              {/* ── SECTION 1: Current / next day (open, active) ── */}
               {restDays.map(renderRestDay)}
-
-              {/* Finished locked days — show with strikethrough (before active day) */}
-              {finishedLockedDays.map((d) => renderDay(d, true))}
-
-              {/* Active / open days */}
               {activeDays.map((d) => renderDay(d))}
 
-              {/* Future locked days — truly coming soon */}
-              {futureDays.map((d) => (
-                <div
-                  key={d.day}
-                  className="mb-6 rounded-xl border border-dashed border-terminal-border bg-terminal-panel/50 p-6 text-center"
-                >
-                  <div className="text-3xl">{d.is_rest ? '😴' : '🔒'}</div>
-                  <h2 className="mt-2 text-lg font-bold text-terminal-dim">{d.title}</h2>
-                  <p className="text-sm text-terminal-dim">
-                    {d.subtitle ?? (d.is_rest ? 'Rest day — not open yet.' : 'Locked — coming soon.')}
-                  </p>
-                  <span className="mt-3 inline-block rounded border border-terminal-amber/40 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-terminal-amber">
-                    ⏳ Wait — unlocks later
-                  </span>
+              {/* ── SECTION 2: Finished days (collapsed by default, strikethrough title) ── */}
+              {finishedLockedDays.length > 0 && (
+                <div className="mb-8">
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-terminal-border" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-terminal-dim">
+                      Completed days
+                    </span>
+                    <div className="h-px flex-1 bg-terminal-border" />
+                  </div>
+                  {finishedLockedDays.map((d) => renderDay(d, true))}
                 </div>
-              ))}
+              )}
+
+              {/* ── Future / upcoming days are hidden — students don't see them ── */}
             </>
           )}
 
@@ -569,6 +557,12 @@ export default function Play() {
                 <span className="animate-pulse">Loading…</span>
               </div>
             </div>
+          ) : effectiveStatus === 'idle' ? (
+            <LockedBoard
+              icon="⏳"
+              title="Leaderboard"
+              text="The leaderboard will appear here when the next round starts. Get ready!"
+            />
           ) : activeDay == null ? (
             <LockedBoard
               icon="⏳"
@@ -581,7 +575,7 @@ export default function Play() {
               title="Leaderboard locked"
               text={`Enter the access code for ${activeDayObj?.title ?? 'the live day'} to join the competition.`}
             />
-          ) : effectiveStatus !== 'ended' ? (
+          ) : effectiveStatus === 'running' ? (
             <LockedBoard
               icon="🙈"
               title="Standings hidden"
