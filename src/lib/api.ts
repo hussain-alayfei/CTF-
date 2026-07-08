@@ -181,21 +181,51 @@ export async function fetchEventConfig(): Promise<EventConfig> {
   }) as EventConfig;
 }
 
-// --- day 4: live SNMP router console (net_router_live) ---
-// The flag is never in the client bundle; this RPC only returns it when the
-// correct read-write community string is sent and Day 4 is open.
-export interface RouterQueryResult {
+// --- dynamic (per-player) challenges ---
+// The flag is never in the client bundle or the database as a fixed string:
+// verify_challenge_answer checks the recovered "answer" server-side and, only
+// if correct, mints a personal flag via HMAC(player_id) that validates ONLY
+// for that player. challenge_live_material returns material (e.g. a decode
+// key) that is deliberately withheld from the downloadable artifact.
+export interface VerifyAnswerResult {
   ok?: boolean;
-  level?: 'rw' | 'ro' | 'deny' | 'locked';
   message?: string;
-  reveal?: string;
-  oids?: { oid: string; name: string; value: string }[];
+  flag?: string;
 }
 
-export async function netRouterQuery(community: string): Promise<RouterQueryResult> {
-  const { data, error } = await supabase.rpc('net_router_query', { p_community: community });
+export async function verifyChallengeAnswer(
+  player: Player,
+  challengeId: string,
+  answer: string,
+): Promise<VerifyAnswerResult> {
+  const { data, error } = await supabase.rpc('verify_challenge_answer', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_challenge_id: challengeId,
+    p_answer: answer,
+  });
   if (error) throw new Error(error.message);
-  return data as RouterQueryResult;
+  return data as VerifyAnswerResult;
+}
+
+export interface LiveMaterialResult {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  material?: Record<string, string>;
+}
+
+export async function fetchChallengeLiveMaterial(
+  player: Player,
+  challengeId: string,
+): Promise<LiveMaterialResult> {
+  const { data, error } = await supabase.rpc('challenge_live_material', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_challenge_id: challengeId,
+  });
+  if (error) throw new Error(error.message);
+  return data as LiveMaterialResult;
 }
 
 // --- admin ---

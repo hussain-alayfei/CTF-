@@ -1,35 +1,60 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { netRouterQuery, type RouterQueryResult } from '../lib/api';
+import { useApp } from '../lib/app-context';
+import { verifyChallengeAnswer } from '../lib/api';
 import { playClick, playCorrect, playWrong, unlockAudio } from '../lib/sounds';
 
-// Live SNMP-console challenge (net_router_live). Unlike the old Day 4 pages,
-// NO flag string lives in this file. The student recovers the read-write
-// community string from the downloadable config backup, sends it here, and the
-// server (net_router_query RPC) is the only thing that can release the flag —
-// so reading this page's source (or pasting it into an AI) reveals nothing.
+// Static decoy data for the read-only community — not secret, safe to ship.
+const RO_OIDS = [
+  { oid: '1.3.6.1.2.1.1.5.0', name: 'sysName', value: 'edge-rtr-04' },
+  { oid: '1.3.6.1.2.1.1.1.0', name: 'sysDescr', value: 'CorpOS 12.4, edge router' },
+  { oid: '1.3.6.1.4.1.9.99.FLAG', name: 'flagOid', value: '<access denied: rw required>' },
+];
+
+// Live SNMP-console challenge (net_router_live). No flag string lives in
+// this file — the recovered community string is verified server-side by the
+// shared verify_challenge_answer RPC, which mints a personal flag only for
+// the player who solved it.
 export default function RouterConsoleChallenge() {
+  const { player } = useApp();
   const [community, setCommunity] = useState('');
   const [busy, setBusy] = useState(false);
-  const [res, setRes] = useState<RouterQueryResult | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; message: string; flag?: string } | null>(null);
+  const [showDecoy, setShowDecoy] = useState(false);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
-    if (!community.trim() || busy) return;
+    if (!community.trim() || busy || !player) return;
     unlockAudio();
     playClick();
     setBusy(true);
+    setShowDecoy(false);
     try {
-      const r = await netRouterQuery(community.trim());
-      setRes(r);
-      if (r.ok && r.reveal) playCorrect();
-      else playWrong();
+      const r = await verifyChallengeAnswer(player, 'net_router_live', community.trim());
+      setResult({ ok: !!r.ok, message: r.message ?? '', flag: r.flag });
+      if (r.ok) {
+        playCorrect();
+      } else {
+        playWrong();
+        if (community.trim().toLowerCase() === 'public') setShowDecoy(true);
+      }
     } catch {
-      setRes({ ok: false, level: 'deny', message: 'Console unreachable — try again.' });
+      setResult({ ok: false, message: 'Console unreachable — try again.' });
       playWrong();
     } finally {
       setBusy(false);
     }
+  }
+
+  if (!player) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-10 text-center">
+        <p className="text-terminal-dim">Log in from the arena first, then reopen this challenge.</p>
+        <Link to="/" className="mt-3 inline-block text-sm text-terminal-green underline decoration-dotted">
+          ‹ back to the arena
+        </Link>
+      </div>
+    );
   }
 
   return (
@@ -55,7 +80,8 @@ export default function RouterConsoleChallenge() {
             value={community}
             onChange={(e) => setCommunity(e.target.value)}
             placeholder="community string"
-            className="flex-1 rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 font-mono text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon"
+            disabled={busy}
+            className="flex-1 rounded-lg border border-terminal-border bg-terminal-input px-4 py-3 font-mono text-terminal-green caret-terminal-green outline-none transition focus:border-terminal-green focus:shadow-neon disabled:opacity-50"
           />
           <button
             type="submit"
@@ -66,25 +92,24 @@ export default function RouterConsoleChallenge() {
           </button>
         </form>
 
-        {res?.ok && res.reveal && (
+        {result?.ok && result.flag && (
           <div className="mt-6 animate-pop rounded-lg border border-terminal-green/60 bg-terminal-green/10 p-6 text-center shadow-neon">
             <div className="text-sm uppercase tracking-widest text-terminal-dim">Read-write access granted</div>
-            <div className="mt-2 text-terminal-green">{res.message}</div>
-            <div className="mt-3 text-xs text-terminal-dim">OID 1.3.6.1.4.1.9.99.FLAG →</div>
-            <code className="mt-2 inline-block select-all rounded bg-terminal-input px-4 py-2 text-lg font-bold text-terminal-green">
-              {res.reveal}
+            <div className="mt-2 text-terminal-green">This flag is personal to your account:</div>
+            <code className="mt-3 inline-block select-all rounded bg-terminal-input px-4 py-2 text-lg font-bold text-terminal-green">
+              {result.flag}
             </code>
-            <p className="mt-3 text-xs text-terminal-dim">Copy it into the arena flag box to score.</p>
+            <p className="mt-3 text-xs text-terminal-dim">Paste it into the arena flag box to score.</p>
           </div>
         )}
 
-        {res && !res.ok && (
+        {result && !result.ok && (
           <div className="mt-6 rounded-lg border border-terminal-red/40 bg-terminal-red/5 p-4">
-            <p className="text-sm text-terminal-red">{res.message}</p>
-            {res.oids && res.oids.length > 0 && (
+            <p className="text-sm text-terminal-red">{result.message}</p>
+            {showDecoy && (
               <table className="mt-3 w-full text-left font-mono text-xs">
                 <tbody>
-                  {res.oids.map((o) => (
+                  {RO_OIDS.map((o) => (
                     <tr key={o.oid} className="border-t border-terminal-border/40">
                       <td className="py-1 pr-3 text-terminal-dim">{o.oid}</td>
                       <td className="py-1 pr-3 text-terminal-cyan">{o.name}</td>
