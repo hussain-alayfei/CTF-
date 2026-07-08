@@ -49,11 +49,13 @@ function Leaderboard({
   const browsableDays = days.filter((d) => !d.is_rest).slice().sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="rounded-xl border border-terminal-border bg-terminal-panel">
-      <div className="flex items-center justify-between border-b border-terminal-border px-4 py-3">
-        <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Leaderboard</h2>
-        <span className="text-xs text-terminal-dim">
-          {displayRows.length} {displayRows.length === 1 ? 'competitor' : 'competitors'}
+    <div className="overflow-hidden rounded-xl border border-terminal-border bg-terminal-panel">
+      <div className="flex items-center justify-between border-b border-terminal-border bg-terminal-input/30 px-4 py-3">
+        <h2 className="flex items-center gap-2 font-bold uppercase tracking-widest text-terminal-cyan">
+          <span>▸</span> Leaderboard
+        </h2>
+        <span className="rounded-full border border-terminal-border px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
+          {displayRows.length} {displayRows.length === 1 ? 'player' : 'players'}
         </span>
       </div>
 
@@ -82,34 +84,47 @@ function Leaderboard({
               {displayRows.map((r, i) => {
                 const me = r.player_id === meId;
                 const hasPoints = r.total_points > 0;
+                const podium = hasPoints && i < 3;
                 return (
                   <li
                     key={r.player_id}
-                    className={`flex items-center gap-3 border-b border-terminal-border/50 px-4 py-2.5 ${
-                      me ? 'bg-terminal-green/10' : hasPoints && i < 3 ? 'bg-terminal-strong/[0.04]' : ''
+                    className={`flex items-center gap-3 border-b border-terminal-border/50 px-3 py-2.5 transition ${
+                      me
+                        ? 'border-l-2 border-l-terminal-green bg-terminal-green/10'
+                        : podium
+                          ? 'bg-terminal-amber/[0.06]'
+                          : ''
                     }`}
                   >
-                    <span className="w-7 shrink-0 text-center text-sm font-bold text-terminal-dim">
-                      {hasPoints && i < 3 ? medal[i] : i + 1}
-                    </span>
                     <span
-                      className={`flex min-w-0 flex-1 items-center font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-bold tabular-nums ${
+                        podium
+                          ? 'text-lg'
+                          : 'border border-terminal-border text-sm text-terminal-dim'
+                      }`}
                     >
-                      <span className="mr-1.5 inline-block w-5 shrink-0 text-center">{r.avatar ?? '🕵️'}</span>
-                      <span className="min-w-0 flex-1 truncate">{r.username}</span>
+                      {podium ? medal[i] : i + 1}
+                    </span>
+                    <span className="text-xl leading-none">{r.avatar ?? '🕵️'}</span>
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <span
+                        className={`min-w-0 flex-1 truncate font-semibold ${me ? 'text-terminal-green' : 'text-terminal-green/90'}`}
+                      >
+                        {r.username}
+                      </span>
                       {me && (
-                        <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
+                        <span className="shrink-0 rounded bg-terminal-green/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-terminal-green">
                           you
                         </span>
                       )}
                       {!hasPoints && !me && (
-                        <span className="ml-2 shrink-0 text-[10px] uppercase tracking-widest text-terminal-dim">
+                        <span className="shrink-0 text-[9px] uppercase tracking-widest text-terminal-dim">
                           entered
                         </span>
                       )}
                     </span>
                     <span className="shrink-0 text-xs text-terminal-dim">{r.solves_count}★</span>
-                    <span className="w-16 shrink-0 text-right font-bold tabular-nums text-terminal-amber">
+                    <span className="w-14 shrink-0 text-right text-base font-extrabold tabular-nums text-terminal-amber">
                       {r.total_points}
                     </span>
                   </li>

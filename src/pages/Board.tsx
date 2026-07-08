@@ -11,7 +11,8 @@ const medal = ['🥇', '🥈', '🥉'];
 
 // The countdown owns its own 1s tick, so the once-per-second repaint stays
 // isolated here and never re-renders the ranking list (which caused the
-// top-3 rows to visibly shimmer/loop while projecting).
+// top-3 rows to visibly shimmer/loop while projecting). Rendered HUGE as the
+// centerpiece of the projector board.
 function BoardTimer({ event }: { event: EventConfig | null }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -31,12 +32,22 @@ function BoardTimer({ event }: { event: EventConfig | null }) {
       : state.status === 'ended'
         ? 'text-terminal-red'
         : 'text-terminal-amber';
+  const glow =
+    state.status === 'running'
+      ? 'drop-shadow-[0_0_28px_rgb(var(--c-green)/0.55)]'
+      : state.status === 'ended'
+        ? 'drop-shadow-[0_0_28px_rgb(var(--c-red)/0.5)]'
+        : 'drop-shadow-[0_0_28px_rgb(var(--c-amber)/0.5)]';
   return (
-    <div className="text-right">
-      <div className="text-xs uppercase tracking-widest text-terminal-dim">
-        {state.status === 'running' ? 'Time remaining' : 'Status'}
+    <div className="text-center">
+      <div className="text-[11px] uppercase tracking-[0.5em] text-terminal-dim">
+        {state.status === 'running' ? 'Time Remaining' : 'Status'}
       </div>
-      <div className={`text-4xl font-extrabold tabular-nums sm:text-5xl ${color}`}>{label}</div>
+      <div
+        className={`font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl md:text-9xl ${color} ${glow}`}
+      >
+        {label}
+      </div>
     </div>
   );
 }
@@ -73,8 +84,14 @@ export default function Board() {
   // Projectors have no prior user gesture, so the browser keeps the AudioContext
   // suspended and every sound (even the .mp3 first-blood) silently fails until
   // the operator clicks once. This gate makes that explicit.
-  const [soundOn, setSoundOn] = useState(false);
+  // Default board sound ON so the operator doesn't have to remember to enable
+  // it. Browsers may still need one user gesture before audio plays on a
+  // projector (the toggle provides it), but we no longer start muted.
+  const [soundOn, setSoundOn] = useState(true);
   const seenAnnouncements = useRef(0);
+  useEffect(() => {
+    unlockAudio();
+  }, []);
   useEffect(() => {
     const anns = game.announcements;
     if (anns.length <= seenAnnouncements.current) {
@@ -153,12 +170,13 @@ export default function Board() {
   const rows = game.leaderboard.slice(0, 20);
   const overflow = game.leaderboard.length - rows.length;
   const feed = solveFeed;
+  const totalSolves = game.leaderboard.reduce((n, r) => n + r.solves_count, 0);
 
   return (
-    <div className="min-h-screen bg-terminal-bg p-6 text-terminal-text sm:p-10">
+    <div className="min-h-screen bg-terminal-bg p-6 text-terminal-text sm:p-8">
       <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        {/* Top bar */}
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <Link
               to="/"
@@ -166,31 +184,41 @@ export default function Board() {
             >
               ‹ Back to arena
             </Link>
-            <div className="text-xs uppercase tracking-[0.35em] text-terminal-dim">
+            <div className="text-[10px] uppercase tracking-[0.4em] text-terminal-dim">
               KGSP // CTF — Live Board
             </div>
-            <h1 className="mt-1 text-3xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgb(var(--c-green)/0.4)] sm:text-4xl">
+          </div>
+          <button
+            onClick={() => {
+              unlockAudio();
+              setSoundOn((s) => !s);
+            }}
+            title={soundOn ? 'Mute board sounds' : 'Enable board sounds (needed once per projector)'}
+            className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition ${
+              soundOn
+                ? 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
+                : 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber animate-flicker'
+            }`}
+          >
+            {soundOn ? '🔊 Sound on' : '🔇 Enable sound'}
+          </button>
+        </header>
+
+        {/* Hero: active-day title + HUGE hacker countdown */}
+        <section className="mb-6 rounded-2xl border border-terminal-border bg-terminal-panel/60 px-6 py-8 shadow-neon">
+          <div className="text-center">
+            <h1 className="text-2xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgb(var(--c-green)/0.4)] sm:text-3xl">
               {activeDay?.title ?? 'No active day set'}
             </h1>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.35em] text-terminal-dim">
+              {game.leaderboard.length} competitor{game.leaderboard.length === 1 ? '' : 's'} ·{' '}
+              {totalSolves} solve{totalSolves === 1 ? '' : 's'}
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                unlockAudio();
-                setSoundOn((s) => !s);
-              }}
-              title={soundOn ? 'Mute board sounds' : 'Enable board sounds (needed once per projector)'}
-              className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition ${
-                soundOn
-                  ? 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
-                  : 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber animate-flicker'
-              }`}
-            >
-              {soundOn ? '🔊 Sound on' : '🔇 Enable sound'}
-            </button>
+          <div className="mt-6">
             <BoardTimer event={game.event} />
           </div>
-        </header>
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
             {/* Ranking — hidden during the final-minutes freeze */}
