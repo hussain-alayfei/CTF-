@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState } from '../lib/time';
@@ -43,6 +43,24 @@ export default function Play() {
   const { player, setPlayer, muted, toggleMute, theme, toggleTheme } = useApp();
   const game = useGame(player);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // A challenge page links back here as `/?c=<challengeId>` so pressing "back to
+  // the challenge" reopens the exact challenge the player was on, instead of
+  // dumping them at the top of the arena. Consume the param once (after
+  // challenges load) and strip it so a later close/refresh doesn't reopen it.
+  const consumedChallengeParam = useRef(false);
+  useEffect(() => {
+    if (consumedChallengeParam.current) return;
+    const c = searchParams.get('c');
+    if (!c) return;
+    if (game.challenges.length === 0) return; // wait for the list to load
+    consumedChallengeParam.current = true;
+    if (game.challenges.some((ch) => ch.id === c)) setOpenId(c);
+    const next = new URLSearchParams(searchParams);
+    next.delete('c');
+    setSearchParams(next, { replace: true });
+  }, [game.challenges, searchParams, setSearchParams]);
   const [now, setNow] = useState(Date.now());
   const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);

@@ -64,8 +64,11 @@ export default function AnswerVerifyChallenge() {
     return (
       <div className="mx-auto max-w-lg px-4 py-10 text-center">
         <p className="text-terminal-dim">Log in from the arena first, then reopen this challenge.</p>
-        <Link to="/" className="mt-3 inline-block text-sm text-terminal-green underline decoration-dotted">
-          ‹ back to the arena
+        <Link
+          to={challengeId ? `/?c=${challengeId}` : '/'}
+          className="mt-3 inline-block text-sm text-terminal-green underline decoration-dotted"
+        >
+          ‹ back to the challenge
         </Link>
       </div>
     );
@@ -73,8 +76,11 @@ export default function AnswerVerifyChallenge() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <Link to="/" className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green">
-        ‹ back to the arena
+      <Link
+        to={challengeId ? `/?c=${challengeId}` : '/'}
+        className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+      >
+        ‹ back to the challenge
       </Link>
 
       <div className="mt-4 rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-neon">

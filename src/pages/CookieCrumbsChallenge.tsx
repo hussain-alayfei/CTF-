@@ -78,8 +78,8 @@ export default function CookieCrumbsChallenge() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
-      <Link to="/" className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green">
-        ‹ back to the arena
+      <Link to="/?c=p_cookies" className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green">
+        ‹ back to the challenge
       </Link>
 
       <div className="mt-4 rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-neon">

@@ -30,14 +30,12 @@ const diffColor: Record<string, string> = {
 };
 
 const TAB_KEY = 'kgsp_ctf_admin_tab';
-const MUSIC_URL_KEY = 'kgsp_ctf_music_url';
 
-type TabId = 'event' | 'activeday' | 'music' | 'days' | 'players' | 'challenges';
+type TabId = 'event' | 'activeday' | 'days' | 'players' | 'challenges';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'event', label: 'Event Control' },
   { id: 'activeday', label: 'Active Day' },
-  { id: 'music', label: 'Music' },
   { id: 'days', label: 'Days' },
   { id: 'players', label: 'Players' },
   { id: 'challenges', label: 'Challenges' },
@@ -72,9 +70,6 @@ export default function AdminPanel() {
     setTab(id);
     localStorage.setItem(TAB_KEY, id);
   }
-
-  // Ref for MusicPlayer so we can auto-play on event start
-  const musicRef = useRef<MusicPlayerHandle>(null);
 
   // Cache: avoid re-fetching when switching tabs
   const cacheRef = useRef<{ data: AdminOverview | null; players: AdminPlayer[] }>({
@@ -263,10 +258,7 @@ export default function AdminPanel() {
 
   function handleStartEvent() {
     run(async () => {
-      const res = await adminStartEvent(secret, validMinutes);
-      // Auto-start music
-      musicRef.current?.play();
-      return res;
+      return await adminStartEvent(secret, validMinutes);
     }, isRunning
       ? `An event is already running. Restart it now with a fresh ${validMinutes}-minute timer? Progress so far is kept, but the clock resets.`
       : undefined);
@@ -517,13 +509,6 @@ export default function AdminPanel() {
             </div>
           </section>
         )}
-
-        {/* MusicPlayer is ALWAYS mounted (only its visibility toggles) so
-            switching tabs never unmounts the YouTube iframe and cuts the audio.
-            Pause/stop stay manual via the player's own controls. */}
-        <div className={tab === 'music' ? '' : 'hidden'}>
-          <MusicPlayer ref={musicRef} />
-        </div>
 
         {tab === 'days' && (
           <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
@@ -1249,153 +1234,3 @@ function PlayerSolvesByDay({
     </div>
   );
 }
-
-// ---- YouTube background music player (admin device only) ----
-
-interface MusicPlayerHandle {
-  play: () => void;
-}
-
-/** Extract a YouTube video ID and optional start-time from any YouTube URL. */
-function parseYoutubeUrl(raw: string): { id: string; start?: number } | null {
-  try {
-    const u = new URL(raw.trim());
-    let id: string | null = null;
-    if (u.hostname.includes('youtu.be')) {
-      id = u.pathname.slice(1).split(/[?#]/)[0];
-    } else {
-      id = u.searchParams.get('v');
-      if (!id) {
-        const m = u.pathname.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
-        if (m) id = m[1];
-      }
-    }
-    if (!id || !/^[a-zA-Z0-9_-]{11}$/.test(id)) return null;
-    const t = u.searchParams.get('t');
-    const start = t ? parseInt(t.replace(/[^0-9]/g, ''), 10) : undefined;
-    return { id, start: start && !isNaN(start) ? start : undefined };
-  } catch {
-    return null;
-  }
-}
-
-import { forwardRef, useImperativeHandle } from 'react';
-
-const MusicPlayer = forwardRef<MusicPlayerHandle>(function MusicPlayer(_props, ref) {
-  const [url, setUrl] = useState(() => localStorage.getItem(MUSIC_URL_KEY) ?? '');
-  const [playing, setPlaying] = useState(false);
-  const [videoId, setVideoId] = useState<string | null>(null);
-  const [startSec, setStartSec] = useState<number | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
-
-  function saveUrl(next: string) {
-    setUrl(next);
-    localStorage.setItem(MUSIC_URL_KEY, next);
-    setError(null);
-  }
-
-  function ytCmd(func: string) {
-    iframeRef.current?.contentWindow?.postMessage(
-      JSON.stringify({ event: 'command', func, args: [] }),
-      '*',
-    );
-  }
-
-  function play() {
-    const parsed = parseYoutubeUrl(url);
-    if (!parsed) {
-      setError(
-        'Could not find a YouTube video ID in that URL. Try: https://www.youtube.com/watch?v=...',
-      );
-      return;
-    }
-    setError(null);
-    if (videoId === parsed.id) {
-      ytCmd('playVideo');
-      setPlaying(true);
-    } else {
-      setVideoId(parsed.id);
-      setStartSec(parsed.start);
-      setPlaying(true);
-    }
-  }
-
-  function pause() {
-    ytCmd('pauseVideo');
-    setPlaying(false);
-  }
-
-  function stop() {
-    ytCmd('stopVideo');
-    setVideoId(null);
-    setStartSec(undefined);
-    setPlaying(false);
-  }
-
-  useImperativeHandle(ref, () => ({ play }));
-
-  const embedSrc = videoId
-    ? `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&loop=1&playlist=${videoId}${startSec ? `&start=${startSec}` : ''}`
-    : null;
-
-  return (
-    <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
-      <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">
-        ▸ Competition music
-      </h2>
-      <p className="mb-3 text-xs text-terminal-dim">
-        Paste a YouTube video URL. Plays on this device only — great for the room speakers. The
-        video plays in the background; only audio is heard.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={url}
-          onChange={(e) => saveUrl(e.target.value)}
-          placeholder="https://www.youtube.com/watch?v=..."
-          className="min-w-[16rem] flex-1 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-sm text-terminal-green outline-none focus:border-terminal-green"
-        />
-        {!playing ? (
-          <button
-            onClick={play}
-            disabled={!url.trim()}
-            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-          >
-            ▶ Play
-          </button>
-        ) : (
-          <button
-            onClick={pause}
-            className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20"
-          >
-            ⏸ Pause
-          </button>
-        )}
-        <button
-          onClick={stop}
-          disabled={!videoId}
-          className="rounded-lg border border-terminal-red/50 bg-terminal-red/5 px-4 py-2 text-sm font-bold text-terminal-red/80 transition hover:bg-terminal-red/15 disabled:opacity-40"
-        >
-          ⏹ Stop
-        </button>
-      </div>
-      {error && <p className="mt-2 text-xs text-terminal-red">{error}</p>}
-      {playing && videoId && (
-        <p className="mt-2 text-[11px] text-terminal-green">
-          ♪ Now playing — YouTube audio is active on this device.
-        </p>
-      )}
-
-      {embedSrc && (
-        <iframe
-          key={videoId}
-          ref={iframeRef}
-          src={embedSrc}
-          title="Background music"
-          allow="autoplay; encrypted-media"
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-        />
-      )}
-    </section>
-  );
-});

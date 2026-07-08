@@ -5,10 +5,16 @@ import { playTick, playTimeUp } from '../lib/sounds';
 
 // Standalone clock — used only to drive countdown sound cues on the arena page.
 // The large visual display lives in the ArenaTimerBanner below.
+const TIMEUP_ROUND_KEY = 'kgsp_ctf_timeup_round';
+
 function SoundClock({ event }: { event: EventConfig | null }) {
   const [now, setNow] = useState(Date.now());
   const lastTickSec = useRef<number>(-1);
-  const playedTimeUp = useRef(false);
+  // Tracks the status on the previous render so we only fire the "time's up"
+  // sound on a genuine live running -> ended transition. Starts null so a fresh
+  // mount straight into an already-ended round (i.e. a page refresh after the
+  // event finished) never replays the sound.
+  const prevStatus = useRef<string | null>(null);
 
   useEffect(() => {
     const end = event?.ends_at ? Date.parse(event.ends_at) : null;
@@ -23,18 +29,34 @@ function SoundClock({ event }: { event: EventConfig | null }) {
   const state = getEventState(event, now);
 
   useEffect(() => {
-    if (state.status === 'running') {
+    const status = state.status;
+    if (status === 'running') {
       const secs = Math.ceil(state.remainingMs / 1000);
       if (secs <= 10 && secs > 0 && secs !== lastTickSec.current) {
         lastTickSec.current = secs;
         playTick();
       }
-      playedTimeUp.current = false;
-    } else if (state.status === 'ended' && !playedTimeUp.current) {
-      playedTimeUp.current = true;
-      playTimeUp();
+    } else if (status === 'ended' && prevStatus.current === 'running') {
+      // Only on a real live transition, and only once per round (keyed by the
+      // round's ends_at) so refreshing the page after it ended stays silent.
+      const roundKey = event?.ends_at ?? '';
+      let announced: string | null = null;
+      try {
+        announced = sessionStorage.getItem(TIMEUP_ROUND_KEY);
+      } catch {
+        /* sessionStorage unavailable — degrade gracefully */
+      }
+      if (announced !== roundKey) {
+        try {
+          sessionStorage.setItem(TIMEUP_ROUND_KEY, roundKey);
+        } catch {
+          /* ignore */
+        }
+        playTimeUp();
+      }
     }
-  }, [state.status, state.remainingMs]);
+    prevStatus.current = status;
+  }, [state.status, state.remainingMs, event?.ends_at]);
 
   return null; // renders nothing — sound only
 }
