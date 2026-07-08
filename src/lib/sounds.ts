@@ -38,6 +38,19 @@ export function unlockAudio(): void {
   ac();
 }
 
+/**
+ * True once the AudioContext has actually resumed (browsers require a real
+ * user gesture for this — calling `.resume()` from a `useEffect` on mount,
+ * with no click involved, silently leaves it 'suspended' forever). The
+ * projector `/board` page uses this to detect the exact case where sound
+ * looks "on" in the UI but the browser is still blocking every sound —
+ * e.g. someone opens `/board` in a fresh tab to project it and never
+ * personally clicks anything on that tab afterwards.
+ */
+export function isAudioRunning(): boolean {
+  return ctx?.state === 'running';
+}
+
 export function setMuted(v: boolean): void {
   muted = v;
 }

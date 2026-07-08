@@ -28,7 +28,7 @@ values
    'A browser snapshot split one recovery string across cookie, local storage, and cache records with light obfuscation. Rebuild the original value from those three stores.',
    '/challenges/day5/storage-split.txt','/challenge/verify/p5_storage_split',1,5,false,true),
   ('p5_metadata_leak','Metadata Leak','OSINT / Metadata','medium',310,50,508,
-   'A sanitized media export removed visible references, but file metadata still leaks both preparation location and operator codename. Recover both fields and submit in lowercase with underscores.',
+   'A sanitized media export removed visible references, but file metadata still leaks both the internal briefing name and the operator codename. Recover both fields and submit in lowercase with underscores.',
    '/challenges/day5/metadata-leak-exif.txt','/challenge/verify/p5_metadata_leak',1,5,false,true),
   ('p5_fingerprint_spoof','Fingerprint Spoof Lite','Fingerprinting','hard',420,75,509,
    'A fingerprint gate logged several browser profiles and issued one encoded token per profile. Match the captured profile that aligns with the target session material shown on the live challenge page, then decode its token.',
@@ -78,7 +78,7 @@ values
   ('p5_history_reconstruction',1,'Sort by timestamp first, then focus only on high-sensitivity destinations. The latest one carries the code.',40),
   ('p5_tracker_hunter',1,'Ignore first-party traffic. Each third-party tracker contributes exactly one fragment, each in a different common encoding.',40),
   ('p5_storage_split',1,'The cookie fragment is ready after decoding, the local-storage fragment is reversed, and the cache fragment is shifted by one letter.',40),
-  ('p5_metadata_leak',1,'You only need two metadata fields: preparation location and codename. Submit as location_codename in lowercase.',50),
+  ('p5_metadata_leak',1,'Ignore the technical fields. Two human-written fields matter: the internal briefing name and the author codename. Submit them together, lowercase, joined by an underscore.',50),
   ('p5_fingerprint_spoof',1,'Use the live session profile values to select the correct row in the file, then decode only that row''s token.',60),
   ('p5_tor_access_gate',1,'Only one log entry passes every gate and returns a hex payload. Apply the single-byte key shown on the challenge page.',60)
 on conflict (challenge_id, hint_number) do update set

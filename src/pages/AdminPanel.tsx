@@ -31,15 +31,17 @@ const diffColor: Record<string, string> = {
 
 const TAB_KEY = 'kgsp_ctf_admin_tab';
 
-type TabId = 'event' | 'activeday' | 'days' | 'players' | 'challenges';
+// Merged from 5 tabs down to 3: Event Control absorbed Active Day (they're the
+// same "run the round" mental task), and Days absorbed Challenges (a day's
+// challenge list is just detail on that day). Players keeps its own tab but
+// its label grows the live day number so instructors don't have to guess
+// which day the roster below is scoped to.
+type TabId = 'event' | 'days' | 'players';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'event', label: 'Event Control' },
-  { id: 'activeday', label: 'Active Day' },
-  { id: 'days', label: 'Days' },
-  { id: 'players', label: 'Players' },
-  { id: 'challenges', label: 'Challenges' },
-];
+const OLD_TAB_MIGRATION: Record<string, TabId> = {
+  activeday: 'event',
+  challenges: 'days',
+};
 
 export default function AdminPanel() {
   const { player, setPlayer, theme, toggleTheme } = useApp();
@@ -59,10 +61,13 @@ export default function AdminPanel() {
   const lastServerMinutes = useRef<number | null>(null);
   const lastServerFreeze = useRef<number | null>(null);
 
-  // Tab state persisted in localStorage
+  // Tab state persisted in localStorage. Old saved values from the previous
+  // 5-tab layout ('activeday', 'challenges') are transparently remapped to
+  // their merged home so returning instructors don't land on a blank state.
   const [tab, setTab] = useState<TabId>(() => {
     const saved = localStorage.getItem(TAB_KEY);
-    if (saved && TABS.some((t) => t.id === saved)) return saved as TabId;
+    if (saved === 'event' || saved === 'days' || saved === 'players') return saved;
+    if (saved && saved in OLD_TAB_MIGRATION) return OLD_TAB_MIGRATION[saved];
     return 'event';
   });
 
@@ -318,9 +323,20 @@ export default function AdminPanel() {
         <Tile label="Total solves" value={String(activeSolves)} />
       </div>
 
-      {/* Tab bar */}
+      {/* Tab bar — 3 tabs: Event Control (incl. Active Day), Days (incl.
+          Challenges), Players (labeled with the live day number). */}
       <div className="mt-6 flex gap-1 border-b border-terminal-border">
-        {TABS.map((t) => (
+        {(
+          [
+            { id: 'event' as TabId, label: 'Event Control' },
+            { id: 'days' as TabId, label: 'Days & Challenges' },
+            {
+              id: 'players' as TabId,
+              label:
+                data?.event?.active_day != null ? `Players · Day ${data.event.active_day}` : 'Players',
+            },
+          ]
+        ).map((t) => (
           <button
             key={t.id}
             onClick={() => switchTab(t.id)}
@@ -349,6 +365,62 @@ export default function AdminPanel() {
               endsAt={data?.event?.ends_at ?? null}
               remainingMs={state.remainingMs}
             />
+
+            {/* Active day picker — merged in from the old separate "Active Day"
+                tab. This is the day players see as the "live" leaderboard and
+                what Reset/Players are scoped to, so it lives right next to the
+                status banner instead of being a click away in another tab. */}
+            <div className="mt-4 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 p-4">
+              <h3 className="mb-1 text-xs font-bold uppercase tracking-widest text-terminal-cyan">
+                ▸ Active day (live leaderboard)
+              </h3>
+              <p className="mb-3 text-[11px] text-terminal-dim">
+                Students only see the leaderboard for this day. Reset and the Players tab are also
+                scoped to it. Past days&apos; scores are never lost when you switch.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={activeDaySel}
+                  onChange={(e) => setActiveDaySel(Number(e.target.value))}
+                  className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-2.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
+                >
+                  <option value="" disabled>
+                    Choose a day…
+                  </option>
+                  {days.map((d) => (
+                    <option key={d.day} value={d.day}>
+                      {d.title}
+                      {d.day === data?.event?.active_day ? ' · live' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  disabled={
+                    busy ||
+                    activeDaySel === '' ||
+                    Number(activeDaySel) === data?.event?.active_day
+                  }
+                  onClick={() =>
+                    run(
+                      () => adminSetActiveDay(secret, Number(activeDaySel)),
+                      'Switch the live leaderboard to this day?',
+                    )
+                  }
+                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                >
+                  {activeDaySel !== '' && Number(activeDaySel) === data?.event?.active_day
+                    ? '✓ Currently live'
+                    : 'Set active day'}
+                </button>
+                <span className="text-xs text-terminal-dim">
+                  Currently live:{' '}
+                  <strong className="text-terminal-green">
+                    {days.find((d) => d.day === data?.event?.active_day)?.title ??
+                      `Day ${data?.event?.active_day ?? '—'}`}
+                  </strong>
+                </span>
+              </div>
+            </div>
 
             {/* Auto-lock countdown */}
             {isEnded && autoLockMin !== null && (
@@ -453,7 +525,7 @@ export default function AdminPanel() {
                   isIdle
                     ? 'Nothing to reset — no event has been started.'
                     : data?.event?.active_day == null
-                      ? 'Set an active day first (see the Active Day tab).'
+                      ? 'Set an active day first (above).'
                       : `Only clears ${days.find((d) => d.day === data?.event?.active_day)?.title ?? `Day ${data?.event?.active_day}`}'s scores.`
                 }
                 className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
@@ -463,75 +535,34 @@ export default function AdminPanel() {
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
               ⟲ Reset only clears scores for the <strong className="text-terminal-red">currently active day</strong>{' '}
-              (set in the <strong>Active Day</strong> tab) — every other day's history is always safe.
+              (set above) — every other day's history is always safe.
             </p>
-          </section>
-        )}
-
-        {tab === 'activeday' && (
-          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
-            <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">
-              ▸ Active Day (Leaderboard)
-            </h2>
-            <p className="mb-4 text-xs text-terminal-dim">
-              Students only see the leaderboard for this day. When a day finishes, switch to the next
-              one to start its board fresh — past days&apos; scores are never lost and can still be
-              browsed from the leaderboard&apos;s day selector.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <select
-                value={activeDaySel}
-                onChange={(e) => setActiveDaySel(Number(e.target.value))}
-                className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-2.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
-              >
-                <option value="" disabled>
-                  Choose a day…
-                </option>
-                {days.map((d) => (
-                  <option key={d.day} value={d.day}>
-                    {d.title}
-                    {d.day === data?.event?.active_day ? ' · live' : ''}
-                  </option>
-                ))}
-              </select>
-              <button
-                disabled={
-                  busy ||
-                  activeDaySel === '' ||
-                  Number(activeDaySel) === data?.event?.active_day
-                }
-                onClick={() =>
-                  run(
-                    () => adminSetActiveDay(secret, Number(activeDaySel)),
-                    'Switch the live leaderboard to this day?',
-                  )
-                }
-                className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-              >
-                {activeDaySel !== '' && Number(activeDaySel) === data?.event?.active_day
-                  ? '✓ Currently live'
-                  : 'Set active day'}
-              </button>
-              <span className="text-xs text-terminal-dim">
-                Currently live:{' '}
-                <strong className="text-terminal-green">
-                  {days.find((d) => d.day === data?.event?.active_day)?.title ??
-                    `Day ${data?.event?.active_day ?? '—'}`}
-                </strong>
-              </span>
-            </div>
           </section>
         )}
 
         {tab === 'days' && (
           <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
-            <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Days</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">▸ Days & Challenges</h2>
+              <button
+                onClick={() => setShowFlags((s) => !s)}
+                className="rounded border border-terminal-border px-3 py-1 text-xs text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
+              >
+                {showFlags ? '🙈 Hide flags' : '👁 Reveal flags'}
+              </button>
+            </div>
+            <p className="mb-4 text-[11px] text-terminal-dim">
+              Lock/unlock a day, set its access code, then expand it to see and manage that day's
+              challenges & flags in the same place.
+            </p>
             <DaysWeekGroup
               label="Week 1 (Days 3–5)"
               days={week1Days}
               busy={busy}
               secret={secret}
               run={run}
+              challengesByDay={challengeDayGroups}
+              showFlags={showFlags}
             />
             <DaysWeekGroup
               label="Week 2 (Days 6–10)"
@@ -539,6 +570,8 @@ export default function AdminPanel() {
               busy={busy}
               secret={secret}
               run={run}
+              challengesByDay={challengeDayGroups}
+              showFlags={showFlags}
               className="mt-4"
             />
           </section>
@@ -549,6 +582,8 @@ export default function AdminPanel() {
             <PlayersSection
               players={players}
               challenges={challenges}
+              days={days}
+              activeDay={data?.event?.active_day ?? null}
               busy={busy}
               onToggleExclude={(id, name, excluded) =>
                 run(
@@ -574,40 +609,6 @@ export default function AdminPanel() {
           </section>
         )}
 
-        {tab === 'challenges' && (
-          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
-                ▸ Challenges & flags
-              </h2>
-              <button
-                onClick={() => setShowFlags((s) => !s)}
-                className="rounded border border-terminal-border px-3 py-1 text-xs text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-              >
-                {showFlags ? '🙈 Hide flags' : '👁 Reveal flags'}
-              </button>
-            </div>
-            <div className="space-y-3">
-              {challengeDayGroups.length === 0 ? (
-                <p className="text-sm text-terminal-dim">No challenges yet.</p>
-              ) : (
-                challengeDayGroups.map((g) => (
-                  <ChallengeDayGroup
-                    key={g.day}
-                    title={g.title}
-                    challenges={g.list}
-                    showFlags={showFlags}
-                  />
-                ))
-              )}
-            </div>
-            <p className="mt-4 text-[11px] text-terminal-dim">
-              Tip: to add challenges to any day, insert rows in the Supabase{' '}
-              <code className="text-terminal-green">challenges</code> table and set their{' '}
-              <code className="text-terminal-green">day</code> number.
-            </p>
-          </section>
-        )}
       </div>
 
     </div>
@@ -621,6 +622,8 @@ function DaysWeekGroup({
   busy,
   secret,
   run: runAction,
+  challengesByDay,
+  showFlags,
   className = '',
 }: {
   label: string;
@@ -631,6 +634,8 @@ function DaysWeekGroup({
     action: () => Promise<{ error?: string; message?: string }>,
     confirmText?: string,
   ) => void;
+  challengesByDay: { day: number; title: string; list: AdminChallenge[] }[];
+  showFlags: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -653,6 +658,7 @@ function DaysWeekGroup({
         <div className="space-y-3 pl-2">
           {days.map((d: AdminDay) => {
             const autoCode = generateDayCode(d);
+            const dayChallenges = challengesByDay.find((g) => g.day === d.day)?.list ?? [];
             return (
               <div
                 key={d.day}
@@ -705,9 +711,55 @@ function DaysWeekGroup({
                   busy={busy}
                   onSave={(code) => runAction(() => adminSetDayCode(secret, d.day, code))}
                 />
+                {dayChallenges.length > 0 && (
+                  <DayChallengesInline challenges={dayChallenges} showFlags={showFlags} />
+                )}
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** This day's challenges & flags, nested right inside its own row — replaces
+ * the old separate "Challenges" tab so instructors manage a day and its
+ * challenges together instead of cross-referencing two tabs. */
+function DayChallengesInline({
+  challenges,
+  showFlags,
+}: {
+  challenges: AdminChallenge[];
+  showFlags: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const solved = challenges.reduce((n, c) => n + c.solves_count, 0);
+
+  return (
+    <div className="mt-3 border-t border-terminal-border/50 pt-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-3 text-left text-xs transition hover:text-terminal-green"
+      >
+        <span className="flex items-center gap-2 font-bold text-terminal-cyan">
+          <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>
+            ▸
+          </span>
+          Challenges & flags
+        </span>
+        <span className="flex items-center gap-3 text-terminal-dim">
+          <span>
+            {challenges.length} challenge{challenges.length === 1 ? '' : 's'}
+          </span>
+          <span>{solved} ★ solves</span>
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {challenges.map((c) => (
+            <ChallengeAdminCard key={c.id} c={c} showFlags={showFlags} />
+          ))}
         </div>
       )}
     </div>
@@ -910,48 +962,6 @@ function DayCodeEditor({
   );
 }
 
-function ChallengeDayGroup({
-  title,
-  challenges,
-  showFlags,
-}: {
-  title: string;
-  challenges: AdminChallenge[];
-  showFlags: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const solved = challenges.reduce((n, c) => n + c.solves_count, 0);
-
-  return (
-    <div className="rounded-lg border border-terminal-border bg-terminal-input/20">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-terminal-green/5"
-      >
-        <span className="flex items-center gap-2 font-bold text-terminal-green">
-          <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>
-            ▸
-          </span>
-          {title}
-        </span>
-        <span className="flex items-center gap-3 text-[11px] text-terminal-dim">
-          <span>
-            {challenges.length} challenge{challenges.length === 1 ? '' : 's'}
-          </span>
-          <span>{solved} ★ solves</span>
-        </span>
-      </button>
-      {open && (
-        <div className="space-y-2 border-t border-terminal-border/60 p-3">
-          {challenges.map((c) => (
-            <ChallengeAdminCard key={c.id} c={c} showFlags={showFlags} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -1044,6 +1054,8 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
 function PlayersSection({
   players,
   challenges,
+  days,
+  activeDay,
   busy,
   onToggleExclude,
   onDelete,
@@ -1051,6 +1063,8 @@ function PlayersSection({
 }: {
   players: AdminPlayer[];
   challenges: AdminChallenge[];
+  days: AdminDay[];
+  activeDay: number | null;
   busy: boolean;
   onToggleExclude: (id: string, name: string, excluded: boolean) => void;
   onDelete: (id: string, name: string) => void;
@@ -1064,6 +1078,24 @@ function PlayersSection({
   const chMeta = new Map<string, { day: number; title: string }>();
   for (const c of challenges) chMeta.set(c.id, { day: c.day, title: c.title });
 
+  const activeDayTitle = days.find((d) => d.day === activeDay)?.title ?? (activeDay != null ? `Day ${activeDay}` : null);
+
+  // Per-player stats scoped to whichever day is currently live — this is what
+  // the row summary (and the search list) shows by default now, instead of
+  // an undifferentiated all-time total. The full per-day breakdown is still
+  // one click away when a row is expanded.
+  const activeDayStats = new Map<string, { points: number; solves: number; firstBloods: number }>();
+  if (activeDay != null) {
+    for (const p of players) {
+      const dayPeriod = p.solves.filter((s) => chMeta.get(s.challenge_id)?.day === activeDay);
+      activeDayStats.set(p.id, {
+        points: dayPeriod.reduce((sum, s) => sum + s.points, 0),
+        solves: dayPeriod.length,
+        firstBloods: dayPeriod.filter((s) => s.first_blood).length,
+      });
+    }
+  }
+
   const filtered = players.filter((p) =>
     p.username.toLowerCase().includes(query.trim().toLowerCase()),
   );
@@ -1071,9 +1103,24 @@ function PlayersSection({
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
-          ▸ Players ({players.length})
-        </h2>
+        <div>
+          <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
+            ▸ Players ({players.length})
+          </h2>
+          <p className="mt-0.5 text-[11px] text-terminal-dim">
+            {activeDay != null ? (
+              <>
+                Showing scores for{' '}
+                <strong className="text-terminal-green">
+                  Day {activeDay} — {activeDayTitle}
+                </strong>{' '}
+                (the currently live day). Expand a player for their full per-day history.
+              </>
+            ) : (
+              'No active day is set — showing all-time totals. Set an active day in Event Control.'
+            )}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <input
             value={query}
@@ -1102,6 +1149,11 @@ function PlayersSection({
         <div className="space-y-2">
           {filtered.map((p, i) => {
             const isOpen = openId === p.id;
+            const dayStat = activeDayStats.get(p.id);
+            const showDayScoped = activeDay != null && dayStat != null;
+            const points = showDayScoped ? dayStat.points : p.total_points;
+            const solvesCount = showDayScoped ? dayStat.solves : p.solves_count;
+            const firstBloods = showDayScoped ? dayStat.firstBloods : p.first_bloods;
             return (
               <div
                 key={p.id}
@@ -1123,14 +1175,19 @@ function PlayersSection({
                       🙈 hidden
                     </span>
                   )}
+                  {showDayScoped && (
+                    <span className="shrink-0 rounded border border-terminal-cyan/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-terminal-cyan">
+                      Day {activeDay}
+                    </span>
+                  )}
                   <span className="w-16 text-right text-xs tabular-nums text-terminal-dim">
-                    {p.solves_count} solves
+                    {solvesCount} solves
                   </span>
-                  {p.first_bloods > 0 && (
-                    <span className="text-xs text-terminal-red">🩸 {p.first_bloods}</span>
+                  {firstBloods > 0 && (
+                    <span className="text-xs text-terminal-red">🩸 {firstBloods}</span>
                   )}
                   <span className="w-16 text-right font-bold tabular-nums text-terminal-amber">
-                    {p.total_points}
+                    {points}
                   </span>
                   <button
                     disabled={busy}
@@ -1162,17 +1219,17 @@ function PlayersSection({
                   <div className="border-t border-terminal-border/60 px-4 py-3 text-xs">
                     <div className="mb-3 flex flex-wrap gap-4 text-terminal-dim">
                       <span>
-                        Score: <span className="text-terminal-amber">{p.total_points}</span>
+                        All-time score: <span className="text-terminal-amber">{p.total_points}</span>
                       </span>
                       <span>
-                        Solves: <span className="text-terminal-green">{p.solves_count}</span>
+                        All-time solves: <span className="text-terminal-green">{p.solves_count}</span>
                       </span>
                       <span>
-                        First bloods: <span className="text-terminal-red">{p.first_bloods}</span>
+                        All-time first bloods: <span className="text-terminal-red">{p.first_bloods}</span>
                       </span>
                       <span>Joined: {new Date(p.created_at).toLocaleString()}</span>
                     </div>
-                    <PlayerSolvesByDay solves={p.solves} chMeta={chMeta} />
+                    <PlayerSolvesByDay solves={p.solves} chMeta={chMeta} activeDay={activeDay} />
                   </div>
                 )}
               </div>
@@ -1190,9 +1247,11 @@ function PlayersSection({
 function PlayerSolvesByDay({
   solves,
   chMeta,
+  activeDay,
 }: {
   solves: AdminPlayerSolve[];
   chMeta: Map<string, { day: number; title: string }>;
+  activeDay?: number | null;
 }) {
   if (solves.length === 0) {
     return <p className="text-terminal-dim">No solves yet.</p>;
@@ -1210,14 +1269,26 @@ function PlayerSolvesByDay({
       {groups.map(([day, list]) => {
         const subtotal = list.reduce((sum, s) => sum + s.points, 0);
         const firstBloods = list.filter((s) => s.first_blood).length;
+        const isLive = activeDay != null && day === activeDay;
         return (
           <div
             key={day}
-            className="overflow-hidden rounded-lg border border-terminal-border/60 bg-terminal-bg/40"
+            className={`overflow-hidden rounded-lg border bg-terminal-bg/40 ${
+              isLive ? 'border-terminal-cyan/50' : 'border-terminal-border/60'
+            }`}
           >
-            <div className="flex items-center justify-between border-b border-terminal-border/40 bg-terminal-input/30 px-3 py-1.5">
+            <div
+              className={`flex items-center justify-between border-b px-3 py-1.5 ${
+                isLive ? 'border-terminal-cyan/30 bg-terminal-cyan/10' : 'border-terminal-border/40 bg-terminal-input/30'
+              }`}
+            >
               <span className="font-bold text-terminal-green">
                 {day > 0 ? `Day ${day}` : 'Other'}
+                {isLive && (
+                  <span className="ml-2 rounded border border-terminal-cyan/50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-terminal-cyan">
+                    ● live
+                  </span>
+                )}
                 <span className="ml-2 text-[10px] font-normal uppercase tracking-widest text-terminal-dim">
                   {list.length} solve{list.length === 1 ? '' : 's'}
                 </span>

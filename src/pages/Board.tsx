@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState, formatDuration, isFrozen } from '../lib/time';
-import { playClick, playFirstBlood, unlockAudio } from '../lib/sounds';
+import { isAudioRunning, playClick, playFirstBlood, unlockAudio } from '../lib/sounds';
 import type { EventConfig } from '../lib/types';
 import Register from '../components/Register';
 
@@ -89,8 +89,18 @@ export default function Board() {
   // projector (the toggle provides it), but we no longer start muted.
   const [soundOn, setSoundOn] = useState(true);
   const seenAnnouncements = useRef(0);
+  // The real, previously-hidden bug: calling unlockAudio() from a useEffect on
+  // mount is NOT a user gesture, so Chrome/Edge/Safari's autoplay policy keeps
+  // the AudioContext 'suspended' regardless — the "🔊 Sound on" pill looked
+  // correct while every first-blood siren silently failed to play. This polls
+  // the real AudioContext state so the UI can tell the truth and prompt for
+  // one genuine click instead of lying that sound is already working.
+  const [audioReady, setAudioReady] = useState(false);
   useEffect(() => {
     unlockAudio();
+    setAudioReady(isAudioRunning());
+    const id = window.setInterval(() => setAudioReady(isAudioRunning()), 1000);
+    return () => clearInterval(id);
   }, []);
   useEffect(() => {
     const anns = game.announcements;
@@ -191,18 +201,36 @@ export default function Board() {
           <button
             onClick={() => {
               unlockAudio();
+              setAudioReady(isAudioRunning());
               setSoundOn((s) => !s);
             }}
-            title={soundOn ? 'Mute board sounds' : 'Enable board sounds (needed once per projector)'}
+            title={
+              !audioReady
+                ? 'Click to enable sound — the browser blocks audio until you click once on this tab'
+                : soundOn
+                  ? 'Mute board sounds'
+                  : 'Enable board sounds (needed once per projector)'
+            }
             className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition ${
-              soundOn
+              soundOn && audioReady
                 ? 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
                 : 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber animate-flicker'
             }`}
           >
-            {soundOn ? '🔊 Sound on' : '🔇 Enable sound'}
+            {!audioReady ? '🔇 Click to enable sound' : soundOn ? '🔊 Sound on' : '🔇 Enable sound'}
           </button>
         </header>
+
+        {/* Explicit banner — this is the actual fix for "first blood sound never
+            plays on the dashboard": autoplay policy silently blocks the
+            AudioContext until a genuine click happens on THIS tab, and the old
+            "Sound on" pill never revealed that it hadn't actually happened. */}
+        {!audioReady && (
+          <div className="mb-4 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3 text-center text-sm font-semibold text-terminal-amber">
+            🔇 Sound is blocked by the browser until you click once on this tab — click the button
+            above to enable the first-blood siren.
+          </div>
+        )}
 
         {/* Hero: active-day title + HUGE hacker countdown */}
         <section className="mb-6 rounded-2xl border border-terminal-border bg-terminal-panel/60 px-6 py-8 shadow-neon">

@@ -14,7 +14,7 @@ Update it whenever the architecture, schema, or conventions change.
 
 - **Live event day:** **Day 4 "Securing Networks"** is the active authored day.
   Day 3 "Securing Data" has authored challenges but is closed; **Day 5 "Privacy"
-  now has 10 authored challenges** (3 easy, 5 medium, 2 hard, all dynamic);
+  has 10 authored v2 challenges** (3 easy, 4 medium, 2 hard, 1 danger, all dynamic);
   Days 6–10 are placeholders.
 - **Day 4 = 7 core + 2 extra, ALL `is_dynamic` (per-player flags).** Core =
   artifact/tool challenges (Wireshark pcap, file-carving, EXIF+maps, CyberChef,
@@ -22,13 +22,14 @@ Update it whenever the architecture, schema, or conventions change.
   (recon/stego). (The 3 "target box" nmap/Wireshark/dig extras that needed an
   instructor-shared IP were **removed 2026-07-08** — 0 solves, no scores lost;
   `target-box/` is gone.)
-- **Day 5 = Privacy rebuilt (2026-07-09).** It now has 10 exploratory challenges:
-  `p5_cookie_trail`, `p5_firefox_profile_hunt`, `p5_consent_trap`,
-  `p5_gpc_unlock`, `p5_history_reconstruction`, `p5_tracker_hunter`,
-  `p5_storage_split`, `p5_metadata_leak`, `p5_fingerprint_spoof`,
-  `p5_tor_access_gate`. All are `is_dynamic = true` with one hint each and use
-  `/challenge/verify/:challengeId`; the two hard challenges also use
-  `challenge_live_material` keys.
+- **Day 5 = Privacy v2 (2026-07-09).** Full rewrite — 3 easy / 4 medium / 2 hard /
+  1 danger, all `is_dynamic`. Mix of live browser pages (`p5_cache_phantom`,
+  `p5_consent_labyrinth`, `p5_mask_match`) and forensics artifacts (sqlite, zip,
+  pcap, har, carved png). IDs: `p5_cache_phantom`, `p5_bookmark_vault`,
+  `p5_consent_labyrinth`, `p5_profile_archive`, `p5_dns_whisper`,
+  `p5_tracker_ghost`, `p5_briefing_carve`, `p5_mask_match`, `p5_exit_witness`,
+  `p5_reidentified`. Live keys via `challenge_live_material` on hard/danger +
+  `p5_briefing_carve`. Regenerate artifacts: `scripts/gen-day5-artifacts.py`.
 - **Day 3 = 4 core + 3 extra, ALL static** (`challenge_flags`, simple text answers):
   core `lab_stego, lab_encrypt, hash, lab_vault`; extra `base64, caesar, stego`.
 - **No Day 4/5 flag is a static string in the client bundle or the DB** — every one
@@ -43,8 +44,8 @@ src/                  the SPA (detailed File map below)
 public/               static assets served at web root
   challenges/         downloadable challenge artifacts (day4/*, day5/*,
                       vault.png, hidden.png) + s3cr3t-vault.html, robots.txt
-scripts/              gen-day4-artifacts.py (regenerate challenge artifacts),
-                      gen-stego.mjs
+scripts/              gen-day4-artifacts.py, gen-day5-artifacts.py (regenerate
+                      challenge artifacts), gen-stego.mjs
 supabase/             schema.sql (accurate reference snapshot) + migrations/ +
                       seed.example.sql; the live Supabase project is the source of
                       truth (migrations applied via MCP)
@@ -279,7 +280,9 @@ flowchart LR
 src/
   App.tsx                  routes: / (Play), /admin (AdminPanel), /board (Board),
                            /challenge/admin-panel (cookie), /challenge/router-console
-                           (Day 4 SNMP), /challenge/verify/:challengeId (Day 4 generic)
+                           (Day 4 SNMP), /challenge/cache-phantom,
+                           /challenge/consent-labyrinth, /challenge/mask-match
+                           (Day 5 live), /challenge/verify/:challengeId (generic)
   lib/
     api.ts                 all Supabase RPC + table calls
     types.ts               shared TS types (Player.is_admin/admin_token, EventConfig.active_day)
@@ -315,9 +318,15 @@ src/
                              (fires once per round via a sessionStorage starts_at
                              marker — never replays on remount/navigation),
                              admin-only Admin/Board header links
-    AdminPanel.tsx          role-gated (player.is_admin) dashboard: event, active day,
-                             days+codes, players, challenges (grouped by day under
-                             collapsible headers), music — no password form, no freeze
+    AdminPanel.tsx          role-gated (player.is_admin) dashboard, 3 tabs (merged
+                             2026-07-09 from 5): "Event Control" (start/stop/reset +
+                             the active-day picker, inline), "Days & Challenges"
+                             (lock/code per day, with that day's challenges/flags
+                             nested right inside its row), "Players · Day N" (label
+                             shows the live day; row stats default to THAT day's
+                             score/solves/first-bloods, all-time totals + full
+                             per-day breakdown still shown on expand) — no password
+                             form, no freeze
     Board.tsx               admin-only full-screen projector dashboard at /board:
                              "‹ Back to arena" link, seeded live feed, an "Enable
                              sound" gesture (first-blood siren needs one user
@@ -327,9 +336,11 @@ src/
                              hardcoded flag in the bundle)
     RouterConsoleChallenge.tsx  Day 4 SNMP console (bespoke flavor); calls the
                              shared verify_challenge_answer RPC for its personal flag
-    AnswerVerifyChallenge.tsx   generic Day 4 page used by 6 of 7 challenges: shows
-                             challenge_live_material (if any) + an answer box;
-                             on success shows that player's personal flag
+    AnswerVerifyChallenge.tsx   generic verify page: shows challenge_live_material
+                             (if any) + an answer box; on success shows personal flag
+    CachePhantomChallenge.tsx   Day 5 — browser storage shards after consent
+    ConsentLabyrinthChallenge.tsx Day 5 — multi-step CMP wizard
+    MaskMatchChallenge.tsx    Day 5 — live fingerprint alignment + artifact decode
 ```
 
 ## Conventions
@@ -348,6 +359,13 @@ src/
   driven solely by `<Timer/>`, which itself stops ticking once the event ends.
 - **Sounds:** synthesized in `sounds.ts` by default; `playFirstBlood()` can be
   overridden by dropping `public/sounds/first-blood.mp3` or `.wav`. Respect global mute.
+  `isAudioRunning()` exposes the AudioContext's real `'running'` vs `'suspended'`
+  state — `/board`'s "Sound on" pill used to lie (autoplay policy silently keeps
+  the context suspended until a genuine click on that tab; a `useEffect` on mount
+  is NOT a gesture), so first blood never actually played on a freshly opened
+  projector tab even though the UI claimed sound was on. `Board.tsx` now polls
+  this every second and shows "🔇 Click to enable sound" + a banner until it's
+  genuinely unlocked.
 - **Avatars:** emoji from `constants.ts` `AVATARS`.
 - **Animations:** defined in `tailwind.config.js` (flicker, slide-down, slide-left, pop, pulse-ring, rise).
 - **Realtime:** `useGame.ts` subscribes to `solves`, `players`, `event_config`,
