@@ -16,7 +16,13 @@ function getCookie(name: string): string | null {
 
 export default function CookieChallenge() {
   const { player } = useApp();
-  const [role, setRole] = useState<string | null>(null);
+  // Read the cookie synchronously on the very first render (lazy initializer)
+  // instead of via useEffect. An effect only runs AFTER the first paint, so
+  // reading it there meant every visit — including "back to the challenge"
+  // after already forging role=admin — briefly rendered "Access Denied /
+  // unknown" before flipping to the real state one render later, the same
+  // flash-then-correct bug fixed on the arena's back-navigation.
+  const [role, setRole] = useState<string | null>(() => getCookie('role'));
   const [busy, setBusy] = useState(false);
   const [claim, setClaim] = useState<{ ok: boolean; message: string; flag?: string } | null>(null);
 
@@ -25,11 +31,14 @@ export default function CookieChallenge() {
     setClaim(null);
   }
 
+  // Only a brand-new visitor (no cookie at all yet) needs this — it plants the
+  // default `guest` cookie once. Returning visitors already have a cookie, so
+  // the lazy initializer above already rendered the correct role with no flash.
   useEffect(() => {
     if (!getCookie('role')) {
       document.cookie = 'role=guest; path=/; SameSite=Lax';
+      setRole('guest');
     }
-    refresh();
   }, []);
 
   const isAdmin = role === 'admin';

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { verifyChallengeAnswer } from '../lib/api';
@@ -26,20 +26,26 @@ function getCookie(name: string): string | null {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+function isTrackingPlanted(): boolean {
+  return (
+    getCookie(COOKIE_NAME) === FRAG_COOKIE &&
+    localStorage.getItem(LS_KEY) === FRAG_LOCAL &&
+    sessionStorage.getItem(SS_KEY) === FRAG_SESSION
+  );
+}
+
 export default function CookieCrumbsChallenge() {
   const { player } = useApp();
-  const [planted, setPlanted] = useState(false);
+  // Check the cookie/localStorage/sessionStorage synchronously on the very
+  // first render (lazy initializer) instead of via useEffect. An effect only
+  // runs AFTER the first paint, so a returning visitor who'd already accepted
+  // tracking would briefly see the "Accept tracking" button before it flipped
+  // to "Tracking enabled" one render later — the same flash-then-correct bug
+  // fixed on the arena's back-navigation.
+  const [planted, setPlanted] = useState(() => isTrackingPlanted());
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string; flag?: string } | null>(null);
-
-  useEffect(() => {
-    setPlanted(
-      getCookie(COOKIE_NAME) === FRAG_COOKIE &&
-        localStorage.getItem(LS_KEY) === FRAG_LOCAL &&
-        sessionStorage.getItem(SS_KEY) === FRAG_SESSION,
-    );
-  }, []);
 
   function acceptTracking() {
     unlockAudio();
