@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LeaderboardRow } from '../lib/types';
 import { playFanfare, playReveal, playTick } from '../lib/sounds';
+import useLockBodyScroll from '../lib/useLockBodyScroll';
 
 // Timing: real suspense, not a quick slideshow. Each place gets its own
 // countdown before it's revealed, plus a pause afterward to let it land.
@@ -21,6 +22,7 @@ export default function Podium({
   meId: string | null;
   onClose: () => void;
 }) {
+  useLockBodyScroll();
   const top = rows.filter((r) => r.total_points > 0 || r.solves_count > 0).slice(0, 3);
   const revealOrder = [3, 2, 1].filter((p) => top.length >= p);
 

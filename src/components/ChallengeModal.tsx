@@ -4,6 +4,7 @@ import type { Challenge, HintResult, Player } from '../lib/types';
 import type { EventStatus } from '../lib/time';
 import { submitFlag, unlockHint } from '../lib/api';
 import { playClick, playCorrect, playHint, playWrong, unlockAudio } from '../lib/sounds';
+import useLockBodyScroll from '../lib/useLockBodyScroll';
 import Prompt from './Prompt';
 
 // Keep unlocked hints for the session so re-opening a challenge keeps them.
@@ -41,6 +42,7 @@ export default function ChallengeModal({
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [hints, setHints] = useState<Map<number, HintResult>>(() => new Map(getCache(challenge.id)));
+  useLockBodyScroll();
 
   const running = eventStatus === 'running';
 

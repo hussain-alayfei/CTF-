@@ -1,4 +1,5 @@
 import type { Player, LeaderboardRow, Solve, Challenge } from '../lib/types';
+import useLockBodyScroll from '../lib/useLockBodyScroll';
 
 const medals = ['🥇', '🥈', '🥉'];
 
@@ -19,6 +20,7 @@ export default function ProfileModal({
   onClose: () => void;
   onLogout: () => void;
 }) {
+  useLockBodyScroll();
   const mySolves = solves.filter((s) => s.player_id === player.id);
   const rank = leaderboard.findIndex((r) => r.player_id === player.id) + 1;
   const totalPlayers = leaderboard.length;
