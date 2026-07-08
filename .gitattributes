@@ -1,0 +1,18 @@
+# Force LF + correct binary handling for all challenge artifacts, regardless of
+# any local core.autocrlf setting. Without this, Windows git can silently
+# CRLF-corrupt a binary file it mis-guesses as text (pcap/zip/png/jpg), which
+# breaks the download for players without any error at commit or push time.
+
+* text=auto eol=lf
+
+*.pcap  -text -diff binary
+*.png   -text -diff binary
+*.jpg   -text -diff binary
+*.jpeg  -text -diff binary
+*.zip   -text -diff binary
+*.gz    -text -diff binary
+*.gif   -text -diff binary
+*.woff  -text -diff binary
+*.woff2 -text -diff binary
+*.ico   -text -diff binary
+*.mp3   -text -diff binary
