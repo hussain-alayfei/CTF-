@@ -3,6 +3,11 @@ dist
 dist-ssr
 *.local
 *.log
+# Challenge artifacts intentionally use .log as a file extension (e.g. Day 5
+# request-gateway.log, tor-access-gate.log) and must NOT be swallowed by the
+# blanket *.log rule above — that's what caused them to silently never be
+# committed, so the deployed site 404'd on their download links.
+!public/challenges/**/*.log
 
 # Env
 .env

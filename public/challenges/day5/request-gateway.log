@@ -1,0 +1,16 @@
+2026-07-05T10:11:08Z request_id=R-201 method=GET path=/privacy/unlock ip=172.16.30.14
+headers: User-Agent=Mozilla/5.0; DNT=0; Sec-GPC=0
+response: status=403 reason=privacy-signal-missing
+
+2026-07-05T10:11:52Z request_id=R-202 method=GET path=/privacy/unlock ip=172.16.30.14
+headers: User-Agent=Mozilla/5.0; DNT=1; Sec-GPC=0
+response: status=403 reason=global-privacy-control-required
+
+2026-07-05T10:12:20Z request_id=R-203 method=GET path=/privacy/unlock ip=172.16.30.14
+headers: User-Agent=Mozilla/5.0; DNT=1; Sec-GPC=1
+response: status=200
+response_header: X-Privacy-Token=cHJpdmFjeV9zaWduYWxfc2Vlbg==
+
+2026-07-05T10:12:41Z request_id=R-204 method=GET path=/privacy/unlock ip=172.16.30.14
+headers: User-Agent=Mozilla/5.0; DNT=0; Sec-GPC=1
+response: status=403 reason=do-not-track-required
