@@ -108,7 +108,7 @@ export default function ChallengeModal({
       onClick={onClose}
     >
       <div
-        className="my-8 w-full max-w-2xl animate-pop rounded-xl border border-terminal-border bg-terminal-panel shadow-neon"
+        className="my-8 w-full max-w-2xl rounded-xl border border-terminal-border bg-terminal-panel shadow-neon"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

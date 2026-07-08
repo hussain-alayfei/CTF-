@@ -113,13 +113,6 @@ export default function CookieCrumbsChallenge() {
               <li>▸ a <strong className="text-terminal-green">localStorage</strong> key <code>{LS_KEY}</code></li>
               <li>▸ a <strong className="text-terminal-green">sessionStorage</strong> key <code>{SS_KEY}</code></li>
             </ul>
-            <p className="mt-3 text-xs leading-relaxed text-terminal-dim">
-              Open <strong className="text-terminal-green">DevTools (F12) → Application → Storage</strong>,
-              recover all three values, and un-obfuscate each (they are lightly encoded in three
-              different, very common ways). Join the three parts <strong>in order</strong> —
-              cookie, then localStorage, then sessionStorage — to rebuild the tracking code, then
-              submit it below.
-            </p>
             <button
               onClick={clearTracking}
               className="mt-4 rounded border border-terminal-border px-3 py-1.5 text-[11px] text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
