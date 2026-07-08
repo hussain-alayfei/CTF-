@@ -3,7 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { AppContext } from './lib/app-context';
 import { clearPlayer, loadPlayer, savePlayer } from './lib/session';
 import { playerStillExists } from './lib/api';
-import { isMuted, setMuted } from './lib/sounds';
+import { isMuted, setMuted, unlockAudio } from './lib/sounds';
 import { applyTheme, getTheme, type Theme } from './lib/theme';
 import type { Player } from './lib/types';
 import Play from './pages/Play';
@@ -42,7 +42,27 @@ export default function App() {
     // Only re-check when the player identity changes.
   }, [player?.id]);
 
+  // Browsers keep the Web Audio context suspended until a genuine user gesture
+  // resumes it. Without this, the very first thing to touch the audio context
+  // was the countdown timer's per-second tick (a setInterval callback, NOT a
+  // gesture), which silently poisoned it into staying suspended forever — so
+  // sound never worked on the arena/board even though nothing was muted. This
+  // listens for the player's very first click/tap/keypress anywhere on the
+  // page and unlocks audio right then, before anything else can claim it.
+  useEffect(() => {
+    const unlock = () => unlockAudio();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
   const toggleMute = useCallback(() => {
+    unlockAudio();
     setMutedState((m) => {
       const next = !m;
       setMuted(next);
