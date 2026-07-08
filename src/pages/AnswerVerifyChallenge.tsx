@@ -8,6 +8,7 @@ import { playClick, playCorrect, playWrong, unlockAudio } from '../lib/sounds';
 const MATERIAL_LABELS: Record<string, string> = {
   key_hex: 'Key (hex)',
   iv_hex: 'IV (hex)',
+  session_key_hex: 'Session key (hex)',
 };
 
 // Generic Day 4 challenge page: the player recovers an "answer" from a

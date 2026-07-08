@@ -1,12 +1,36 @@
-# Day 5 — Privacy: Admin Solver Manual (v2)
+# Day 5 — Privacy: Admin Solver Manual (v3)
 
-> **Instructor use only.** Expected recoveries for the rewritten Day 5 pack.
+> **Instructor use only.** Expected recoveries for the anti-AI Day 5 pack.
+
+## Why v3 exists
+
+v2 was still solvable by pasting a single file into a chatbot: the decode key
+was either **1 byte** (256 brute-force guesses) or the answer sat in the file as
+plaintext. v3 fixes the whole medium/hard/danger tier with one principle:
+
+> **The download is deliberately incomplete.** The file holds only ciphertext;
+> the key that decrypts it is **high-entropy (48 bytes) and lives only in
+> `challenge_live_material`**, shown on the logged-in challenge page — never in
+> the file. Because the key is at least as long as the plaintext, the file alone
+> is information-theoretically useless. Uploading just the artifact to an AI
+> yields nothing submittable.
+
+Students must therefore: open the file with a **real tool** (DB Browser,
+Wireshark, a HAR viewer, a carving/unzip tool), read the **session key** off the
+challenge page, and combine them. Prompts state scenario + goal only; hints are
+one short nudge with no tool/algorithm names.
+
+The combine step is a repeating-key XOR of the recovered ciphertext bytes with
+the session-key bytes (`plaintext[i] = cipher[i] XOR key[i]`). We never say this
+in any prompt/hint/file — that inference is the challenge.
 
 ## Pack summary
 
-- **10 challenges** — 3 easy · 4 medium · 2 hard · 1 danger
-- **All dynamic** (`is_dynamic = true`) — personal flags via `verify_challenge_answer`
-- **Anti-AI design:** binary/sqlite/pcap/har/zip artifacts, live keys withheld, bespoke browser pages for interaction-heavy tasks. No plaintext answers in downloads.
+- **10 challenges** — 3 easy · 4 medium · 2 hard · 1 danger, all `is_dynamic`
+- Day code: `PRIVACY-2026`
+- Regenerate artifacts **and** the matching migration:
+  `python scripts/gen-day5-artifacts.py`
+  (keys are random each run — re-apply the emitted migration if you regenerate)
 
 ## Answer map
 
@@ -15,120 +39,102 @@
 | 1 | `p5_cache_phantom` | Cache Phantom | Easy | Live `/challenge/cache-phantom` | `crumbs_trail` |
 | 2 | `p5_bookmark_vault` | Bookmark Vault | Easy | `places.sqlite` | `route_17` |
 | 3 | `p5_consent_labyrinth` | Consent Labyrinth | Easy | Live `/challenge/consent-labyrinth` | `narrow_path` |
-| 4 | `p5_profile_archive` | Profile Archive | Medium | `browser-profile.zip` | `midnight_export` |
-| 5 | `p5_dns_whisper` | DNS Whisper | Medium | `dns-whisper.pcap` | `internal_clinic_net` |
-| 6 | `p5_tracker_ghost` | Tracker Ghost | Medium | `tracker-ghost.har` | `shadow_pixel` |
-| 7 | `p5_briefing_carve` | Hidden Briefing | Medium | `briefing-snapshot.png` + live key `3a` | `leaked_briefing_pack` |
-| 8 | `p5_mask_match` | Mask Match | Hard | `mask-capture.json` + live brief + `/challenge/mask-match` | `profile_aligned` |
-| 9 | `p5_exit_witness` | Exit Witness | Hard | `exit-witness.pcap` + live key `21` | `witness_confirmed` |
-| 10 | `p5_reidentified` | Re-Identified | Danger | `reident-kit.zip` + live key `7c` | `subject_unmasked` |
+| 4 | `p5_profile_archive` | Profile Archive | Medium | `browser-profile.zip` + session key | `midnight_export` |
+| 5 | `p5_dns_whisper` | DNS Whisper | Medium | `dns-whisper.pcap` + session key | `internal_clinic_net` |
+| 6 | `p5_tracker_ghost` | Tracker Ghost | Medium | `tracker-ghost.har` + session key | `shadow_pixel` |
+| 7 | `p5_briefing_carve` | Hidden Briefing | Medium | `briefing-snapshot.png` + session key | `leaked_briefing_pack` |
+| 8 | `p5_mask_match` | Mask Match | Hard | `mask-capture.json` + live brief + key | `profile_aligned` |
+| 9 | `p5_exit_witness` | Exit Witness | Hard | `exit-witness.pcap` + session key | `witness_confirmed` |
+| 10 | `p5_reidentified` | Re-Identified | Danger | `reident-kit.zip` + session key | `subject_unmasked` |
 
-Day code: `PRIVACY-2026`
-
-Regenerate artifacts: `python scripts/gen-day5-artifacts.py`
-
----
-
-## 1 · Cache Phantom
-
-1. Open `/challenge/cache-phantom` while logged in.
-2. Click **Accept all tracking**.
-3. DevTools → Application:
-   - Cookie `_ck` → base64 → `crum`
-   - Local storage `_ls` → reverse → `crumbs`
-   - IndexedDB `ctf_cache_phantom_v1` / `shards` / key `c` → `trail`
-4. Combine: **`crumbs_trail`**
+> **Session keys are random per generator run.** The exact hex values live in
+> `challenge_answer_keys.live_material` and in
+> `supabase/migrations/20260709_0300_rewrite_day5_privacy_v3.sql`. To help a
+> stuck student, read the key from `/admin` data or the migration; do not read
+> them out loud in class.
 
 ---
 
-## 2 · Bookmark Vault
+## 1 · Cache Phantom (easy)
 
-1. Open `places.sqlite` in DB Browser / `sqlite3`.
-2. Join `moz_bookmarks` ↔ `moz_places`.
-3. Bookmark **Operations Vault** → URL path contains **`route_17`**.
+Live page → **Accept all tracking** → DevTools ▸ Application:
+- Cookie `_ck` → base64 → `crum`
+- Local storage `_ls` → reverse → `crumbs`
+- IndexedDB `ctf_cache_phantom_v1` / `shards` / key `c` → `trail`
 
----
+→ **`crumbs_trail`**
 
-## 3 · Consent Labyrinth
+## 2 · Bookmark Vault (easy)
 
-Correct posture per step:
+Open `places.sqlite` (DB Browser / `sqlite3`), join `moz_bookmarks`↔`moz_places`.
+"Operations Vault" URL contains **`route_17`**.
 
-- Functional ✓ · Marketing ✗
-- Analytics ✗ · Security ✓
-- Third-party sell ✗ · Essential storage ✓
+## 3 · Consent Labyrinth (easy)
 
-Finish wizard → `sessionStorage._cl_recovery` is base64 → decode → **`narrow_path`**
+Correct posture: Functional ✓ · Marketing ✗ · Analytics ✗ · Security ✓ ·
+Sell-data ✗ · Essential-storage ✓ → `sessionStorage._cl_recovery` (base64) →
+**`narrow_path`**.
 
----
+## 4 · Profile Archive (medium)
 
-## 4 · Profile Archive
+`browser-profile.zip` → `triage/cookies.sqlite` (real DB). Cookie `.vault.internal`
+name `blob` holds ciphertext hex. XOR its bytes with the page **session key** →
+**`midnight_export`**.
 
-Inside `browser-profile.zip`:
+## 5 · DNS Whisper (medium)
 
-- Cookie domain `.midnight-export.internal`
-- Download `midnight_export_pack.zip`
-- History ends at same archive host
+`dns-whisper.pcap` in Wireshark → DNS only. Ignore public CDNs. Queries to
+`sX-<hex>.sync.telemetry-cdn.net` carry the payload; order by `s1,s2,s3`,
+concatenate the hex labels, XOR with the page key → **`internal_clinic_net`**.
 
-Answer: **`midnight_export`**
+## 6 · Tracker Ghost (medium)
 
----
+`tracker-ghost.har` → third-party hosts only, in time order
+(`pixel.shadow.net` → `tag.metrics-aa.net` → `sync.broker-cc.io`). Concatenate the
+`X-Seg` response-header values → ciphertext hex → XOR page key → **`shadow_pixel`**.
 
-## 5 · DNS Whisper
+## 7 · Hidden Briefing (medium)
 
-Wireshark → DNS only. Noise = public CDNs. Repeated internal name:
+`briefing-snapshot.png` renders normally; a ZIP is carved after the PNG `IEND`.
+Extract `inner/passenger.bin` (raw ciphertext bytes), XOR with the page key →
+**`leaked_briefing_pack`**.
 
-**`internal.clinic.net`** → submit **`internal_clinic_net`**
+## 8 · Mask Match (hard)
 
----
+Live brief: `Asia/Riyadh` · `ar-SA` · `1366x768`. Spoof browser timezone/locale
+and resize the viewport until alignment hits **100%** — only then does the page
+reveal the session key. In `mask-capture.json`, every row's `blob` decrypts (with
+that one key) to a plausible token; the row whose profile matches the brief
+(`profile_id 7f2a`) yields **`profile_aligned`**.
 
-## 6 · Tracker Ghost
+## 9 · Exit Witness (hard)
 
-HAR → third-party hosts only, chronological:
-
-| Host | X-Trace-Shard |
-|------|----------------|
-| pixel.shadow.net | `73686164` → hex → `shad` |
-| tag.metrics-aa.net | `ow` |
-| sync.broker-cc.io | `cGl4ZWw=` → `pixel` |
-
-**`shadow_pixel`**
-
----
-
-## 7 · Hidden Briefing
-
-1. Carve ZIP after PNG `IEND` (binwalk / unzip trick).
-2. `inner/note.bin` — XOR each byte with **`0x3a`** (live page).
-3. **`leaked_briefing_pack`**
-
----
-
-## 8 · Mask Match
-
-1. Live brief: `Asia/Riyadh`, `ar-SA`, `1366x768` — adjust browser sensors until 100%.
-2. In `mask-capture.json`, row `profile_id` **`7f2a`** matches.
-3. Token decode: base64 → gunzip → XOR `0x5A` → **`profile_aligned`**
-
----
-
-## 9 · Exit Witness
-
-1. PCAP: ignore TLS to 185.220.x.x relays.
-2. Follow HTTP stream: `POST /relay/report` to `10.88.0.50:8080`.
-3. Body is hex ciphertext — XOR each byte with **`0x21`** → **`witness_confirmed`**
-
----
+`exit-witness.pcap`: most flows are TLS-looking noise to `185.220.101.x` (Tor
+relays). One cleartext `POST /relay/report` to `10.88.0.50:8080` carries hex in
+its body. Follow that stream, XOR the body bytes with the page key →
+**`witness_confirmed`**.
 
 ## 10 · Re-Identified (danger)
 
-1. Join `anon_export.csv` ↔ `municipal_roll.csv` on age+zip+gender.
-2. Unique pair: **U-4412** ↔ **V-9001** (Aisha Rahman, 32, 11564, F).
-3. `analyst_notes.txt` hex bytes XOR **`0x7c`** → **`subject_unmasked`**
+`reident-kit.zip`: cross-match `anon_export.csv` ↔ `municipal_roll.csv` on
+age+zip+gender. Unique exact match: **U-4412** (32/11564/F) ↔ **V-9001 Aisha
+Rahman**. Take U-4412's note from `analyst_notes.csv` (hex), XOR with the page key
+→ **`subject_unmasked`**. (Other subjects' notes are random bytes — a wrong match
+decrypts to garbage, so the linkage reasoning is mandatory.)
 
 ---
 
+## Anti-AI notes for instructors
+
+- **File-only AI upload → nothing.** Every medium+ answer needs the off-file key.
+- **Flag-sharing → nothing.** Flags are still per-player HMAC via
+  `verify_challenge_answer`.
+- **Honest limit:** a student who pastes the file *and* the page key into an AI
+  will get help — that is assisted solving, which is fine. The bar we enforce is
+  "the artifact alone is not a solution," plus real tool work to extract the
+  ciphertext in the first place.
+
 ## SQL source
 
-- `supabase/migrations/20260709_0200_rewrite_day5_privacy_v2.sql`
-
-v1 challenges (`p5_cookie_trail`, etc.) are deleted by this migration. Prior solves were cleared when the rewrite was applied.
+- `supabase/migrations/20260709_0300_rewrite_day5_privacy_v3.sql`
+  (supersedes the v1 `..._0015_...` and v2 `..._0200_...` migrations).

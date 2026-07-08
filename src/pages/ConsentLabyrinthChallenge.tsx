@@ -164,8 +164,8 @@ export default function ConsentLabyrinthChallenge() {
               this origin. Wrong combinations leave decoy banners only.
             </p>
             {!token && (
-              <p className="mt-3 rounded-lg border border-terminal-amber/40 bg-terminal-amber/10 px-4 py-3 text-sm text-terminal-amber">
-                Preferences rejected — marketing partners still enabled. Try again.
+              <p className="mt-3 rounded-lg border border-terminal-border bg-terminal-input/30 px-4 py-3 text-sm text-terminal-dim">
+                No recovery value was stored for this posture. Revisit the steps and try a different combination.
               </p>
             )}
             {token && (

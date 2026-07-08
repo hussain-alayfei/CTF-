@@ -22,14 +22,22 @@ Update it whenever the architecture, schema, or conventions change.
   (recon/stego). (The 3 "target box" nmap/Wireshark/dig extras that needed an
   instructor-shared IP were **removed 2026-07-08** — 0 solves, no scores lost;
   `target-box/` is gone.)
-- **Day 5 = Privacy v2 (2026-07-09).** Full rewrite — 3 easy / 4 medium / 2 hard /
-  1 danger, all `is_dynamic`. Mix of live browser pages (`p5_cache_phantom`,
+- **Day 5 = Privacy v3 (2026-07-09).** 3 easy / 4 medium / 2 hard / 1 danger, all
+  `is_dynamic`. Mix of live browser pages (`p5_cache_phantom`,
   `p5_consent_labyrinth`, `p5_mask_match`) and forensics artifacts (sqlite, zip,
   pcap, har, carved png). IDs: `p5_cache_phantom`, `p5_bookmark_vault`,
   `p5_consent_labyrinth`, `p5_profile_archive`, `p5_dns_whisper`,
   `p5_tracker_ghost`, `p5_briefing_carve`, `p5_mask_match`, `p5_exit_witness`,
-  `p5_reidentified`. Live keys via `challenge_live_material` on hard/danger +
-  `p5_briefing_carve`. Regenerate artifacts: `scripts/gen-day5-artifacts.py`.
+  `p5_reidentified`. **v3 anti-AI fix:** v2 was still one-shot solvable by
+  uploading a single file (1-byte XOR = 256 guesses, or plaintext in-file). In
+  v3 **every medium+ artifact holds only ciphertext; the decrypt key is
+  high-entropy (48 bytes) and lives ONLY in `challenge_live_material`** on the
+  logged-in page (key ≥ plaintext length, so the file alone is unbreakable).
+  Combine step is repeating-key XOR, never named in prompt/hint/file. Prompts are
+  scenario-only; hints are one short name-level nudge. `scripts/gen-day5-artifacts.py`
+  regenerates artifacts **and emits the matching migration** (keys are random per
+  run — re-apply the emitted SQL if regenerated). Migration:
+  `20260709_0300_rewrite_day5_privacy_v3.sql`.
 - **Day 3 = 4 core + 3 extra, ALL static** (`challenge_flags`, simple text answers):
   core `lab_stego, lab_encrypt, hash, lab_vault`; extra `base64, caesar, stego`.
 - **No Day 4/5 flag is a static string in the client bundle or the DB** — every one

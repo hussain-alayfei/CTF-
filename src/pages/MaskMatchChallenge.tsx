@@ -25,6 +25,7 @@ function score(actual: ReturnType<typeof readFingerprint>, target: Target | null
 export default function MaskMatchChallenge() {
   const { player } = useApp();
   const [target, setTarget] = useState<Target | null>(null);
+  const [sessionKey, setSessionKey] = useState('');
   const [actual, setActual] = useState(readFingerprint);
   const [answer, setAnswer] = useState('');
   const [busy, setBusy] = useState(false);
@@ -43,6 +44,7 @@ export default function MaskMatchChallenge() {
             language: String(r.material.language ?? ''),
             screen: String(r.material.screen ?? ''),
           });
+          setSessionKey(String(r.material.session_key_hex ?? ''));
         }
       })
       .catch(() => {});
@@ -92,8 +94,9 @@ export default function MaskMatchChallenge() {
       <div className="mt-4 rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-neon">
         <h1 className="text-2xl font-extrabold text-terminal-green">🎭 Mask Match</h1>
         <p className="mt-2 text-sm text-terminal-dim">
-          A surveillance export captured several workstation masks. Align your live browser with the session brief
-          below, then decode the matching row from the downloaded capture file.
+          A surveillance export captured several workstation masks. One belongs to the target session below. The
+          record only makes sense once your own browser genuinely looks like the target — the session material
+          unlocks at full alignment.
         </p>
 
         {target && (
@@ -119,7 +122,7 @@ export default function MaskMatchChallenge() {
               {Object.entries(actual).map(([k, v]) => (
                 <tr key={k}>
                   <td className="py-0.5 pr-3 text-terminal-dim">{k}</td>
-                  <td className={`py-0.5 ${target && actual[k as keyof typeof actual] === target[k as keyof Target] ? 'text-terminal-green' : 'text-terminal-amber'}`}>
+                  <td className={`py-0.5 ${target && actual[k as keyof typeof actual] === target[k as keyof Target] ? 'text-terminal-green' : 'text-terminal-dim'}`}>
                     {v}
                   </td>
                 </tr>
@@ -131,6 +134,22 @@ export default function MaskMatchChallenge() {
           </div>
           <p className="mt-2 text-xs text-terminal-dim">Alignment: {pct}% — adjust locale, timezone, or viewport until the capture row applies.</p>
         </div>
+
+        {aligned && sessionKey ? (
+          <div className="mt-4 rounded-lg border border-terminal-cyan/40 bg-terminal-cyan/5 p-4">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-terminal-cyan">
+              Session material — unlocked, not included in the download
+            </div>
+            <div className="mt-2 font-mono text-xs">
+              <span className="text-terminal-dim">session key (hex)</span>
+              <div className="mt-1 select-all break-all text-terminal-green">{sessionKey}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-terminal-border bg-terminal-input/30 p-4 text-xs text-terminal-dim">
+            Session material stays locked until your live mask fully matches the target.
+          </div>
+        )}
 
         <form onSubmit={submit} className="mt-5 flex gap-2">
           <input

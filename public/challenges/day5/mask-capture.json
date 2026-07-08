@@ -1,27 +1,26 @@
 {
   "export": "browser_mask_capture_2026-07-08",
-  "note": "Each row is a observed workstation profile. One row matches the live session brief on the challenge page.",
   "profiles": [
     {
       "profile_id": "a1",
       "timezone": "Europe/London",
       "language": "en-GB",
       "screen": "1920x1080",
-      "token": "H4sIABjBTmoC/7OztzRVZrU20zKyBgDowVQDCwAAAA=="
+      "blob": "6b044be13b9c2addd9510a1ad55ac2"
     },
     {
       "profile_id": "7f2a",
       "timezone": "Asia/Riyadh",
       "language": "ar-SA",
       "screen": "1366x768",
-      "token": "H4sIABjBTmoC/9PSMLUxNrNntTYztjWxtwMA1FAGhg8AAAA="
+      "blob": "6b044be13b9c2adddc4f0a1bcf5ac2"
     },
     {
       "profile_id": "c9",
       "timezone": "America/New_York",
       "language": "en-US",
       "screen": "1440x900",
-      "token": "H4sIABjBTmoC/7OztzRVZrXQsNYxBQALQC/aCwAAAA=="
+      "blob": "6b044be13b9c2addd0421017c45b"
     }
   ]
 }
