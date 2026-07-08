@@ -8,6 +8,7 @@ import {
   fetchLeaderboard,
   fetchSolves,
 } from './api';
+import { getCache, setCache } from './cache';
 import type { Challenge, Day, EventConfig, LeaderboardRow, Player, Solve } from './types';
 
 export interface Announcement {
@@ -20,12 +21,18 @@ export interface Announcement {
 }
 
 export function useGame(player: Player | null) {
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [days, setDays] = useState<Day[]>([]);
-  const [solves, setSolves] = useState<Solve[]>([]);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
-  const [event, setEvent] = useState<EventConfig | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed from the session cache so the arena paints instantly on remount /
+  // refresh; the effects below still fetch fresh data and overwrite these.
+  const [challenges, setChallenges] = useState<Challenge[]>(() => getCache<Challenge[]>('challenges') ?? []);
+  const [days, setDays] = useState<Day[]>(() => getCache<Day[]>('days') ?? []);
+  const [solves, setSolves] = useState<Solve[]>(() => getCache<Solve[]>('solves') ?? []);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>(
+    () => getCache<LeaderboardRow[]>('leaderboard') ?? [],
+  );
+  const [event, setEvent] = useState<EventConfig | null>(() => getCache<EventConfig>('event'));
+  // If challenges are already cached we can render immediately instead of
+  // flashing a loading state — the background revalidation still runs.
+  const [loading, setLoading] = useState(() => getCache<Challenge[]>('challenges') == null);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   const challengesRef = useRef<Challenge[]>([]);
@@ -34,7 +41,7 @@ export function useGame(player: Player | null) {
   // The "live" leaderboard is scoped to whichever day the admin marked active,
   // so it naturally resets when a new day begins. Falls back to the all-time
   // board if no active day has been set yet.
-  const activeDayRef = useRef<number | null>(null);
+  const activeDayRef = useRef<number | null>(getCache<EventConfig>('event')?.active_day ?? null);
 
   const refreshBoard = useCallback(async () => {
     const day = activeDayRef.current;
@@ -44,6 +51,8 @@ export function useGame(player: Player | null) {
     ]);
     setSolves(s);
     setLeaderboard(lb);
+    setCache('solves', s);
+    setCache('leaderboard', lb);
   }, []);
 
   const refreshEvent = useCallback(async () => {
@@ -51,6 +60,7 @@ export function useGame(player: Player | null) {
     const dayChanged = activeDayRef.current !== (ev.active_day ?? null);
     activeDayRef.current = ev.active_day ?? null;
     setEvent(ev);
+    setCache('event', ev);
     if (dayChanged) void refreshBoard();
   }, [refreshBoard]);
 
@@ -58,6 +68,8 @@ export function useGame(player: Player | null) {
     const [d, ch] = await Promise.all([fetchDays(), fetchChallenges()]);
     setDays(d);
     setChallenges(ch);
+    setCache('days', d);
+    setCache('challenges', ch);
   }, []);
 
   // Initial load.
@@ -80,6 +92,11 @@ export function useGame(player: Player | null) {
         setSolves(s);
         setLeaderboard(lb);
         setEvent(ev);
+        setCache('challenges', ch);
+        setCache('days', d);
+        setCache('solves', s);
+        setCache('leaderboard', lb);
+        setCache('event', ev);
       } finally {
         if (alive) setLoading(false);
       }

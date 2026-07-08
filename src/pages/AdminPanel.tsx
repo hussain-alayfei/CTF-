@@ -15,9 +15,10 @@ import {
   adminStopEvent,
 } from '../lib/api';
 import { formatDuration, getEventState } from '../lib/time';
-import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer } from '../lib/types';
+import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer, AdminPlayerSolve } from '../lib/types';
 import { useApp } from '../lib/app-context';
 import { clearPlayer } from '../lib/session';
+import { getCache, setCache } from '../lib/cache';
 import Prompt from '../components/Prompt';
 import Register from '../components/Register';
 
@@ -44,8 +45,10 @@ const TABS: { id: TabId; label: string }[] = [
 
 export default function AdminPanel() {
   const { player, setPlayer, theme, toggleTheme } = useApp();
-  const [data, setData] = useState<AdminOverview | null>(null);
-  const [players, setPlayers] = useState<AdminPlayer[]>([]);
+  // Seed from the session cache so the dashboard paints instantly on refresh /
+  // re-entry; load() still fetches fresh data below and the 5s poll revalidates.
+  const [data, setData] = useState<AdminOverview | null>(() => getCache<AdminOverview>('admin_overview'));
+  const [players, setPlayers] = useState<AdminPlayer[]>(() => getCache<AdminPlayer[]>('admin_players') ?? []);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
@@ -92,6 +95,13 @@ export default function AdminPanel() {
     }
     setData(res);
     cacheRef.current.data = res;
+    // Cache WITHOUT secret flags/answers: sessionStorage is readable via DevTools
+    // and this could be a shared/projector machine. The live fetch runs on mount
+    // and restores the real flags in memory, so reveal still works.
+    setCache('admin_overview', {
+      ...res,
+      challenges: res.challenges?.map((c) => ({ ...c, flag: '' })),
+    });
 
     if (res.event) {
       // Sync duration only when server value genuinely changed
@@ -112,6 +122,7 @@ export default function AdminPanel() {
       if (pl.players) {
         setPlayers(pl.players);
         cacheRef.current.players = pl.players;
+        setCache('admin_players', pl.players);
       }
     } catch {
       /* ignore roster errors */
@@ -474,11 +485,16 @@ export default function AdminPanel() {
                 {days.map((d) => (
                   <option key={d.day} value={d.day}>
                     {d.title}
+                    {d.day === data?.event?.active_day ? ' · live' : ''}
                   </option>
                 ))}
               </select>
               <button
-                disabled={busy || activeDaySel === ''}
+                disabled={
+                  busy ||
+                  activeDaySel === '' ||
+                  Number(activeDaySel) === data?.event?.active_day
+                }
                 onClick={() =>
                   run(
                     () => adminSetActiveDay(secret, Number(activeDaySel)),
@@ -487,7 +503,9 @@ export default function AdminPanel() {
                 }
                 className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
               >
-                Set active day
+                {activeDaySel !== '' && Number(activeDaySel) === data?.event?.active_day
+                  ? '✓ Currently live'
+                  : 'Set active day'}
               </button>
               <span className="text-xs text-terminal-dim">
                 Currently live:{' '}
@@ -500,7 +518,12 @@ export default function AdminPanel() {
           </section>
         )}
 
-        {tab === 'music' && <MusicPlayer ref={musicRef} />}
+        {/* MusicPlayer is ALWAYS mounted (only its visibility toggles) so
+            switching tabs never unmounts the YouTube iframe and cuts the audio.
+            Pause/stop stay manual via the player's own controls. */}
+        <div className={tab === 'music' ? '' : 'hidden'}>
+          <MusicPlayer ref={musicRef} />
+        </div>
 
         {tab === 'days' && (
           <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
@@ -527,6 +550,7 @@ export default function AdminPanel() {
           <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
             <PlayersSection
               players={players}
+              challenges={challenges}
               busy={busy}
               onToggleExclude={(id, name, excluded) =>
                 run(
@@ -588,12 +612,6 @@ export default function AdminPanel() {
         )}
       </div>
 
-      {/* MusicPlayer always mounted (hidden) so ref stays alive for auto-play */}
-      {tab !== 'music' && (
-        <div className="hidden">
-          <MusicPlayer ref={musicRef} />
-        </div>
-      )}
     </div>
   );
 }
@@ -617,7 +635,7 @@ function DaysWeekGroup({
   ) => void;
   className?: string;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   if (days.length === 0) return null;
 
@@ -642,33 +660,38 @@ function DaysWeekGroup({
                 key={d.day}
                 className="rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
                     {d.is_rest && <span title="Rest day">😴</span>}
-                    <div>
-                      <div className="font-bold text-terminal-green">{d.title}</div>
+                    <div className="min-w-0">
+                      <div className="truncate font-bold text-terminal-green">{d.title}</div>
                       {d.subtitle && (
-                        <div className="text-xs text-terminal-dim">{d.subtitle}</div>
+                        <div className="truncate text-xs text-terminal-dim">{d.subtitle}</div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {d.requires_code && (
-                      <span className="rounded border border-terminal-amber/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
-                        🔐 code
-                      </span>
-                    )}
+                  {/* Fixed-width columns keep the code badge, status pill and
+                      Lock/Unlock button aligned across every row. */}
+                  <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                    <span className="flex w-8 justify-center">
+                      {d.requires_code && (
+                        <span
+                          title="Access code required"
+                          className="rounded border border-terminal-amber/40 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber"
+                        >
+                          🔐
+                        </span>
+                      )}
+                    </span>
                     <span
-                      className={`text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
+                      className={`w-20 text-center text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
                     >
                       {d.is_open ? '● Open' : '○ Locked'}
                     </span>
                     <button
                       disabled={busy}
-                      onClick={() =>
-                        runAction(() => adminSetDay(secret, d.day, !d.is_open))
-                      }
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
+                      onClick={() => runAction(() => adminSetDay(secret, d.day, !d.is_open))}
+                      className={`w-24 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition disabled:opacity-40 ${
                         d.is_open
                           ? 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber hover:bg-terminal-amber/20'
                           : 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
@@ -695,34 +718,47 @@ function DaysWeekGroup({
 
 /** Generate a default access code like "PRIVACY-2026" from the day title. */
 function generateDayCode(day: AdminDay): string {
-  const keywords: Record<string, string> = {
-    privacy: 'PRIVACY',
-    pentesting: 'PENTESTING',
-    'pen testing': 'PENTESTING',
-    forensics: 'FORENSICS',
-    crypto: 'CRYPTO',
-    cryptography: 'CRYPTO',
-    network: 'NETWORK',
-    networking: 'NETWORK',
-    web: 'WEB',
-    osint: 'OSINT',
-    reverse: 'REVERSE',
-    malware: 'MALWARE',
-    defense: 'DEFENSE',
-    steganography: 'STEGO',
-    stego: 'STEGO',
-    misc: 'MISC',
-    binary: 'BINARY',
-    pwn: 'PWN',
-    exploit: 'EXPLOIT',
-  };
+  // Order matters: more specific keys must win over generic ones. "hacking"
+  // maps to WEBHACK before the generic "web" so Day 7 "Web Applications" and
+  // Day 8 "Web Application Hacking" no longer collide on the same WEB-2026 code.
+  const keywords: [string, string][] = [
+    ['application hacking', 'WEBHACK'],
+    ['hacking', 'WEBHACK'],
+    ['attack', 'WEBHACK'],
+    ['privacy', 'PRIVACY'],
+    ['pentesting', 'PENTESTING'],
+    ['pen testing', 'PENTESTING'],
+    ['forensics', 'FORENSICS'],
+    ['cryptography', 'CRYPTO'],
+    ['crypto', 'CRYPTO'],
+    ['networking', 'NETWORK'],
+    ['network', 'NETWORK'],
+    ['blockchain', 'BLOCKCHAIN'],
+    ['smart contract', 'SMART'],
+    ['contract', 'SMART'],
+    ['web', 'WEB'],
+    ['osint', 'OSINT'],
+    ['reverse', 'REVERSE'],
+    ['malware', 'MALWARE'],
+    ['defense', 'DEFENSE'],
+    ['steganography', 'STEGO'],
+    ['stego', 'STEGO'],
+    ['misc', 'MISC'],
+    ['binary', 'BINARY'],
+    ['pwn', 'PWN'],
+    ['exploit', 'EXPLOIT'],
+  ];
   const titleLower = day.title.toLowerCase();
-  for (const [key, code] of Object.entries(keywords)) {
+  for (const [key, code] of keywords) {
     if (titleLower.includes(key)) return `${code}-2026`;
   }
+  // Fallback: strip a leading emoji/punctuation and any "Day N —" prefix, then
+  // take the first real word (so an emoji-prefixed title never yields "⛓️-2026").
   const word = day.title
+    .replace(/^[^\p{L}\p{N}]+/u, '')
     .replace(/^day\s*\d+[\s:–-]*/i, '')
     .split(/\s+/)[0]
+    ?.replace(/[^\p{L}\p{N}]/gu, '')
     ?.toUpperCase();
   return word ? `${word}-2026` : `DAY${day.day}-2026`;
 }
@@ -885,7 +921,7 @@ function ChallengeDayGroup({
   challenges: AdminChallenge[];
   showFlags: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const solved = challenges.reduce((n, c) => n + c.solves_count, 0);
 
   return (
@@ -1009,12 +1045,14 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
 // ---- Players management ----
 function PlayersSection({
   players,
+  challenges,
   busy,
   onToggleExclude,
   onDelete,
   onDeleteAll,
 }: {
   players: AdminPlayer[];
+  challenges: AdminChallenge[];
   busy: boolean;
   onToggleExclude: (id: string, name: string, excluded: boolean) => void;
   onDelete: (id: string, name: string) => void;
@@ -1022,6 +1060,11 @@ function PlayersSection({
 }) {
   const [query, setQuery] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // challenge_id -> { day, title } so a player's solves can be grouped per day
+  // and shown by challenge title instead of a raw id.
+  const chMeta = new Map<string, { day: number; title: string }>();
+  for (const c of challenges) chMeta.set(c.id, { day: c.day, title: c.title });
 
   const filtered = players.filter((p) =>
     p.username.toLowerCase().includes(query.trim().toLowerCase()),
@@ -1119,7 +1162,7 @@ function PlayersSection({
 
                 {isOpen && (
                   <div className="border-t border-terminal-border/60 px-4 py-3 text-xs">
-                    <div className="mb-2 flex flex-wrap gap-4 text-terminal-dim">
+                    <div className="mb-3 flex flex-wrap gap-4 text-terminal-dim">
                       <span>
                         Score: <span className="text-terminal-amber">{p.total_points}</span>
                       </span>
@@ -1131,26 +1174,7 @@ function PlayersSection({
                       </span>
                       <span>Joined: {new Date(p.created_at).toLocaleString()}</span>
                     </div>
-                    {p.solves.length === 0 ? (
-                      <p className="text-terminal-dim">No solves yet.</p>
-                    ) : (
-                      <ul className="space-y-1">
-                        {p.solves.map((s) => (
-                          <li
-                            key={s.challenge_id}
-                            className="flex items-center justify-between"
-                          >
-                            <span className="text-terminal-green">
-                              {s.first_blood && <span className="mr-1">🩸</span>}
-                              {s.challenge_id}
-                            </span>
-                            <span className="text-terminal-dim">
-                              +{s.points} · {new Date(s.solved_at).toLocaleTimeString()}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    <PlayerSolvesByDay solves={p.solves} chMeta={chMeta} />
                   </div>
                 )}
               </div>
@@ -1158,6 +1182,70 @@ function PlayersSection({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Groups one player's solves by day so instructors see a per-day score
+// breakdown (Day 3, Day 4, ...) with a subtotal, instead of a flat, day-less
+// list of raw challenge ids.
+function PlayerSolvesByDay({
+  solves,
+  chMeta,
+}: {
+  solves: AdminPlayerSolve[];
+  chMeta: Map<string, { day: number; title: string }>;
+}) {
+  if (solves.length === 0) {
+    return <p className="text-terminal-dim">No solves yet.</p>;
+  }
+  const byDay = new Map<number, AdminPlayerSolve[]>();
+  for (const s of solves) {
+    const day = chMeta.get(s.challenge_id)?.day ?? 0;
+    const arr = byDay.get(day) ?? [];
+    arr.push(s);
+    byDay.set(day, arr);
+  }
+  const groups = [...byDay.entries()].sort((a, b) => a[0] - b[0]);
+  return (
+    <div className="space-y-3">
+      {groups.map(([day, list]) => {
+        const subtotal = list.reduce((sum, s) => sum + s.points, 0);
+        const firstBloods = list.filter((s) => s.first_blood).length;
+        return (
+          <div
+            key={day}
+            className="overflow-hidden rounded-lg border border-terminal-border/60 bg-terminal-bg/40"
+          >
+            <div className="flex items-center justify-between border-b border-terminal-border/40 bg-terminal-input/30 px-3 py-1.5">
+              <span className="font-bold text-terminal-green">
+                {day > 0 ? `Day ${day}` : 'Other'}
+                <span className="ml-2 text-[10px] font-normal uppercase tracking-widest text-terminal-dim">
+                  {list.length} solve{list.length === 1 ? '' : 's'}
+                </span>
+                {firstBloods > 0 && <span className="ml-1 text-terminal-red">🩸 {firstBloods}</span>}
+              </span>
+              <span className="font-extrabold tabular-nums text-terminal-amber">+{subtotal}</span>
+            </div>
+            <ul className="space-y-1 px-3 py-2">
+              {list
+                .slice()
+                .sort((a, b) => (a.solved_at > b.solved_at ? 1 : -1))
+                .map((s) => (
+                  <li key={s.challenge_id} className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-terminal-green">
+                      {s.first_blood && <span className="mr-1">🩸</span>}
+                      {chMeta.get(s.challenge_id)?.title ?? s.challenge_id}
+                    </span>
+                    <span className="shrink-0 text-terminal-dim">
+                      +{s.points} · {new Date(s.solved_at).toLocaleTimeString()}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
