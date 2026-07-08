@@ -25,6 +25,9 @@ const sectionTitle: Record<Difficulty, string> = {
 };
 
 const UNLOCKED_DAYS_KEY = 'kgsp_ctf_unlocked_days';
+// Remembers which round (by its starts_at) we've already played the "GO!" intro
+// for, so navigating into a challenge page and back never replays it.
+const GO_ROUND_KEY = 'kgsp_ctf_go_round';
 
 function loadUnlockedDays(): Set<number> {
   try {
@@ -100,29 +103,46 @@ export default function Play() {
     }
   }, [eventState.status, game.leaderboard]);
 
-  // Announce event transitions to players (sound + GO overlay).
+  // Announce the round start exactly ONCE per round. The marker is keyed by the
+  // round's starts_at and persisted in sessionStorage, so opening a challenge
+  // route and returning here (which remounts this whole component) does NOT
+  // replay the "GO!" overlay/chime — that remount-replay was the "looping GO"
+  // bug. A brand-new round has a new starts_at, so it legitimately announces
+  // again. The end chime fires only on a live running->ended transition within
+  // this session, never on a fresh mount into an already-ended round.
   useEffect(() => {
-    const prev = prevStatus.current;
-    if (prev && prev !== eventState.status) {
-      // Leaving "ended" (via admin Reset or a fresh Restart) means a new round
-      // is starting — allow the finale to trigger again for this round.
-      if (prev === 'ended' && eventState.status !== 'ended') {
+    const ev = game.event;
+    const status = eventState.status;
+
+    if (status === 'running' && ev?.starts_at) {
+      let announced: string | null = null;
+      try {
+        announced = sessionStorage.getItem(GO_ROUND_KEY);
+      } catch {
+        /* sessionStorage unavailable — degrade gracefully */
+      }
+      if (announced !== ev.starts_at) {
+        try {
+          sessionStorage.setItem(GO_ROUND_KEY, ev.starts_at);
+        } catch {
+          /* ignore */
+        }
+        // A genuinely new round: allow its finale to trigger again later.
         podiumShown.current = false;
         setShowPodium(false);
-      }
-      if ((prev === 'idle' || prev === 'ended') && eventState.status === 'running') {
         playEventStart();
         setShowGo(true);
         const t = setTimeout(() => setShowGo(false), 3000);
-        prevStatus.current = eventState.status;
+        prevStatus.current = status;
         return () => clearTimeout(t);
       }
-      if (eventState.status === 'ended') {
-        playEventEnd();
-      }
     }
-    prevStatus.current = eventState.status;
-  }, [eventState.status]);
+
+    if (status === 'ended' && prevStatus.current === 'running') {
+      playEventEnd();
+    }
+    prevStatus.current = status;
+  }, [eventState.status, game.event?.starts_at]);
 
   const challengesByDay = useMemo(() => {
     const map = new Map<number, Challenge[]>();

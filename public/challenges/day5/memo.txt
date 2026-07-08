@@ -1,0 +1,12 @@
+INTERNAL MEMO - Document Handling
+==================================
+
+Team,
+
+A reminder from Compliance: before you forward any file outside the
+organisation, review it. Text that looks perfectly clean​​‌‌​​​‌​‌‌​‌‌‌​​‌‌‌​‌‌​​​‌‌​​​‌​‌‌‌​​‌‌​​‌‌​​​‌​‌‌​​​‌​​‌‌​‌‌​​​​‌‌​​‌‌​‌​‌‌‌‌‌​​‌‌​​​‌​‌‌​‌‌‌​​‌‌​‌​‌‌ can still
+carry passengers you cannot see with your eyes. Copy-pasting often
+strips them; opening the raw bytes does not.
+
+Stay sharp,
+- Compliance Office

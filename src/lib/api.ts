@@ -305,6 +305,22 @@ export async function adminSetFreeze(secret: string, minutes: number) {
   return data as { error?: string; message?: string; freeze_minutes?: number };
 }
 
+/**
+ * Hide (or unhide) a player from the competition — leaderboard, projector board,
+ * live feed, and first-blood — without deleting their account or solves. Used
+ * for instructor/test accounts so they can try challenges without polluting the
+ * real standings.
+ */
+export async function adminSetPlayerExcluded(secret: string, playerId: string, excluded: boolean) {
+  const { data, error } = await supabase.rpc('admin_set_player_excluded', {
+    p_secret: secret,
+    p_player_id: playerId,
+    p_excluded: excluded,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; exclude_from_board?: boolean };
+}
+
 export async function adminSetDayCode(secret: string, day: number, code: string) {
   const { data, error } = await supabase.rpc('admin_set_day_code', {
     p_secret: secret,

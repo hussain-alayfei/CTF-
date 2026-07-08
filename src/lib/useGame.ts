@@ -98,6 +98,10 @@ export function useGame(player: Player | null) {
         { event: 'INSERT', schema: 'public', table: 'solves' },
         async (payload) => {
           const s = payload.new as Solve;
+          // Admin and "excluded" (test) accounts never create solve rows —
+          // submit_flag verifies them but records nothing — so the live feed and
+          // first-blood siren are clean by construction, with no fragile
+          // client-side role check needed here.
           const ch = challengesRef.current.find((c) => c.id === s.challenge_id);
           const { data } = await supabase
             .from('players')

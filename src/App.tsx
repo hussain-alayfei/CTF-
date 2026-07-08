@@ -12,6 +12,7 @@ import AdminPanel from './pages/AdminPanel';
 import Board from './pages/Board';
 import RouterConsoleChallenge from './pages/RouterConsoleChallenge';
 import AnswerVerifyChallenge from './pages/AnswerVerifyChallenge';
+import CookieCrumbsChallenge from './pages/CookieCrumbsChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/" element={<Play />} />
         <Route path="/challenge/admin-panel" element={<CookieChallenge />} />
         <Route path="/challenge/router-console" element={<RouterConsoleChallenge />} />
+        <Route path="/challenge/cookie-crumbs" element={<CookieCrumbsChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/board" element={<Board />} />

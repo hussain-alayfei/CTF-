@@ -9,6 +9,8 @@ import {
   adminSetActiveDay,
   adminSetDay,
   adminSetDayCode,
+  adminSetFreeze,
+  adminSetPlayerExcluded,
   adminStartEvent,
   adminStopEvent,
 } from '../lib/api';
@@ -33,6 +35,7 @@ export default function AdminPanel() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [minutes, setMinutes] = useState(35);
+  const [freezeMin, setFreezeMin] = useState(15);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
 
@@ -51,6 +54,7 @@ export default function AdminPanel() {
     setData(res);
     if (res.event) {
       setMinutes(res.event.duration_minutes ?? 35);
+      setFreezeMin(res.event.freeze_minutes ?? 15);
       setActiveDaySel(res.event.active_day ?? '');
     }
     try {
@@ -208,23 +212,52 @@ export default function AdminPanel() {
           remainingMs={state.remainingMs}
         />
 
-        <div className="mt-4 max-w-xs">
-          <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-            Duration (minutes)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={600}
-            value={minutes}
-            onChange={(e) => setMinutes(Number(e.target.value))}
-            className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-          />
-          <p className="mt-1 text-[11px] text-terminal-dim">
-            The live leaderboard stays visible the whole round; final standings reveal on the podium
-            when time ends.
-          </p>
+        <div className="mt-4 flex flex-wrap gap-6">
+          <div className="max-w-xs">
+            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+              Duration (minutes)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={600}
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+            />
+          </div>
+
+          <div className="max-w-xs">
+            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+              Score freeze (final minutes)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                min={0}
+                max={120}
+                value={freezeMin}
+                onChange={(e) => setFreezeMin(Number(e.target.value))}
+                className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+              />
+              <button
+                disabled={busy}
+                onClick={() => run(() => adminSetFreeze(secret, freezeMin))}
+                className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
+
+        <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
+          On the projector board (<code className="text-terminal-cyan">/board</code>), scores hide during
+          the final <strong className="text-terminal-amber">{freezeMin}</strong> minute
+          {freezeMin === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time ends. Set
+          to <strong>0</strong> to keep the board live the whole round. Students never see the live
+          board mid-round either way.
+        </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
           <button
@@ -363,6 +396,14 @@ export default function AdminPanel() {
         <PlayersSection
           players={players}
           busy={busy}
+          onToggleExclude={(id, name, excluded) =>
+            run(() =>
+              adminSetPlayerExcluded(secret, id, excluded),
+              excluded
+                ? `Hide "${name}" from the leaderboard, projector board, and live feed? Their account and solves are kept — this just stops a test account from showing up in the competition.`
+                : `Show "${name}" on the leaderboard again?`,
+            )
+          }
           onDelete={(id, name) =>
             run(
               () => adminDeletePlayer(secret, id),
@@ -655,11 +696,13 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
 function PlayersSection({
   players,
   busy,
+  onToggleExclude,
   onDelete,
   onDeleteAll,
 }: {
   players: AdminPlayer[];
   busy: boolean;
+  onToggleExclude: (id: string, name: string, excluded: boolean) => void;
   onDelete: (id: string, name: string) => void;
   onDeleteAll: () => void;
 }) {
@@ -713,6 +756,11 @@ function PlayersSection({
                   >
                     {p.username}
                   </button>
+                  {p.exclude_from_board && (
+                    <span className="shrink-0 rounded border border-terminal-amber/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-terminal-amber">
+                      🙈 hidden
+                    </span>
+                  )}
                   <span className="w-16 text-right text-xs tabular-nums text-terminal-dim">
                     {p.solves_count} solves
                   </span>
@@ -722,6 +770,22 @@ function PlayersSection({
                   <span className="w-16 text-right font-bold tabular-nums text-terminal-amber">
                     {p.total_points}
                   </span>
+                  <button
+                    disabled={busy}
+                    onClick={() => onToggleExclude(p.id, p.username, !p.exclude_from_board)}
+                    title={
+                      p.exclude_from_board
+                        ? 'Hidden from the competition — click to show on the leaderboard'
+                        : 'Hide this (test) account from the leaderboard, board & feed'
+                    }
+                    className={`rounded border px-2 py-1 text-[11px] font-bold transition disabled:opacity-40 ${
+                      p.exclude_from_board
+                        ? 'border-terminal-amber/50 text-terminal-amber hover:bg-terminal-amber/15'
+                        : 'border-terminal-border text-terminal-dim hover:border-terminal-cyan hover:text-terminal-cyan'
+                    }`}
+                  >
+                    {p.exclude_from_board ? '🙈' : '👁'}
+                  </button>
                   <button
                     disabled={busy}
                     onClick={() => onDelete(p.id, p.username)}

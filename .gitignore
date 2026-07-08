@@ -12,3 +12,6 @@ dist-ssr
 .DS_Store
 .vercel
 *.tsbuildinfo
+
+# Local DB safety backups (contain player data — never commit)
+backups/

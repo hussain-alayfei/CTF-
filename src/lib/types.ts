@@ -70,6 +70,8 @@ export interface SubmitResult {
   correct?: boolean;
   first_blood?: boolean;
   already_solved?: boolean;
+  /** True when an admin/excluded account submitted: verified but deliberately not scored. */
+  test_mode?: boolean;
   points_awarded?: number;
   total_points?: number;
   message?: string;
@@ -145,6 +147,8 @@ export interface AdminPlayer {
   total_points: number;
   solves_count: number;
   first_bloods: number;
+  /** When true, the player is hidden from the leaderboard/board/feed (test account). */
+  exclude_from_board?: boolean;
   solves: AdminPlayerSolve[];
 }
 

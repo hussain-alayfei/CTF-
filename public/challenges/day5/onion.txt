@@ -1,0 +1,6 @@
+RELAY CELL // captured mid-circuit
+----------------------------------
+This cell was wrapped for transport and is unreadable on its own.
+Your session key is issued on the challenge page, not in this file.
+
+MlhOTERaNFM1V1Y2SlVPQg==
