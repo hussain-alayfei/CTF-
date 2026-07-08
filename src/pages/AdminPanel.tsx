@@ -28,30 +28,59 @@ const diffColor: Record<string, string> = {
   danger: 'text-fuchsia-400',
 };
 
+const TAB_KEY = 'kgsp_ctf_admin_tab';
+const MUSIC_URL_KEY = 'kgsp_ctf_music_url';
+
+type TabId = 'event' | 'activeday' | 'music' | 'days' | 'players' | 'challenges';
+
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'event', label: 'Event Control' },
+  { id: 'activeday', label: 'Active Day' },
+  { id: 'music', label: 'Music' },
+  { id: 'days', label: 'Days' },
+  { id: 'players', label: 'Players' },
+  { id: 'challenges', label: 'Challenges' },
+];
+
 export default function AdminPanel() {
   const { player, setPlayer, theme, toggleTheme } = useApp();
   const [data, setData] = useState<AdminOverview | null>(null);
   const [players, setPlayers] = useState<AdminPlayer[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [minutes, setMinutes] = useState(35);
-  const [freezeMin, setFreezeMin] = useState(15);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
   const [autoLockMin, setAutoLockMin] = useState<number | null>(null);
 
-  // Refs to track whether the admin is actively editing the duration/freeze inputs.
-  // If they are, the 5-second auto-refresh must not overwrite what they're typing.
-  const editingMinutes = useRef(false);
-  const editingFreeze = useRef(false);
+  // Duration & freeze as local string state — synced from server only on genuine changes
+  const [minutesStr, setMinutesStr] = useState('35');
+  const [freezeStr, setFreezeStr] = useState('15');
+  const lastServerMinutes = useRef<number | null>(null);
+  const lastServerFreeze = useRef<number | null>(null);
 
-  // Track the ends_at we already started an auto-lock countdown for (avoid restarting
-  // the interval on every 5s refresh cycle).
+  // Tab state persisted in localStorage
+  const [tab, setTab] = useState<TabId>(() => {
+    const saved = localStorage.getItem(TAB_KEY);
+    if (saved && TABS.some((t) => t.id === saved)) return saved as TabId;
+    return 'event';
+  });
+
+  function switchTab(id: TabId) {
+    setTab(id);
+    localStorage.setItem(TAB_KEY, id);
+  }
+
+  // Ref for MusicPlayer so we can auto-play on event start
+  const musicRef = useRef<MusicPlayerHandle>(null);
+
+  // Cache: avoid re-fetching when switching tabs
+  const cacheRef = useRef<{ data: AdminOverview | null; players: AdminPlayer[] }>({
+    data: null,
+    players: [],
+  });
+
   const autoLockState = useRef<{ endsAt: string; interval: number } | null>(null);
 
-  // Admin identity is just a normal logged-in player with is_admin = true.
-  // Their session (including the admin token) persists exactly like any
-  // player's session — no separate password gate on this page anymore.
   const secret = player?.admin_token ?? '';
 
   const load = useCallback(async () => {
@@ -62,14 +91,28 @@ export default function AdminPanel() {
       return;
     }
     setData(res);
+    cacheRef.current.data = res;
+
     if (res.event) {
-      if (!editingMinutes.current) setMinutes(res.event.duration_minutes ?? 35);
-      if (!editingFreeze.current) setFreezeMin(res.event.freeze_minutes ?? 15);
+      // Sync duration only when server value genuinely changed
+      const serverMin = res.event.duration_minutes ?? 35;
+      if (lastServerMinutes.current === null || lastServerMinutes.current !== serverMin) {
+        lastServerMinutes.current = serverMin;
+        setMinutesStr(String(serverMin));
+      }
+      const serverFreeze = res.event.freeze_minutes ?? 15;
+      if (lastServerFreeze.current === null || lastServerFreeze.current !== serverFreeze) {
+        lastServerFreeze.current = serverFreeze;
+        setFreezeStr(String(serverFreeze));
+      }
       setActiveDaySel(res.event.active_day ?? '');
     }
     try {
       const pl = await adminListPlayers(secret);
-      if (pl.players) setPlayers(pl.players);
+      if (pl.players) {
+        setPlayers(pl.players);
+        cacheRef.current.players = pl.players;
+      }
     } catch {
       /* ignore roster errors */
     }
@@ -79,23 +122,19 @@ export default function AdminPanel() {
     if (secret) void load();
   }, [secret, load]);
 
-  // Auto-refresh the dashboard while on this page.
   useEffect(() => {
     if (!secret) return;
     const id = setInterval(() => void load(), 5000);
     return () => clearInterval(id);
   }, [secret, load]);
 
-  // Auto-lock the active day 30 minutes after the event ends. Shows a countdown
-  // banner so the instructor knows what's happening.
+  // Auto-lock the active day 30 minutes after event ends
   useEffect(() => {
     const endsAt = data?.event?.ends_at;
     const activeD = data?.event?.active_day;
-    // Compute ended state directly from event timestamps to avoid the forward-ref issue
     const eventIsEnded = !!endsAt && Date.now() >= Date.parse(endsAt);
 
     if (!eventIsEnded || !endsAt || activeD == null) {
-      // Clear any running countdown when event is not ended
       if (autoLockState.current) {
         clearInterval(autoLockState.current.interval);
         autoLockState.current = null;
@@ -104,10 +143,7 @@ export default function AdminPanel() {
       return;
     }
 
-    // Don't restart the countdown if we already have one running for this round
     if (autoLockState.current?.endsAt === endsAt) return;
-
-    // Clear any old countdown
     if (autoLockState.current) clearInterval(autoLockState.current.interval);
 
     const lockTime = Date.parse(endsAt) + 30 * 60 * 1000;
@@ -118,19 +154,18 @@ export default function AdminPanel() {
       if (rem === 0) {
         if (autoLockState.current) clearInterval(autoLockState.current.interval);
         autoLockState.current = null;
-        // Lock the active day automatically
         void adminSetDay(secret, activeD, false).then(() => void load());
       }
     };
 
     tick();
-    const interval = window.setInterval(tick, 30_000); // update every 30 s
+    const interval = window.setInterval(tick, 30_000);
     autoLockState.current = { endsAt, interval };
 
     return () => {
       clearInterval(interval);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.event?.ends_at, data?.event?.active_day, secret]);
 
   function logout() {
@@ -164,12 +199,21 @@ export default function AdminPanel() {
   const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
   const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
 
-  // ----- Not logged in at all: reuse the normal login/register screen -----
-  if (!player) {
-    return <Register />;
-  }
+  // Accurate stats: active players = non-excluded, solves from non-excluded
+  const activePlayers = players.filter((p) => !p.exclude_from_board);
+  const activePlayerCount = activePlayers.length;
+  const activeSolves = activePlayers.reduce((sum, p) => sum + p.solves_count, 0);
 
-  // ----- Logged in, but not the instructor account -----
+  // Parse duration for start button
+  const parsedMinutes = parseInt(minutesStr, 10);
+  const validMinutes = !isNaN(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 35;
+  const parsedFreeze = parseInt(freezeStr, 10);
+  const validFreeze = !isNaN(parsedFreeze) && parsedFreeze >= 0 ? parsedFreeze : 15;
+
+  // Not logged in
+  if (!player) return <Register />;
+
+  // Not an admin
   if (!player.is_admin) {
     return (
       <div className="mx-auto max-w-md px-4 py-24 text-center">
@@ -188,12 +232,9 @@ export default function AdminPanel() {
     );
   }
 
-  // ----- Signed in as the instructor: full dashboard -----
   const challenges = data?.challenges ?? [];
   const days = data?.days ?? [];
 
-  // Group challenges by day so the "Challenges & flags" list is organised, with
-  // each day collapsible.
   const dayTitle = new Map(days.map((d) => [d.day, d.title]));
   const challengeDayGroups = [...challenges
     .reduce((map, c) => {
@@ -205,8 +246,24 @@ export default function AdminPanel() {
     .sort((a, b) => a[0] - b[0])
     .map(([day, list]) => ({ day, title: dayTitle.get(day) ?? `Day ${day}`, list }));
 
+  // Days split into Week 1 (3-5) and Week 2 (6-10)
+  const week1Days = days.filter((d) => d.day >= 3 && d.day <= 5);
+  const week2Days = days.filter((d) => d.day >= 6 && d.day <= 10);
+
+  function handleStartEvent() {
+    run(async () => {
+      const res = await adminStartEvent(secret, validMinutes);
+      // Auto-start music
+      musicRef.current?.play();
+      return res;
+    }, isRunning
+      ? `An event is already running. Restart it now with a fresh ${validMinutes}-minute timer? Progress so far is kept, but the clock resets.`
+      : undefined);
+  }
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
+      {/* Header bar */}
       <div className="mb-4 flex items-center justify-between">
         <Link
           to="/"
@@ -238,7 +295,7 @@ export default function AdminPanel() {
 
       <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
 
-      {/* Result of the last action — always visible right under the title */}
+      {/* Action result message */}
       {msg && (
         <div
           className={`mt-3 rounded-lg px-4 py-3 text-center text-sm font-semibold ${
@@ -251,293 +308,426 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stat tiles */}
+      {/* Stats tiles */}
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Tile label="Status" value={statusLabel} valueClass={statusColor} />
-        <Tile label="Players" value={String(data?.players_count ?? 0)} />
-        <Tile label="Total solves" value={String(data?.total_solves ?? 0)} />
+        <Tile label="Active players" value={String(activePlayerCount)} />
+        <Tile label="Total solves" value={String(activeSolves)} />
       </div>
 
-      {/* Event controls */}
-      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-        <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Event control</h2>
+      {/* Tab bar */}
+      <div className="mt-6 flex gap-1 border-b border-terminal-border">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => switchTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-bold uppercase tracking-wider transition ${
+              tab === t.id
+                ? 'border-b-2 border-terminal-green text-terminal-green'
+                : 'text-terminal-dim hover:text-terminal-green/70'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Big, unambiguous status banner — always tells you what's happening and what to do */}
-        <StatusBanner
-          status={state.status}
-          endsAt={data?.event?.ends_at ?? null}
-          remainingMs={state.remainingMs}
-        />
+      {/* Tab content */}
+      <div className="mt-6">
+        {tab === 'event' && (
+          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
+            <h2 className="mb-4 text-lg font-bold uppercase tracking-widest text-terminal-cyan">
+              ▸ Event Control
+            </h2>
 
-        {/* Auto-lock countdown — shown after the event ends */}
-        {isEnded && autoLockMin !== null && (
-          <div className="mt-4 flex items-center justify-between rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
-            <div>
-              <div className="text-sm font-bold text-terminal-amber">
-                ⏳ Active day auto-locks in ~{autoLockMin} minute{autoLockMin === 1 ? '' : 's'}
-              </div>
-              <div className="text-[11px] text-terminal-dim">
-                30 minutes after the event ended — or lock it now to start fresh.
-              </div>
-            </div>
-            <button
-              disabled={busy || data?.event?.active_day == null}
-              onClick={() =>
-                run(
-                  () => adminSetDay(secret, data!.event!.active_day!, false),
-                  'Lock the active day now?',
-                )
-              }
-              className="ml-4 shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-            >
-              Lock now
-            </button>
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-6">
-          <div className="max-w-xs">
-            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-              Duration (minutes)
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={600}
-              value={minutes}
-              onFocus={() => { editingMinutes.current = true; }}
-              onBlur={() => { editingMinutes.current = false; }}
-              onChange={(e) => setMinutes(Number(e.target.value))}
-              className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+            {/* Big status banner */}
+            <StatusBanner
+              status={state.status}
+              endsAt={data?.event?.ends_at ?? null}
+              remainingMs={state.remainingMs}
             />
-          </div>
 
-          <div className="max-w-xs">
-            <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-              Score freeze (final minutes)
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                min={0}
-                max={120}
-                value={freezeMin}
-                onFocus={() => { editingFreeze.current = true; }}
-                onBlur={() => { editingFreeze.current = false; }}
-                onChange={(e) => setFreezeMin(Number(e.target.value))}
-                className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-              />
-              <button
-                disabled={busy}
-                onClick={() => run(() => adminSetFreeze(secret, freezeMin))}
-                className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
-          On the projector board (<code className="text-terminal-cyan">/board</code>), scores hide during
-          the final <strong className="text-terminal-amber">{freezeMin}</strong> minute
-          {freezeMin === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time ends. Set
-          to <strong>0</strong> to keep the board live the whole round. Students never see the live
-          board mid-round either way.
-        </p>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            disabled={busy}
-            onClick={() =>
-              run(
-                () => adminStartEvent(secret, minutes),
-                isRunning
-                  ? `An event is already running. Restart it now with a fresh ${minutes}-minute timer? Progress so far is kept, but the clock resets.`
-                  : undefined,
-              )
-            }
-            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
-          >
-            {isRunning ? `🔁 Restart with ${minutes}-min timer` : `▶ Start ${minutes}-min event`}
-          </button>
-          <button
-            disabled={busy || !isRunning}
-            onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
-            title={!isRunning ? 'Nothing is running right now.' : undefined}
-            className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-          >
-            ⏹ Stop now
-          </button>
-          <button
-            disabled={busy || isIdle}
-            onClick={() =>
-              run(
-                () => adminReset(secret),
-                'Reset ALL scores and clear the timer? Players keep their names but lose all solves. Do this before starting a brand-new round.',
-              )
-            }
-            title={isIdle ? 'Nothing to reset — no event has been started.' : undefined}
-            className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
-          >
-            ⟲ Reset game
-          </button>
-        </div>
-      </section>
-
-      {/* Active Day (which day's leaderboard is "live" for students) */}
-      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-        <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">▸ Active Day (Leaderboard)</h2>
-        <p className="mb-4 text-xs text-terminal-dim">
-          Students only see the leaderboard for this day. When a day finishes, switch to the next
-          one to start its board fresh — past days&apos; scores are never lost and can still be
-          browsed from the leaderboard&apos;s day selector.
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={activeDaySel}
-            onChange={(e) => setActiveDaySel(Number(e.target.value))}
-            className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-2.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
-          >
-            <option value="" disabled>
-              Choose a day…
-            </option>
-            {days.map((d) => (
-              <option key={d.day} value={d.day}>
-                {d.title}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={busy || activeDaySel === ''}
-            onClick={() => run(() => adminSetActiveDay(secret, Number(activeDaySel)), 'Switch the live leaderboard to this day?')}
-            className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-          >
-            Set active day
-          </button>
-          <span className="text-xs text-terminal-dim">
-            Currently live: <strong className="text-terminal-green">
-              {days.find((d) => d.day === data?.event?.active_day)?.title ?? `Day ${data?.event?.active_day ?? '—'}`}
-            </strong>
-          </span>
-        </div>
-      </section>
-
-      {/* Background music (admin's browser only) */}
-      <MusicPlayer />
-
-      {/* Days */}
-      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-        <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Days</h2>
-        <div className="space-y-3">
-          {days.map((d: AdminDay) => (
-            <div
-              key={d.day}
-              className="rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  {d.is_rest && <span title="Rest day">😴</span>}
-                  <div>
-                    <div className="font-bold text-terminal-green">{d.title}</div>
-                    {d.subtitle && <div className="text-xs text-terminal-dim">{d.subtitle}</div>}
+            {/* Auto-lock countdown */}
+            {isEnded && autoLockMin !== null && (
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
+                <div>
+                  <div className="text-sm font-bold text-terminal-amber">
+                    ⏳ Active day auto-locks in ~{autoLockMin} minute{autoLockMin === 1 ? '' : 's'}
+                  </div>
+                  <div className="text-[11px] text-terminal-dim">
+                    30 minutes after the event ended — or lock it now to start fresh.
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {d.requires_code && (
-                    <span className="rounded border border-terminal-amber/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
-                      🔐 code
-                    </span>
-                  )}
-                  <span
-                    className={`text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
-                  >
-                    {d.is_open ? '● Open' : '○ Locked'}
-                  </span>
+                <button
+                  disabled={busy || data?.event?.active_day == null}
+                  onClick={() =>
+                    run(
+                      () => adminSetDay(secret, data!.event!.active_day!, false),
+                      'Lock the active day now?',
+                    )
+                  }
+                  className="ml-4 shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                >
+                  Lock now
+                </button>
+              </div>
+            )}
+
+            {/* Duration & freeze inputs side by side */}
+            <div className="mt-5 grid grid-cols-2 gap-6">
+              <div>
+                <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={minutesStr}
+                  onChange={(e) => setMinutesStr(e.target.value)}
+                  className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
+                  Score freeze (final minutes)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={freezeStr}
+                    onChange={(e) => setFreezeStr(e.target.value)}
+                    className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+                  />
                   <button
                     disabled={busy}
-                    onClick={() => run(() => adminSetDay(secret, d.day, !d.is_open))}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
-                      d.is_open
-                        ? 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber hover:bg-terminal-amber/20'
-                        : 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
-                    }`}
+                    onClick={() => run(() => adminSetFreeze(secret, validFreeze))}
+                    className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
                   >
-                    {d.is_open ? 'Lock' : 'Unlock'}
+                    Save
                   </button>
                 </div>
               </div>
-              {/* Day access code editor */}
-              <DayCodeEditor
-                currentCode={d.code ?? ''}
-                busy={busy}
-                onSave={(code) => run(() => adminSetDayCode(secret, d.day, code))}
-              />
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Players management */}
-      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-        <PlayersSection
-          players={players}
-          busy={busy}
-          onToggleExclude={(id, name, excluded) =>
-            run(() =>
-              adminSetPlayerExcluded(secret, id, excluded),
-              excluded
-                ? `Hide "${name}" from the leaderboard, projector board, and live feed? Their account and solves are kept — this just stops a test account from showing up in the competition.`
-                : `Show "${name}" on the leaderboard again?`,
-            )
-          }
-          onDelete={(id, name) =>
-            run(
-              () => adminDeletePlayer(secret, id),
-              `Delete player "${name}"? This removes their account and all solves. This cannot be undone.`,
-            )
-          }
-          onDeleteAll={() =>
-            run(
-              () => adminDeleteAllPlayers(secret),
-              'Delete ALL players and their solves? Everyone will be signed out and must register again. This cannot be undone.',
-            )
-          }
-        />
-      </section>
+            <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
+              On the projector board (<code className="text-terminal-cyan">/board</code>), scores hide during
+              the final <strong className="text-terminal-amber">{validFreeze}</strong> minute
+              {validFreeze === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time ends. Set
+              to <strong>0</strong> to keep the board live the whole round.
+            </p>
 
-      {/* Challenges (with flags + preview) */}
-      <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
-            ▸ Challenges & flags
-          </h2>
-          <button
-            onClick={() => setShowFlags((s) => !s)}
-            className="rounded border border-terminal-border px-3 py-1 text-xs text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-          >
-            {showFlags ? '🙈 Hide flags' : '👁 Reveal flags'}
-          </button>
+            {/* Action buttons */}
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                disabled={busy}
+                onClick={handleStartEvent}
+                className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+              >
+                {isRunning ? `🔁 Restart with ${validMinutes}-min timer` : `▶ Start ${validMinutes}-min event`}
+              </button>
+              <button
+                disabled={busy || !isRunning}
+                onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
+                title={!isRunning ? 'Nothing is running right now.' : undefined}
+                className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+              >
+                ⏹ Stop now
+              </button>
+              <button
+                disabled={busy || isIdle}
+                onClick={() =>
+                  run(
+                    () => adminReset(secret),
+                    'Reset ALL scores and clear the timer? Players keep their names but lose all solves. Do this before starting a brand-new round.',
+                  )
+                }
+                title={isIdle ? 'Nothing to reset — no event has been started.' : undefined}
+                className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
+              >
+                ⟲ Reset game
+              </button>
+            </div>
+          </section>
+        )}
+
+        {tab === 'activeday' && (
+          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
+            <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">
+              ▸ Active Day (Leaderboard)
+            </h2>
+            <p className="mb-4 text-xs text-terminal-dim">
+              Students only see the leaderboard for this day. When a day finishes, switch to the next
+              one to start its board fresh — past days&apos; scores are never lost and can still be
+              browsed from the leaderboard&apos;s day selector.
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={activeDaySel}
+                onChange={(e) => setActiveDaySel(Number(e.target.value))}
+                className="rounded-lg border border-terminal-border bg-terminal-input px-3 py-2.5 text-sm text-terminal-green outline-none focus:border-terminal-green"
+              >
+                <option value="" disabled>
+                  Choose a day…
+                </option>
+                {days.map((d) => (
+                  <option key={d.day} value={d.day}>
+                    {d.title}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={busy || activeDaySel === ''}
+                onClick={() =>
+                  run(
+                    () => adminSetActiveDay(secret, Number(activeDaySel)),
+                    'Switch the live leaderboard to this day?',
+                  )
+                }
+                className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+              >
+                Set active day
+              </button>
+              <span className="text-xs text-terminal-dim">
+                Currently live:{' '}
+                <strong className="text-terminal-green">
+                  {days.find((d) => d.day === data?.event?.active_day)?.title ??
+                    `Day ${data?.event?.active_day ?? '—'}`}
+                </strong>
+              </span>
+            </div>
+          </section>
+        )}
+
+        {tab === 'music' && <MusicPlayer ref={musicRef} />}
+
+        {tab === 'days' && (
+          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
+            <h2 className="mb-4 font-bold uppercase tracking-widest text-terminal-cyan">▸ Days</h2>
+            <DaysWeekGroup
+              label="Week 1 (Days 3–5)"
+              days={week1Days}
+              busy={busy}
+              secret={secret}
+              run={run}
+            />
+            <DaysWeekGroup
+              label="Week 2 (Days 6–10)"
+              days={week2Days}
+              busy={busy}
+              secret={secret}
+              run={run}
+              className="mt-4"
+            />
+          </section>
+        )}
+
+        {tab === 'players' && (
+          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
+            <PlayersSection
+              players={players}
+              busy={busy}
+              onToggleExclude={(id, name, excluded) =>
+                run(
+                  () => adminSetPlayerExcluded(secret, id, excluded),
+                  excluded
+                    ? `Hide "${name}" from the leaderboard, projector board, and live feed? Their account and solves are kept — this just stops a test account from showing up in the competition.`
+                    : `Show "${name}" on the leaderboard again?`,
+                )
+              }
+              onDelete={(id, name) =>
+                run(
+                  () => adminDeletePlayer(secret, id),
+                  `Delete player "${name}"? This removes their account and all solves. This cannot be undone.`,
+                )
+              }
+              onDeleteAll={() =>
+                run(
+                  () => adminDeleteAllPlayers(secret),
+                  'Delete ALL players and their solves? Everyone will be signed out and must register again. This cannot be undone.',
+                )
+              }
+            />
+          </section>
+        )}
+
+        {tab === 'challenges' && (
+          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold uppercase tracking-widest text-terminal-cyan">
+                ▸ Challenges & flags
+              </h2>
+              <button
+                onClick={() => setShowFlags((s) => !s)}
+                className="rounded border border-terminal-border px-3 py-1 text-xs text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
+              >
+                {showFlags ? '🙈 Hide flags' : '👁 Reveal flags'}
+              </button>
+            </div>
+            <div className="space-y-3">
+              {challengeDayGroups.length === 0 ? (
+                <p className="text-sm text-terminal-dim">No challenges yet.</p>
+              ) : (
+                challengeDayGroups.map((g) => (
+                  <ChallengeDayGroup
+                    key={g.day}
+                    title={g.title}
+                    challenges={g.list}
+                    showFlags={showFlags}
+                  />
+                ))
+              )}
+            </div>
+            <p className="mt-4 text-[11px] text-terminal-dim">
+              Tip: to add challenges to any day, insert rows in the Supabase{' '}
+              <code className="text-terminal-green">challenges</code> table and set their{' '}
+              <code className="text-terminal-green">day</code> number.
+            </p>
+          </section>
+        )}
+      </div>
+
+      {/* MusicPlayer always mounted (hidden) so ref stays alive for auto-play */}
+      {tab !== 'music' && (
+        <div className="hidden">
+          <MusicPlayer ref={musicRef} />
         </div>
-        <div className="space-y-3">
-          {challengeDayGroups.length === 0 ? (
-            <p className="text-sm text-terminal-dim">No challenges yet.</p>
-          ) : (
-            challengeDayGroups.map((g) => (
-              <ChallengeDayGroup key={g.day} title={g.title} challenges={g.list} showFlags={showFlags} />
-            ))
-          )}
-        </div>
-        <p className="mt-4 text-[11px] text-terminal-dim">
-          Tip: to add challenges to any day, insert rows in the Supabase <code className="text-terminal-green">challenges</code> table and
-          set their <code className="text-terminal-green">day</code> number.
-        </p>
-      </section>
+      )}
     </div>
   );
 }
 
-// ---- Big, unambiguous "what's happening right now" banner ----
+// ---- Expandable week group for Days section ----
+function DaysWeekGroup({
+  label,
+  days,
+  busy,
+  secret,
+  run: runAction,
+  className = '',
+}: {
+  label: string;
+  days: AdminDay[];
+  busy: boolean;
+  secret: string;
+  run: (
+    action: () => Promise<{ error?: string; message?: string }>,
+    confirmText?: string,
+  ) => void;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(true);
+
+  if (days.length === 0) return null;
+
+  return (
+    <div className={className}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="mb-2 flex w-full items-center gap-2 text-left text-sm font-bold text-terminal-green transition hover:text-terminal-green/80"
+      >
+        <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>
+          ▸
+        </span>
+        {label}
+        <span className="text-xs font-normal text-terminal-dim">({days.length} days)</span>
+      </button>
+      {open && (
+        <div className="space-y-3 pl-2">
+          {days.map((d: AdminDay) => {
+            const autoCode = generateDayCode(d);
+            return (
+              <div
+                key={d.day}
+                className="rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {d.is_rest && <span title="Rest day">😴</span>}
+                    <div>
+                      <div className="font-bold text-terminal-green">{d.title}</div>
+                      {d.subtitle && (
+                        <div className="text-xs text-terminal-dim">{d.subtitle}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {d.requires_code && (
+                      <span className="rounded border border-terminal-amber/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
+                        🔐 code
+                      </span>
+                    )}
+                    <span
+                      className={`text-xs font-bold uppercase ${d.is_open ? 'text-terminal-green' : 'text-terminal-dim'}`}
+                    >
+                      {d.is_open ? '● Open' : '○ Locked'}
+                    </span>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        runAction(() => adminSetDay(secret, d.day, !d.is_open))
+                      }
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition ${
+                        d.is_open
+                          ? 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber hover:bg-terminal-amber/20'
+                          : 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20'
+                      }`}
+                    >
+                      {d.is_open ? 'Lock' : 'Unlock'}
+                    </button>
+                  </div>
+                </div>
+                <DayCodeEditor
+                  currentCode={d.code ?? ''}
+                  suggestedCode={autoCode}
+                  busy={busy}
+                  onSave={(code) => runAction(() => adminSetDayCode(secret, d.day, code))}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Generate a default access code like "PRIVACY-2026" from the day title. */
+function generateDayCode(day: AdminDay): string {
+  const keywords: Record<string, string> = {
+    privacy: 'PRIVACY',
+    pentesting: 'PENTESTING',
+    'pen testing': 'PENTESTING',
+    forensics: 'FORENSICS',
+    crypto: 'CRYPTO',
+    cryptography: 'CRYPTO',
+    network: 'NETWORK',
+    networking: 'NETWORK',
+    web: 'WEB',
+    osint: 'OSINT',
+    reverse: 'REVERSE',
+    malware: 'MALWARE',
+    defense: 'DEFENSE',
+    steganography: 'STEGO',
+    stego: 'STEGO',
+    misc: 'MISC',
+    binary: 'BINARY',
+    pwn: 'PWN',
+    exploit: 'EXPLOIT',
+  };
+  const titleLower = day.title.toLowerCase();
+  for (const [key, code] of Object.entries(keywords)) {
+    if (titleLower.includes(key)) return `${code}-2026`;
+  }
+  const word = day.title
+    .replace(/^day\s*\d+[\s:–-]*/i, '')
+    .split(/\s+/)[0]
+    ?.toUpperCase();
+  return word ? `${word}-2026` : `DAY${day.day}-2026`;
+}
+
+// ---- Big status banner ----
 function StatusBanner({
   status,
   endsAt,
@@ -550,14 +740,14 @@ function StatusBanner({
   if (status === 'running') {
     const endsLabel = endsAt ? new Date(endsAt).toLocaleTimeString() : '—';
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-4 py-3 shadow-neon">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border-2 border-terminal-green/60 bg-terminal-green/10 px-5 py-4 shadow-neon">
         <div>
-          <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-green">
+          <div className="text-base font-extrabold uppercase tracking-widest text-terminal-green">
             🟢 LIVE — players can submit flags right now
           </div>
-          <div className="text-xs text-terminal-dim">Ends at {endsLabel}</div>
+          <div className="mt-1 text-xs text-terminal-dim">Ends at {endsLabel}</div>
         </div>
-        <div className="text-2xl font-extrabold tabular-nums text-terminal-green">
+        <div className="text-3xl font-extrabold tabular-nums text-terminal-green">
           {formatDuration(remainingMs)}
         </div>
       </div>
@@ -566,25 +756,27 @@ function StatusBanner({
 
   if (status === 'ended') {
     return (
-      <div className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-3">
-        <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-red">
+      <div className="rounded-lg border-2 border-terminal-red/60 bg-terminal-red/10 px-5 py-4">
+        <div className="text-base font-extrabold uppercase tracking-widest text-terminal-red">
           🔴 ENDED — players see &quot;Time&apos;s up&quot;
         </div>
-        <div className="text-xs text-terminal-dim">
-          Click <strong className="text-terminal-red">Reset game</strong> to clear this before starting a new round,
-          or <strong className="text-terminal-green">Start</strong> to begin fresh immediately.
+        <div className="mt-1 text-xs text-terminal-dim">
+          Click <strong className="text-terminal-red">Reset game</strong> to clear this before
+          starting a new round, or <strong className="text-terminal-green">Start</strong> to begin
+          fresh immediately.
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
-      <div className="text-sm font-extrabold uppercase tracking-widest text-terminal-amber">
+    <div className="rounded-lg border-2 border-terminal-amber/50 bg-terminal-amber/10 px-5 py-4">
+      <div className="text-base font-extrabold uppercase tracking-widest text-terminal-amber">
         ⏳ NOT STARTED — players see &quot;Waiting to start&quot;
       </div>
-      <div className="text-xs text-terminal-dim">
-        Click <strong className="text-terminal-green">Start</strong> below when you&apos;re ready to begin the round.
+      <div className="mt-1 text-xs text-terminal-dim">
+        Click <strong className="text-terminal-green">Start</strong> below when you&apos;re ready to
+        begin the round.
       </div>
     </div>
   );
@@ -609,10 +801,12 @@ function Tile({
 
 function DayCodeEditor({
   currentCode,
+  suggestedCode,
   busy,
   onSave,
 }: {
   currentCode: string;
+  suggestedCode?: string;
   busy: boolean;
   onSave: (code: string) => void;
 }) {
@@ -623,10 +817,29 @@ function DayCodeEditor({
     return (
       <div className="mt-2 flex items-center gap-2">
         <span className="text-[11px] text-terminal-dim">
-          Access code: {currentCode ? <code className="text-terminal-amber">{currentCode}</code> : <span className="italic">none (open)</span>}
+          Access code:{' '}
+          {currentCode ? (
+            <code className="text-terminal-amber">{currentCode}</code>
+          ) : suggestedCode ? (
+            <span className="italic text-terminal-dim">
+              none —{' '}
+              <button
+                onClick={() => onSave(suggestedCode)}
+                disabled={busy}
+                className="text-terminal-cyan underline decoration-dotted hover:text-terminal-green"
+              >
+                auto-set {suggestedCode}
+              </button>
+            </span>
+          ) : (
+            <span className="italic">none (open)</span>
+          )}
         </span>
         <button
-          onClick={() => { setCode(currentCode); setEditing(true); }}
+          onClick={() => {
+            setCode(currentCode);
+            setEditing(true);
+          }}
           className="text-[11px] text-terminal-cyan underline decoration-dotted hover:text-terminal-green"
         >
           edit
@@ -645,7 +858,10 @@ function DayCodeEditor({
       />
       <button
         disabled={busy}
-        onClick={() => { onSave(code); setEditing(false); }}
+        onClick={() => {
+          onSave(code);
+          setEditing(false);
+        }}
         className="rounded border border-terminal-green/60 bg-terminal-green/10 px-2 py-1 text-[11px] font-bold text-terminal-green hover:bg-terminal-green/20"
       >
         Save
@@ -660,7 +876,6 @@ function DayCodeEditor({
   );
 }
 
-// A collapsible group of challenges for one day.
 function ChallengeDayGroup({
   title,
   challenges,
@@ -680,11 +895,15 @@ function ChallengeDayGroup({
         className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition hover:bg-terminal-green/5"
       >
         <span className="flex items-center gap-2 font-bold text-terminal-green">
-          <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>▸</span>
+          <span className={`text-terminal-dim transition-transform ${open ? 'rotate-90' : ''}`}>
+            ▸
+          </span>
           {title}
         </span>
         <span className="flex items-center gap-3 text-[11px] text-terminal-dim">
-          <span>{challenges.length} challenge{challenges.length === 1 ? '' : 's'}</span>
+          <span>
+            {challenges.length} challenge{challenges.length === 1 ? '' : 's'}
+          </span>
           <span>{solved} ★ solves</span>
         </span>
       </button>
@@ -714,9 +933,13 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
             🎁 extra
           </span>
         )}
-        <span className={`text-xs font-bold uppercase ${diffColor[c.difficulty]}`}>{c.difficulty}</span>
+        <span className={`text-xs font-bold uppercase ${diffColor[c.difficulty]}`}>
+          {c.difficulty}
+        </span>
         <span className="w-12 text-right tabular-nums text-terminal-amber">{c.points}</span>
-        <span className="w-12 text-right text-xs tabular-nums text-terminal-dim">{c.solves_count} ★</span>
+        <span className="w-12 text-right text-xs tabular-nums text-terminal-dim">
+          {c.solves_count} ★
+        </span>
         <span className="text-xs text-terminal-red">
           {c.first_blood_by ? `🩸 ${c.first_blood_by}` : '—'}
         </span>
@@ -724,39 +947,48 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
       </button>
 
       {expanded && (
-        <div className="border-t border-terminal-border/60 px-4 py-3 space-y-3">
-          {/* Prompt preview */}
+        <div className="space-y-3 border-t border-terminal-border/60 px-4 py-3">
           <div>
-            <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Prompt preview</h4>
+            <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">
+              Prompt preview
+            </h4>
             <div className="rounded border border-terminal-border bg-terminal-bg p-3">
               <Prompt text={c.prompt ?? ''} className="text-sm text-terminal-green/90" />
             </div>
           </div>
 
-          {/* Flag */}
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Flag:</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-terminal-dim">
+              Flag:
+            </span>
             <code className="rounded bg-terminal-input px-2 py-0.5 text-xs text-terminal-green">
               {showFlags ? c.flag : '••••••••'}
             </code>
           </div>
 
-          {/* Suggested tool (shown to players as a beginner nudge) */}
           {c.suggested_tool && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold uppercase tracking-widest text-terminal-dim">Suggested tool:</span>
+              <span className="font-bold uppercase tracking-widest text-terminal-dim">
+                Suggested tool:
+              </span>
               <span className="text-terminal-cyan">🧰 {c.suggested_tool}</span>
             </div>
           )}
 
-          {/* Hints */}
           {c.hints && c.hints.length > 0 && (
             <div>
-              <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">Hints</h4>
+              <h4 className="mb-1 text-[10px] font-bold uppercase tracking-widest text-terminal-dim">
+                Hints
+              </h4>
               <ul className="space-y-1">
                 {c.hints.map((h) => (
-                  <li key={h.n} className="rounded border border-terminal-amber/20 bg-terminal-amber/5 px-3 py-1.5 text-xs">
-                    <span className="font-bold text-terminal-amber">#{h.n} (−{h.penalty}pts):</span>{' '}
+                  <li
+                    key={h.n}
+                    className="rounded border border-terminal-amber/20 bg-terminal-amber/5 px-3 py-1.5 text-xs"
+                  >
+                    <span className="font-bold text-terminal-amber">
+                      #{h.n} (−{h.penalty}pts):
+                    </span>{' '}
                     <span className="text-terminal-green/80">{h.body}</span>
                   </li>
                 ))}
@@ -764,14 +996,9 @@ function ChallengeAdminCard({ c, showFlags }: { c: AdminChallenge; showFlags: bo
             </div>
           )}
 
-          {/* Links */}
           <div className="flex gap-3 text-xs">
-            {c.asset_url && (
-              <span className="text-terminal-cyan">📎 {c.asset_url}</span>
-            )}
-            {c.action_url && (
-              <span className="text-terminal-cyan">🔗 {c.action_url}</span>
-            )}
+            {c.asset_url && <span className="text-terminal-cyan">📎 {c.asset_url}</span>}
+            {c.action_url && <span className="text-terminal-cyan">🔗 {c.action_url}</span>}
           </div>
         </div>
       )}
@@ -826,16 +1053,23 @@ function PlayersSection({
 
       {filtered.length === 0 ? (
         <p className="text-sm text-terminal-dim">
-          {players.length === 0 ? 'No players have registered yet.' : 'No players match your search.'}
+          {players.length === 0
+            ? 'No players have registered yet.'
+            : 'No players match your search.'}
         </p>
       ) : (
         <div className="space-y-2">
           {filtered.map((p, i) => {
             const isOpen = openId === p.id;
             return (
-              <div key={p.id} className="rounded-lg border border-terminal-border bg-terminal-input/40">
+              <div
+                key={p.id}
+                className="rounded-lg border border-terminal-border bg-terminal-input/40"
+              >
                 <div className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="w-6 text-center text-xs tabular-nums text-terminal-dim">{i + 1}</span>
+                  <span className="w-6 text-center text-xs tabular-nums text-terminal-dim">
+                    {i + 1}
+                  </span>
                   <span className="text-lg">{p.avatar}</span>
                   <button
                     onClick={() => setOpenId(isOpen ? null : p.id)}
@@ -886,9 +1120,15 @@ function PlayersSection({
                 {isOpen && (
                   <div className="border-t border-terminal-border/60 px-4 py-3 text-xs">
                     <div className="mb-2 flex flex-wrap gap-4 text-terminal-dim">
-                      <span>Score: <span className="text-terminal-amber">{p.total_points}</span></span>
-                      <span>Solves: <span className="text-terminal-green">{p.solves_count}</span></span>
-                      <span>First bloods: <span className="text-terminal-red">{p.first_bloods}</span></span>
+                      <span>
+                        Score: <span className="text-terminal-amber">{p.total_points}</span>
+                      </span>
+                      <span>
+                        Solves: <span className="text-terminal-green">{p.solves_count}</span>
+                      </span>
+                      <span>
+                        First bloods: <span className="text-terminal-red">{p.first_bloods}</span>
+                      </span>
                       <span>Joined: {new Date(p.created_at).toLocaleString()}</span>
                     </div>
                     {p.solves.length === 0 ? (
@@ -896,7 +1136,10 @@ function PlayersSection({
                     ) : (
                       <ul className="space-y-1">
                         {p.solves.map((s) => (
-                          <li key={s.challenge_id} className="flex items-center justify-between">
+                          <li
+                            key={s.challenge_id}
+                            className="flex items-center justify-between"
+                          >
                             <span className="text-terminal-green">
                               {s.first_blood && <span className="mr-1">🩸</span>}
                               {s.challenge_id}
@@ -920,7 +1163,10 @@ function PlayersSection({
 }
 
 // ---- YouTube background music player (admin device only) ----
-const MUSIC_URL_KEY = 'kgsp_ctf_music_url';
+
+interface MusicPlayerHandle {
+  play: () => void;
+}
 
 /** Extract a YouTube video ID and optional start-time from any YouTube URL. */
 function parseYoutubeUrl(raw: string): { id: string; start?: number } | null {
@@ -945,7 +1191,9 @@ function parseYoutubeUrl(raw: string): { id: string; start?: number } | null {
   }
 }
 
-function MusicPlayer() {
+import { forwardRef, useImperativeHandle } from 'react';
+
+const MusicPlayer = forwardRef<MusicPlayerHandle>(function MusicPlayer(_props, ref) {
   const [url, setUrl] = useState(() => localStorage.getItem(MUSIC_URL_KEY) ?? '');
   const [playing, setPlaying] = useState(false);
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -959,7 +1207,6 @@ function MusicPlayer() {
     setError(null);
   }
 
-  /** Send a command to the embedded YouTube player via postMessage. */
   function ytCmd(func: string) {
     iframeRef.current?.contentWindow?.postMessage(
       JSON.stringify({ event: 'command', func, args: [] }),
@@ -970,16 +1217,16 @@ function MusicPlayer() {
   function play() {
     const parsed = parseYoutubeUrl(url);
     if (!parsed) {
-      setError('Could not find a YouTube video ID in that URL. Try: https://www.youtube.com/watch?v=...');
+      setError(
+        'Could not find a YouTube video ID in that URL. Try: https://www.youtube.com/watch?v=...',
+      );
       return;
     }
     setError(null);
     if (videoId === parsed.id) {
-      // Already loaded — just unpause
       ytCmd('playVideo');
       setPlaying(true);
     } else {
-      // Load a new video (iframe mounts with autoplay=1)
       setVideoId(parsed.id);
       setStartSec(parsed.start);
       setPlaying(true);
@@ -998,18 +1245,20 @@ function MusicPlayer() {
     setPlaying(false);
   }
 
+  useImperativeHandle(ref, () => ({ play }));
+
   const embedSrc = videoId
     ? `https://www.youtube.com/embed/${videoId}?enablejsapi=1&autoplay=1&loop=1&playlist=${videoId}${startSec ? `&start=${startSec}` : ''}`
     : null;
 
   return (
-    <section className="mt-6 rounded-xl border border-terminal-border bg-terminal-panel p-5">
+    <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
       <h2 className="mb-2 font-bold uppercase tracking-widest text-terminal-cyan">
         ▸ Competition music
       </h2>
       <p className="mb-3 text-xs text-terminal-dim">
-        Paste a YouTube video URL. Plays on this device only — great for the room speakers.
-        The video plays in the background; only audio is heard.
+        Paste a YouTube video URL. Plays on this device only — great for the room speakers. The
+        video plays in the background; only audio is heard.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input
@@ -1049,7 +1298,6 @@ function MusicPlayer() {
         </p>
       )}
 
-      {/* Hidden YouTube iframe — only mounted when a video is selected */}
       {embedSrc && (
         <iframe
           key={videoId}
@@ -1062,4 +1310,4 @@ function MusicPlayer() {
       )}
     </section>
   );
-}
+});
