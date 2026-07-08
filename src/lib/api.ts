@@ -274,8 +274,13 @@ export async function adminStopEvent(secret: string) {
   return data as { error?: string; message?: string };
 }
 
-export async function adminReset(secret: string) {
-  const { data, error } = await supabase.rpc('admin_reset', { p_secret: secret });
+/**
+ * Resets scores/attempts/hints for ONE day only (and the shared event clock).
+ * Scoped by day on purpose — a previous unscoped version wiped every day's
+ * history at once when only the active day was meant to be reset.
+ */
+export async function adminReset(secret: string, day: number) {
+  const { data, error } = await supabase.rpc('admin_reset', { p_secret: secret, p_day: day });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string };
 }

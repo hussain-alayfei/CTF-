@@ -36,7 +36,7 @@ The dashboard's **Event control** section is the heart of a live competition.
 | **Duration (minutes)** | How long the round runs once started (defaults to 35). |
 | **Start / restart event** | Starts the clock now. Players immediately see "Event is LIVE" + hear a start sound + a "GO!" overlay. |
 | **Stop now** | Ends the event immediately for everyone. Submissions close. |
-| **Reset game** | Clears ALL scores/solves and the timer. Players keep their accounts. |
+| **Reset game** | Clears scores/solves **for the currently active day only** and the timer. Players keep their accounts. Every other day's scores are untouched. |
 | **Hide scores in final N minutes** | The "freeze" — leaderboard is hidden in the last N minutes for suspense. |
 
 **Typical flow:**
@@ -227,7 +227,7 @@ themselves. `num_hints` should be `0` or `1` — never more than one hint per ch
 | Can't see the Admin/Board links | Make sure you logged in with `kasut_kgsp_ctf` / `kasut_kgsp_ctf`. |
 | Players don't see a day | Make sure the day is **Open** and (if code-gated) they entered the code. |
 | Leaderboard still shows yesterday's day | Go to **▸ Active Day** and set it to today's day. |
-| Scores look wrong | Use **Reset game** to clear all solves and start fresh (does not affect Active Day). |
+| Scores look wrong | Use **Reset game** to clear the active day's solves and start fresh (only affects the currently active day — other days are safe; does not affect which day is Active). |
 | Timer not showing for players | You must click **Start** — idle events show "Waiting to start". |
 | Music won't play | Use a direct `.mp3`/`.ogg` URL; some hosts block embedding. |
 | First-blood sound not customized | Confirm the file is named exactly `first-blood.mp3` (or `.wav`) inside `public/sounds/` and was deployed. |

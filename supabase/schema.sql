@@ -518,18 +518,27 @@ begin
   return jsonb_build_object('ok', true, 'message','Event stopped.');
 end; $$;
 
--- Reset clears scores/attempts/hints and the clock. Players are KEPT.
-create or replace function public.admin_reset(p_secret text)
+-- Reset clears scores/attempts/hints for ONE day (p_day) and the shared event
+-- clock. Players are KEPT. Scoped by day on purpose — an earlier unscoped
+-- `where true` version wiped every day's history at once whenever any day
+-- was reset (a real incident: it erased Day 3 solves while "resetting" Day 4).
+create or replace function public.admin_reset(p_secret text, p_day integer)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_ok boolean;
 begin
   select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
   if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
-  delete from public.submission_attempts where true;
-  delete from public.hint_unlocks where true;
-  delete from public.solves where true;
+  if p_day is null then
+    return jsonb_build_object('error','no_day','message','No day specified — refusing to reset.');
+  end if;
+  delete from public.submission_attempts
+   where challenge_id in (select id from public.challenges where day = p_day);
+  delete from public.hint_unlocks
+   where challenge_id in (select id from public.challenges where day = p_day);
+  delete from public.solves
+   where challenge_id in (select id from public.challenges where day = p_day);
   update public.event_config set starts_at = null, ends_at = null, updated_at = now() where id = 1;
-  return jsonb_build_object('ok', true, 'message','Game reset. Players kept, scores cleared.');
+  return jsonb_build_object('ok', true, 'message', 'Day ' || p_day || ' reset. Players kept, other days'' scores untouched.');
 end; $$;
 
 create or replace function public.admin_set_day(p_secret text, p_day integer, p_is_open boolean)
@@ -683,7 +692,7 @@ grant execute on function public.challenge_live_material(uuid,uuid,text)      to
 grant execute on function public.day_leaderboard(integer)                     to anon, authenticated;
 grant execute on function public.admin_start_event(text,integer)              to anon, authenticated;
 grant execute on function public.admin_stop_event(text)                       to anon, authenticated;
-grant execute on function public.admin_reset(text)                            to anon, authenticated;
+grant execute on function public.admin_reset(text,integer)                    to anon, authenticated;
 grant execute on function public.admin_set_day(text,integer,boolean)          to anon, authenticated;
 grant execute on function public.admin_set_freeze(text,integer)               to anon, authenticated;
 grant execute on function public.admin_set_day_code(text,integer,text)        to anon, authenticated;

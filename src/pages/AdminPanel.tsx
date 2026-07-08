@@ -439,19 +439,32 @@ export default function AdminPanel() {
                 ⏹ Stop now
               </button>
               <button
-                disabled={busy || isIdle}
-                onClick={() =>
+                disabled={busy || isIdle || data?.event?.active_day == null}
+                onClick={() => {
+                  const resetDay = data?.event?.active_day;
+                  if (resetDay == null) return;
+                  const dayName = days.find((d) => d.day === resetDay)?.title ?? `Day ${resetDay}`;
                   run(
-                    () => adminReset(secret),
-                    'Reset ALL scores and clear the timer? Players keep their names but lose all solves. Do this before starting a brand-new round.',
-                  )
+                    () => adminReset(secret, resetDay),
+                    `Reset scores for ${dayName} ONLY and clear the timer? Players keep their names but lose ${dayName}'s solves. Every other day's scores are untouched.`,
+                  );
+                }}
+                title={
+                  isIdle
+                    ? 'Nothing to reset — no event has been started.'
+                    : data?.event?.active_day == null
+                      ? 'Set an active day first (see the Active Day tab).'
+                      : `Only clears ${days.find((d) => d.day === data?.event?.active_day)?.title ?? `Day ${data?.event?.active_day}`}'s scores.`
                 }
-                title={isIdle ? 'Nothing to reset — no event has been started.' : undefined}
                 className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
               >
-                ⟲ Reset game
+                ⟲ Reset {days.find((d) => d.day === data?.event?.active_day)?.title ?? 'active day'}
               </button>
             </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
+              ⟲ Reset only clears scores for the <strong className="text-terminal-red">currently active day</strong>{' '}
+              (set in the <strong>Active Day</strong> tab) — every other day's history is always safe.
+            </p>
           </section>
         )}
 
