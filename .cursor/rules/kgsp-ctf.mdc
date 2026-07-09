@@ -1,0 +1,14 @@
+---
+description: KGSP CTF — always read project context before changing challenges, DB, or deploy
+alwaysApply: true
+---
+
+# KGSP CTF agent bootstrap
+
+Before exploring the whole repo or inventing challenge/DB patterns:
+
+1. Read `.cursor/context.md` (source of truth for stack, days, hard rules, task routing).
+2. For add/edit/delete challenges → follow `.cursor/skills/manage-ctf-challenges/SKILL.md`.
+3. For Day 4/5 answers → `ADMIN_MANUAL_DAY4.md` / `ADMIN_MANUAL_DAY5.md` only.
+
+**Defaults:** Day 4+ challenges are `is_dynamic` with per-player flags. Medium+ artifacts must be incomplete without `live_material` keys. Never put tool/algorithm recipes in prompts, hints, or files. Live DB is production (`xehzdlfrzlokwvtcfvjx`); push to `master` deploys Vercel. Ship frontend before DB when both change. Ask before deleting challenges that have solves.
