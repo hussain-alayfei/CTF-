@@ -145,28 +145,48 @@ export default function ChallengeModal({
 
         {/* Body */}
         <div className="space-y-5 p-5">
-          <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
+          {/* Prompt — blurred with a lock overlay when the event hasn't started yet.
+              Solved challenges are always readable (player already earned it). */}
+          {eventStatus === 'idle' && !solved ? (
+            <div className="relative">
+              <div className="pointer-events-none select-none blur-sm" aria-hidden>
+                <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+                <div className="rounded-xl border border-terminal-amber/50 bg-terminal-bg/90 px-5 py-3 text-center text-sm backdrop-blur-sm">
+                  <div className="mb-1 text-2xl">🔒</div>
+                  <div className="font-semibold text-terminal-amber">
+                    Challenge details hidden until the event starts
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
+          )}
 
-          {/* Asset / action buttons */}
-          <div className="flex flex-wrap gap-3">
-            {challenge.asset_url && (
-              <a
-                href={challenge.asset_url}
-                download
-                className="rounded-lg border border-terminal-cyan/50 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/20"
-              >
-                ⬇ Download file
-              </a>
-            )}
-            {challenge.action_url && (
-              <Link
-                to={challenge.action_url}
-                className="rounded-lg border border-terminal-cyan/50 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/20"
-              >
-                ▸ Open challenge
-              </Link>
-            )}
-          </div>
+          {/* Asset / action buttons — hidden before start to prevent early artifact downloads */}
+          {eventStatus !== 'idle' && (
+            <div className="flex flex-wrap gap-3">
+              {challenge.asset_url && (
+                <a
+                  href={challenge.asset_url}
+                  download
+                  className="rounded-lg border border-terminal-cyan/50 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/20"
+                >
+                  ⬇ Download file
+                </a>
+              )}
+              {challenge.action_url && (
+                <Link
+                  to={challenge.action_url}
+                  className="rounded-lg border border-terminal-cyan/50 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/20"
+                >
+                  ▸ Open challenge
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Hint — only one is ever offered, and it costs points to reveal. */}
           {challenge.num_hints > 0 && (

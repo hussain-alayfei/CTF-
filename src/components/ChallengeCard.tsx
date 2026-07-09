@@ -19,12 +19,15 @@ export default function ChallengeCard({
   solved,
   firstBloodBy,
   onOpen,
+  blurred = false,
 }: {
   challenge: Challenge;
   solved: boolean;
   firstBloodBy?: string;
   onOpen: () => void;
   done?: boolean;
+  /** When true (event not started) the title is blurred so players can't read challenges early. */
+  blurred?: boolean;
 }) {
   const isDanger = challenge.difficulty === 'danger';
 
@@ -50,7 +53,12 @@ export default function ChallengeCard({
         </span>
       </div>
 
-      <h3 className="mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green">
+      {/* Title — blurred before the event starts so challenge names can't be read early */}
+      <h3
+        className={`mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green transition-[filter] duration-500 ${
+          blurred && !solved ? 'select-none blur' : ''
+        }`}
+      >
         {solved && <span className="text-terminal-green">✓</span>}
         {challenge.title}
       </h3>

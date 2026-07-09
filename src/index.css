@@ -117,3 +117,66 @@ body::after {
   color: rgb(var(--c-strong));
   font-weight: 700;
 }
+
+/* ===== GO! Overlay — countdown + explosion animations ===== */
+
+/* Each countdown number drops in (big→normal) and out (shrinks+blurs) */
+@keyframes ctf-countdown {
+  0%   { transform: scale(2.6) translateY(-18px); opacity: 0; filter: blur(10px); }
+  22%  { transform: scale(1.06) translateY(0);    opacity: 1; filter: blur(0);    }
+  72%  { transform: scale(1)   translateY(0);     opacity: 1;                     }
+  100% { transform: scale(0.65) translateY(14px); opacity: 0; filter: blur(5px);  }
+}
+
+/* Full-screen overlay fades in and stays for the number's duration */
+@keyframes ctf-countdown-flash {
+  0%   { opacity: 0; }
+  8%   { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* GO! text: tiny → over-scale → settle */
+@keyframes ctf-go-blast {
+  0%   { transform: scale(0.15) rotate(-10deg); opacity: 0; filter: blur(22px); }
+  38%  { transform: scale(1.22) rotate(2.5deg); opacity: 1; filter: blur(0);    }
+  58%  { transform: scale(0.93) rotate(-0.8deg);                                }
+  74%  { transform: scale(1.06);                                                 }
+  88%  { transform: scale(0.97);                                                 }
+  100% { transform: scale(1) rotate(0);          opacity: 1;                    }
+}
+
+/* Sub-text ("The hunt begins") rises up */
+@keyframes ctf-go-sub {
+  from { opacity: 0; transform: translateY(10px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+/* Radial ring expands outward and fades */
+@keyframes ctf-burst {
+  0%   { transform: scale(0);   opacity: 0.75; }
+  100% { transform: scale(6.5); opacity: 0;    }
+}
+
+/* Individual particles fly outward (rotation on parent gives the angle) */
+@keyframes ctf-particle {
+  0%   { transform: translateY(0)     scale(1.7); opacity: 1;   }
+  55%  {                                           opacity: 0.8; }
+  100% { transform: translateY(-360px) scale(0.2); opacity: 0;   }
+}
+
+/* GO overlay fade-in + fire glow pulse */
+@keyframes ctf-go-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ctf-fire-glow {
+  from { opacity: 0.45; }
+  to   { opacity: 1;    }
+}
+
+/* GO overlay fades out before unmount */
+@keyframes ctf-go-exit {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}

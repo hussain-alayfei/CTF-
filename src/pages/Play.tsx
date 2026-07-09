@@ -15,6 +15,7 @@ import ChallengeModal from '../components/ChallengeModal';
 import Toasts from '../components/Toasts';
 import Podium from '../components/Podium';
 import ProfileModal from '../components/ProfileModal';
+import GoOverlay from '../components/GoOverlay';
 
 const order: Difficulty[] = ['easy', 'medium', 'hard', 'danger'];
 const sectionTitle: Record<Difficulty, string> = {
@@ -164,9 +165,9 @@ export default function Play() {
         setShowPodium(false);
         playEventStart();
         setShowGo(true);
-        const t = setTimeout(() => setShowGo(false), 3000);
+        // GoOverlay runs its own 3-2-1-GO sequence and calls onDone when done.
         prevStatus.current = status;
-        return () => clearTimeout(t);
+        return;
       }
     }
 
@@ -265,7 +266,9 @@ export default function Play() {
   // Has this player legally entered the live day?
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
-  function renderChallengeGrid(list: Challenge[]) {
+  // finished=true → past/practice day: never blur regardless of event state.
+  function renderChallengeGrid(list: Challenge[], finished = false) {
+    const shouldBlur = !finished && effectiveStatus === 'idle';
     return order.map((diff) => {
       const group = list.filter((c) => c.difficulty === diff);
       if (group.length === 0) return null;
@@ -282,6 +285,7 @@ export default function Play() {
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
                 onOpen={() => setOpenId(c.id)}
+                blurred={shouldBlur}
               />
             ))}
           </div>
@@ -385,7 +389,7 @@ export default function Play() {
               <p className="text-sm text-terminal-dim">No challenges available for this day.</p>
             ) : (
               <>
-                {mainList.length > 0 && renderChallengeGrid(mainList)}
+                {mainList.length > 0 && renderChallengeGrid(mainList, finished)}
 
                 {extraList.length > 0 && (
                   <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
@@ -397,7 +401,7 @@ export default function Play() {
                         </span>
                       </h3>
                     )}
-                    {renderChallengeGrid(extraList)}
+                    {renderChallengeGrid(extraList, finished)}
                   </div>
                 )}
               </>
@@ -525,19 +529,8 @@ export default function Play() {
         </div>
       )}
 
-      {/* GO! overlay on start */}
-      {showGo && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-terminal-bg/80">
-          <div className="animate-pop text-center">
-            <div className="text-7xl font-extrabold tracking-widest text-terminal-green drop-shadow-[0_0_20px_rgb(var(--c-green)/0.7)] sm:text-9xl">
-              GO!
-            </div>
-            <div className="mt-2 text-sm uppercase tracking-[0.3em] text-terminal-green">
-              The hunt begins
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 3-2-1 countdown + hurricane/fire GO! overlay — fires once per new round */}
+      <GoOverlay show={showGo} onDone={() => setShowGo(false)} />
 
       {/* Main */}
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_340px]">
