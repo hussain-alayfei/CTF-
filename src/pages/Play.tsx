@@ -89,6 +89,28 @@ export default function Play() {
   const [codeErrors, setCodeErrors] = useState<Record<number, string>>({});
   const [codeBusy, setCodeBusy] = useState<Record<number, boolean>>({});
 
+  // Whenever a fresh event_config arrives (initial load, or a Realtime push
+  // right after an admin action like "Start event"), resync `now` to the
+  // real clock IMMEDIATELY. This is deliberately a separate effect from the
+  // boundary scheduler below, keyed only on `game.event` (not `now`), so it
+  // can't loop.
+  //
+  // Why this matters: `admin_start_event` sets `starts_at = now()` on the
+  // server, so by the time that update reaches the browser, `starts_at` is
+  // already a few hundred ms in the past. The scheduler below only arms a
+  // timer for boundaries that are still in the FUTURE relative to the real
+  // clock — so a start time that's already elapsed gets silently skipped and
+  // no timer is ever armed for it. Without this effect, the stale `now` left
+  // over from before the event started would keep `eventState.status`
+  // pinned at 'idle' forever (only the far-future `ends_at` would still get
+  // a timer, jumping straight to 'ended' later) — which is exactly why the
+  // "LIVE" state and the 3-2-1/GO overlay never appeared until a manual
+  // page refresh forced `now` to reset fresh at mount.
+  useEffect(() => {
+    if (!game.event) return;
+    setNow(Date.now());
+  }, [game.event]);
+
   // Re-render only at the event's start/end boundaries instead of every second.
   // The live countdown is driven independently by <Timer/>, so the arena tree
   // (leaderboard, cards, podium) no longer repaints once per second — that
@@ -267,8 +289,13 @@ export default function Play() {
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
   // finished=true → past/practice day: never blur regardless of event state.
+  // Hide whenever the round is NOT actively running — this covers both
+  // "hasn't started yet" (idle) AND "stopped/ended" (ended). Gating only on
+  // 'idle' was the bug: admin_stop_event sets ends_at but leaves starts_at
+  // alone, so status becomes 'ended', not 'idle' — the cards stayed visible
+  // after Stop and only re-hid once admin_reset nulled starts_at back out.
   function renderChallengeGrid(list: Challenge[], finished = false) {
-    const shouldBlur = !finished && effectiveStatus === 'idle';
+    const shouldBlur = !finished && effectiveStatus !== 'running';
     return order.map((diff) => {
       const group = list.filter((c) => c.difficulty === diff);
       if (group.length === 0) return null;

@@ -26,10 +26,11 @@ export default function ChallengeCard({
   firstBloodBy?: string;
   onOpen: () => void;
   done?: boolean;
-  /** When true (event not started) the title is blurred so players can't read challenges early. */
+  /** When true (event not actively running) the title is hidden so players can't read challenges early. */
   blurred?: boolean;
 }) {
   const isDanger = challenge.difficulty === 'danger';
+  const hideTitle = blurred && !solved;
 
   return (
     <button
@@ -53,15 +54,21 @@ export default function ChallengeCard({
         </span>
       </div>
 
-      {/* Title — blurred before the event starts so challenge names can't be read early */}
-      <h3
-        className={`mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green transition-[filter] duration-500 ${
-          blurred && !solved ? 'select-none blur' : ''
-        }`}
-      >
-        {solved && <span className="text-terminal-green">✓</span>}
-        {challenge.title}
-      </h3>
+      {/* Title — swapped for a neutral placeholder while the round isn't live, so
+          challenge names can't be read early. A real blur filter on variable-width
+          text looks messy (letters peek through unevenly); a clean placeholder
+          reads consistently across every card. */}
+      {hideTitle ? (
+        <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-widest text-terminal-dim">
+          <span>🔒</span>
+          <span>Hidden until start</span>
+        </h3>
+      ) : (
+        <h3 className="mb-1 flex items-center gap-2 text-lg font-bold text-terminal-green">
+          {solved && <span className="text-terminal-green">✓</span>}
+          {challenge.title}
+        </h3>
+      )}
 
       <div className="mt-auto flex items-center justify-between pt-3">
         <span className="text-xl font-extrabold tabular-nums text-terminal-amber">

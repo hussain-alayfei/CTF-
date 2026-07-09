@@ -145,28 +145,25 @@ export default function ChallengeModal({
 
         {/* Body */}
         <div className="space-y-5 p-5">
-          {/* Prompt — blurred with a lock overlay when the event hasn't started yet.
-              Solved challenges are always readable (player already earned it). */}
-          {eventStatus === 'idle' && !solved ? (
-            <div className="relative">
-              <div className="pointer-events-none select-none blur-sm" aria-hidden>
-                <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center rounded-lg">
-                <div className="rounded-xl border border-terminal-amber/50 bg-terminal-bg/90 px-5 py-3 text-center text-sm backdrop-blur-sm">
-                  <div className="mb-1 text-2xl">🔒</div>
-                  <div className="font-semibold text-terminal-amber">
-                    Challenge details hidden until the event starts
-                  </div>
-                </div>
-              </div>
+          {/* Prompt — hidden behind a clean, fixed-size panel whenever the round
+              isn't actively running (before start, or after it's stopped/ended).
+              Solved challenges are always readable (player already earned it).
+              No real text is rendered underneath, so nothing can bleed through
+              a blur filter — this is a swap, not an overlay. */}
+          {!running && !solved ? (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-terminal-amber/40 bg-terminal-amber/5 px-5 py-10 text-center">
+              <span className="text-3xl">🔒</span>
+              <span className="text-sm font-semibold text-terminal-amber">
+                Challenge details hidden until the event starts
+              </span>
             </div>
           ) : (
             <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
           )}
 
-          {/* Asset / action buttons — hidden before start to prevent early artifact downloads */}
-          {eventStatus !== 'idle' && (
+          {/* Asset / action buttons — hidden whenever the prompt above is hidden,
+              to prevent downloading artifacts before/after the live window. */}
+          {(running || solved) && (
             <div className="flex flex-wrap gap-3">
               {challenge.asset_url && (
                 <a
