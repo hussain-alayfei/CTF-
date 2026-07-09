@@ -14,7 +14,12 @@ import RouterConsoleChallenge from './pages/RouterConsoleChallenge';
 import AnswerVerifyChallenge from './pages/AnswerVerifyChallenge';
 import CachePhantomChallenge from './pages/CachePhantomChallenge';
 import ConsentLabyrinthChallenge from './pages/ConsentLabyrinthChallenge';
-import MaskMatchChallenge from './pages/MaskMatchChallenge';
+import GhostProfileChallenge from './pages/GhostProfileChallenge';
+import RefererBurnChallenge from './pages/RefererBurnChallenge';
+import CookieJarChallenge from './pages/CookieJarChallenge';
+import EntropyPortalChallenge from './pages/EntropyPortalChallenge';
+import SupercookieChallenge from './pages/SupercookieChallenge';
+import ReidentifiedChallenge from './pages/ReidentifiedChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -96,7 +101,12 @@ export default function App() {
         <Route path="/challenge/router-console" element={<RouterConsoleChallenge />} />
         <Route path="/challenge/cache-phantom" element={<CachePhantomChallenge />} />
         <Route path="/challenge/consent-labyrinth" element={<ConsentLabyrinthChallenge />} />
-        <Route path="/challenge/mask-match" element={<MaskMatchChallenge />} />
+        <Route path="/challenge/ghost-profile" element={<GhostProfileChallenge />} />
+        <Route path="/challenge/referer-burn" element={<RefererBurnChallenge />} />
+        <Route path="/challenge/cookie-jar" element={<CookieJarChallenge />} />
+        <Route path="/challenge/entropy-portal" element={<EntropyPortalChallenge />} />
+        <Route path="/challenge/supercookie" element={<SupercookieChallenge />} />
+        <Route path="/challenge/re-identified" element={<ReidentifiedChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         <Route path="/admin" element={<AdminPanel />} />
         <Route path="/board" element={<Board />} />

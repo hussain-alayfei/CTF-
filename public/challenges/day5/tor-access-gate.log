@@ -1,6 +1,0 @@
-2026-07-05T21:03:11Z req=17 network=tor exit_status=clean onion_proxy=missing status=403
-2026-07-05T21:04:52Z req=18 network=direct exit_status=n/a onion_proxy=n/a status=403
-2026-07-05T21:05:19Z req=19 network=tor exit_status=clean onion_proxy=ok status=200 payload_hex=4e4f484e4f7e464055447e514052524445
-2026-07-05T21:06:02Z req=20 network=tor exit_status=dirty onion_proxy=ok status=403
-
-analyst_note: recover payload from the only accepted request and transform it with the live key material.

@@ -215,6 +215,30 @@ export interface LiveMaterialResult {
   material?: Record<string, string>;
 }
 
+// Day 5 "Re-Identified": server-gated linkage check. The recovery token is
+// returned ONLY when the submitted (anon_id, public_id) pair is the one unique
+// confident re-identification — so knowing the data alone is not submittable.
+export interface ReidentResult {
+  ok?: boolean;
+  message?: string;
+  token?: string;
+}
+
+export async function verifyReident(
+  player: Player,
+  anonId: string,
+  publicId: string,
+): Promise<ReidentResult> {
+  const { data, error } = await supabase.rpc('verify_reident', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_anon: anonId,
+    p_public: publicId,
+  });
+  if (error) throw new Error(error.message);
+  return data as ReidentResult;
+}
+
 export async function fetchChallengeLiveMaterial(
   player: Player,
   challengeId: string,

@@ -1,140 +1,159 @@
-# Day 5 — Privacy: Admin Solver Manual (v3)
+# Day 5 — Privacy: Admin Solver Manual (v4)
 
-> **Instructor use only.** Expected recoveries for the anti-AI Day 5 pack.
+> **Instructor use only.** Expected recoveries for the hands-on Day 5 pack.
 
-## Why v3 exists
+## Why v4 exists
 
-v2 was still solvable by pasting a single file into a chatbot: the decode key
-was either **1 byte** (256 brute-force guesses) or the answer sat in the file as
-plaintext. v3 fixes the whole medium/hard/danger tier with one principle:
+v3 was a good crypto pack but monotonous and file-heavy: almost every medium+
+challenge was "download a file, read the page key, XOR them." A student could
+defeat the whole tier by pasting one file plus the page key into a chatbot, and
+the sameness made it feel cheap.
 
-> **The download is deliberately incomplete.** The file holds only ciphertext;
-> the key that decrypts it is **high-entropy (48 bytes) and lives only in
-> `challenge_live_material`**, shown on the logged-in challenge page — never in
-> the file. Because the key is at least as long as the plaintext, the file alone
-> is information-theoretically useless. Uploading just the artifact to an AI
-> yields nothing submittable.
+v4 rebuilds the medium/hard/danger tier around **live, hands-on browser work**
+that a chatbot cannot do for the student, because there is no single file to
+paste — the task lives in the student's own browser (DevTools, spoofing
+timezone/locale/screen, editing cookies/storage, watching the network,
+reducing fingerprint entropy, cross-linking datasets). Only **two challenges are
+file-based**: the kept easy `places.sqlite` bookmark vault and one image
+forensics challenge.
 
-Students must therefore: open the file with a **real tool** (DB Browser,
-Wireshark, a HAR viewer, a carving/unzip tool), read the **session key** off the
-challenge page, and combine them. Prompts state scenario + goal only; hints are
-one short nudge with no tool/algorithm names.
-
-The combine step is a repeating-key XOR of the recovered ciphertext bytes with
-the session-key bytes (`plaintext[i] = cipher[i] XOR key[i]`). We never say this
-in any prompt/hint/file — that inference is the challenge.
+**Anti-AI model, honestly stated:** for the fingerprint challenges the answer is
+stored *only* as ciphertext whose key is the student's real environment, so the
+plaintext exists neither in the JS bundle nor in the RPC response — it
+materialises only in a correctly-configured browser. The danger challenge is
+**server-gated**: the recovery token is released only after the correct unique
+linkage is submitted. The realistic bar we enforce: pasting page source or a
+file into a chatbot yields nothing submittable, and every medium+ challenge
+requires real browser hands. A student who screen-shares their browser to an AI
+agent can still be coached — that is assisted solving, which is acceptable.
 
 ## Pack summary
 
-- **10 challenges** — 3 easy · 4 medium · 2 hard · 1 danger, all `is_dynamic`
-- Day code: `PRIVACY-2026`
-- Regenerate artifacts **and** the matching migration:
-  `python scripts/gen-day5-artifacts.py`
-  (keys are random each run — re-apply the emitted migration if you regenerate)
+- **10 challenges** — 3 easy · 4 medium · 2 hard · 1 danger, all `is_dynamic`.
+- Day code: `PRIVACY-2026`.
+- Only 2 file downloads: `places.sqlite` (easy) and `metadata-mirage.jpg` (medium).
+- Regenerate the image + crypto material + migration:
+  `python scripts/gen-day5-privacy.py`
+  (the image session key is random per run — re-apply the emitted migration if
+  you regenerate).
 
 ## Answer map
 
-| # | ID | Title | Level | Artifact / page | Answer |
-|---|-----|-------|-------|-----------------|--------|
+| # | ID | Title | Level | Where | Answer |
+|---|-----|-------|-------|-------|--------|
 | 1 | `p5_cache_phantom` | Cache Phantom | Easy | Live `/challenge/cache-phantom` | `crumbs_trail` |
-| 2 | `p5_bookmark_vault` | Bookmark Vault | Easy | `places.sqlite` | `route_17` |
+| 2 | `p5_bookmark_vault` | Bookmark Vault | Easy | File `places.sqlite` | `route_17` |
 | 3 | `p5_consent_labyrinth` | Consent Labyrinth | Easy | Live `/challenge/consent-labyrinth` | `narrow_path` |
-| 4 | `p5_profile_archive` | Profile Archive | Medium | `browser-profile.zip` + session key | `midnight_export` |
-| 5 | `p5_dns_whisper` | DNS Whisper | Medium | `dns-whisper.pcap` + session key | `internal_clinic_net` |
-| 6 | `p5_tracker_ghost` | Tracker Ghost | Medium | `tracker-ghost.har` + session key | `shadow_pixel` |
-| 7 | `p5_briefing_carve` | Hidden Briefing | Medium | `briefing-snapshot.png` + session key | `leaked_briefing_pack` |
-| 8 | `p5_mask_match` | Mask Match | Hard | `mask-capture.json` + live brief + key | `profile_aligned` |
-| 9 | `p5_exit_witness` | Exit Witness | Hard | `exit-witness.pcap` + session key | `witness_confirmed` |
-| 10 | `p5_reidentified` | Re-Identified | Danger | `reident-kit.zip` + session key | `subject_unmasked` |
+| 4 | `p5_ghost_profile` | Ghost Profile | Medium | Live `/challenge/ghost-profile` | `kiosk_admitted` |
+| 5 | `p5_referer_burn` | Referer Burn | Medium | Live `/challenge/referer-burn` | `leak_via_referer` |
+| 6 | `p5_metadata_mirage` | Metadata Mirage | Medium | File `metadata-mirage.jpg` + page key | `north_dock_gate` |
+| 7 | `p5_cookie_jar` | Cookie Jar | Medium | Live `/challenge/cookie-jar` | `tier_escalated` |
+| 8 | `p5_entropy_portal` | Entropy Portal | Hard | Live `/challenge/entropy-portal` | `blend_into_crowd` |
+| 9 | `p5_supercookie` | Supercookie | Hard | Live `/challenge/supercookie` | `evercookie_rebuilt` |
+| 10 | `p5_reidentified` | Re-Identified | Danger | Live `/challenge/re-identified` | `subject_relinked` |
 
-> **Session keys are random per generator run.** The exact hex values live in
-> `challenge_answer_keys.live_material` and in
-> `supabase/migrations/20260709_0300_rewrite_day5_privacy_v3.sql`. To help a
-> stuck student, read the key from `/admin` data or the migration; do not read
-> them out loud in class.
+> The image session key and the fingerprint reveal ciphertexts live in
+> `challenge_answer_keys.live_material` and in the emitted migration
+> (`supabase/migrations/*_rewrite_day5_privacy_v4.sql`). Read those to help a
+> stuck student; don't read answers aloud in class.
 
 ---
 
-## 1 · Cache Phantom (easy)
+## 1 · Cache Phantom (easy) — unchanged
 
-Live page → **Accept all tracking** → DevTools ▸ Application:
-- Cookie `_ck` → base64 → `crum`
-- Local storage `_ls` → reverse → `crumbs`
-- IndexedDB `ctf_cache_phantom_v1` / `shards` / key `c` → `trail`
+Accept tracking → DevTools ▸ Application: cookie `_ck` (base64 → `crum`), local
+storage `_ls` (reverse → `crumbs`), IndexedDB `ctf_cache_phantom_v1`/`shards`/`c`
+→ `trail`. → **`crumbs_trail`**.
 
-→ **`crumbs_trail`**
+## 2 · Bookmark Vault (easy) — unchanged, file
 
-## 2 · Bookmark Vault (easy)
+Open `places.sqlite`, join `moz_bookmarks`↔`moz_places`. "Operations Vault" URL
+contains **`route_17`**.
 
-Open `places.sqlite` (DB Browser / `sqlite3`), join `moz_bookmarks`↔`moz_places`.
-"Operations Vault" URL contains **`route_17`**.
+## 3 · Consent Labyrinth (easy) — unchanged
 
-## 3 · Consent Labyrinth (easy)
+Functional ✓ · Marketing ✗ · Analytics ✗ · Security ✓ · Sell-data ✗ ·
+Essential-storage ✓ → `sessionStorage._cl_recovery` (base64) → **`narrow_path`**.
 
-Correct posture: Functional ✓ · Marketing ✗ · Analytics ✗ · Security ✓ ·
-Sell-data ✗ · Essential-storage ✓ → `sessionStorage._cl_recovery` (base64) →
-**`narrow_path`**.
+## 4 · Ghost Profile (medium) — live fingerprint match
 
-## 4 · Profile Archive (medium)
+Open the page. It wants a kiosk profile: **timezone `Europe/London`, locale
+`en-GB`, screen `1280x720`**. Student uses DevTools:
+- Sensors ▸ Location ▸ *Other…* → set **Timezone ID** `Europe/London` and
+  **Locale** `en-GB`.
+- Device Toolbar (responsive) → set viewport so `screen` reads `1280x720`.
 
-`browser-profile.zip` → `triage/cookies.sqlite` (real DB). Cookie `.vault.internal`
-name `blob` holds ciphertext hex. XOR its bytes with the page **session key** →
-**`midnight_export`**.
+When all three show ✓ the page decrypts and displays the intake token
+**`kiosk_admitted`**. (The token is XORed with SHA-256 of
+`Europe/London|en-GB|1280x720`; it only decrypts in a matching browser.)
 
-## 5 · DNS Whisper (medium)
+## 5 · Referer Burn (medium) — network inspection
 
-`dns-whisper.pcap` in Wireshark → DNS only. Ignore public CDNs. Queries to
-`sX-<hex>.sync.telemetry-cdn.net` carry the payload; order by `s1,s2,s3`,
-concatenate the hex labels, XOR with the page key → **`internal_clinic_net`**.
+Open DevTools ▸ Network, filter to `partner-pixel`, click **Share to partners**.
+Three pixel requests fire out of order, each with `seq` and `seg` query params:
+`seq=1 seg=leak`, `seq=2 seg=_via_`, `seq=3 seg=referer`. Order by `seq` and
+concatenate → **`leak_via_referer`**. (Fragments come from the server, so they
+are not in the page source.)
 
-## 6 · Tracker Ghost (medium)
+## 6 · Metadata Mirage (medium) — image forensics + page key
 
-`tracker-ghost.har` → third-party hosts only, in time order
-(`pixel.shadow.net` → `tag.metrics-aa.net` → `sync.broker-cc.io`). Concatenate the
-`X-Seg` response-header values → ciphertext hex → XOR page key → **`shadow_pixel`**.
+Download `metadata-mirage.jpg`. Its visible sign is redacted, but EXIF
+`ImageDescription` holds `residual-export-note;xor=<hex>` (read with any real
+metadata tool). The challenge page shows a **session key (hex)** (48 bytes).
+XOR the note's cipher bytes with the session-key bytes → **`north_dock_gate`**.
+(GPS + thumbnail in the file are flavour; the note alone is meaningless without
+the page key.)
 
-## 7 · Hidden Briefing (medium)
+## 7 · Cookie Jar (medium) — cookie tampering
 
-`briefing-snapshot.png` renders normally; a ZIP is carved after the PNG `IEND`.
-Extract `inner/passenger.bin` (raw ciphertext bytes), XOR with the page key →
-**`leaked_briefing_pack`**.
+The page trusts two cookies it set: `cw_tier=guest`, `cw_consent=granted`. In
+DevTools ▸ Application ▸ Cookies, edit them to **`cw_tier=member`** and
+**`cw_consent=revoked`**. The dossier then decrypts and shows the recovery tag
+**`tier_escalated`**. (Reveal is keyed to `member|revoked`; wrong posture → no
+plaintext.)
 
-## 8 · Mask Match (hard)
+## 8 · Entropy Portal (hard) — reduce fingerprint entropy
 
-Live brief: `Asia/Riyadh` · `ar-SA` · `1366x768`. Spoof browser timezone/locale
-and resize the viewport until alignment hits **100%** — only then does the page
-reveal the session key. In `mask-capture.json`, every row's `blob` decrypts (with
-that one key) to a plausible token; the row whose profile matches the brief
-(`profile_id 7f2a`) yields **`profile_aligned`**.
+Opposite of Ghost Profile: match the **common crowd baseline on all five traits
+at once** — timezone `America/New_York`, locale `en-US`, screen `1920x1080`,
+colour scheme `light`, pixel ratio `1`. Use Sensors (timezone/locale), Device
+Toolbar (screen + DPR = 1), and Rendering ▸ *Emulate CSS prefers-color-scheme:
+light*. All five ✓ → token **`blend_into_crowd`**.
 
-## 9 · Exit Witness (hard)
+## 9 · Supercookie (hard) — multi-vector reassembly
 
-`exit-witness.pcap`: most flows are TLS-looking noise to `185.220.101.x` (Tor
-relays). One cleartext `POST /relay/report` to `10.88.0.50:8080` carries hex in
-its body. Follow that stream, XOR the body bytes with the page key →
-**`witness_confirmed`**.
+Click **Let the tracker tag me**. The id is scattered, in this order, across:
+1. cookie `sc_id` → `ever`
+2. localStorage `sc_id` → `cookie`
+3. sessionStorage `sc_id` → `_re`
+4. IndexedDB `ctf_supercookie_v1`/`vault`/`seg` → `buil`
+5. Cache Storage `ctf-sc-v1` ▸ `/sc/segment` (response body) → `t`
 
-## 10 · Re-Identified (danger)
+Read each from DevTools ▸ Application and join in that order →
+**`evercookie_rebuilt`**. (Cache Storage is the vector students miss.)
 
-`reident-kit.zip`: cross-match `anon_export.csv` ↔ `municipal_roll.csv` on
-age+zip+gender. Unique exact match: **U-4412** (32/11564/F) ↔ **V-9001 Aisha
-Rahman**. Take U-4412's note from `analyst_notes.csv` (hex), XOR with the page key
-→ **`subject_unmasked`**. (Other subjects' notes are random bytes — a wrong match
-decrypts to garbage, so the linkage reasoning is mandatory.)
+## 10 · Re-Identified (danger) — k-anonymity linkage, server-gated
+
+Two tables shown live. Every patient shares their exact (age, zip, gender) with a
+"twin" **except one**: `A-7731` = (29, 11215, F) is unique in the release, and the
+public roll has exactly one (29, 11215, F) = **`V-2050` Nadia Osman**. Submit the
+pair `A-7731` / `V-2050`. The `verify_reident` RPC confirms the unique linkage
+server-side and releases **`subject_relinked`** (auto-exchanged for the flag).
+All other pairs are ambiguous (k ≥ 2) and rejected. Re-identifying Nadia exposes
+her HIV-treatment record — the privacy harm being taught.
 
 ---
 
 ## Anti-AI notes for instructors
 
-- **File-only AI upload → nothing.** Every medium+ answer needs the off-file key.
-- **Flag-sharing → nothing.** Flags are still per-player HMAC via
-  `verify_challenge_answer`.
-- **Honest limit:** a student who pastes the file *and* the page key into an AI
-  will get help — that is assisted solving, which is fine. The bar we enforce is
-  "the artifact alone is not a solution," plus real tool work to extract the
-  ciphertext in the first place.
+- **Chatbot paste → nothing.** There are only 2 files; every other answer needs
+  live browser work the AI can't perform in the student's browser.
+- **Bundle grep → nothing.** No answer string ships in the JS. Confirmed at build.
+- **Fingerprint answers exist nowhere as plaintext** until the browser matches.
+- **Danger is server-gated:** only the correct unique linkage releases the token.
+- **Flag-sharing → nothing:** flags are per-player HMAC via `verify_challenge_answer`.
 
-## SQL source
+## SQL / generator source
 
-- `supabase/migrations/20260709_0300_rewrite_day5_privacy_v3.sql`
-  (supersedes the v1 `..._0015_...` and v2 `..._0200_...` migrations).
+- `scripts/gen-day5-privacy.py` (image + crypto material + migration).
+- `supabase/migrations/*_rewrite_day5_privacy_v4.sql` (supersedes v1/v2/v3).

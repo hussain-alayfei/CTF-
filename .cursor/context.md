@@ -23,14 +23,16 @@ Update this file when architecture, days, or challenge conventions change.
 |-----|-------|--------|------------|
 | 3 | Securing Data | Authored, often closed | **Static** (`challenge_flags`) |
 | 4 | Securing Networks | Authored | **Dynamic** (7 core + 2 extras) |
-| 5 | Privacy | Authored **v3** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
+| 5 | Privacy | Authored **v4** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
 | 6–10 | Placeholders | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
-**Day 5 IDs (v3):** `p5_cache_phantom`, `p5_bookmark_vault`, `p5_consent_labyrinth`, `p5_profile_archive`, `p5_dns_whisper`, `p5_tracker_ghost`, `p5_briefing_carve`, `p5_mask_match`, `p5_exit_witness`, `p5_reidentified`.
+**Day 5 IDs (v4):** `p5_cache_phantom`, `p5_bookmark_vault`, `p5_consent_labyrinth` (easy, unchanged) · `p5_ghost_profile`, `p5_referer_burn`, `p5_metadata_mirage`, `p5_cookie_jar` (medium) · `p5_entropy_portal`, `p5_supercookie` (hard) · `p5_reidentified` (danger).
 
-**Day 5 code:** `PRIVACY-2026` · Migration: `supabase/migrations/20260709_0300_rewrite_day5_privacy_v3.sql` · Artifacts: `scripts/gen-day5-artifacts.py` (also emits matching migration; keys are random per run).
+**Day 5 model (v4):** medium/hard/danger are **live hands-on browser tasks** (fingerprint spoof, network inspect, cookie/storage tamper, entropy-reduce, k-anon linkage), NOT the old uniform file-XOR. Only **2 files**: `places.sqlite` (bookmark vault) + `metadata-mirage.jpg` (image). Fingerprint answers = ciphertext XOR SHA-256(real-env); decrypt only in a matching browser. Danger = server-gated `verify_reident` RPC. Live challenge crypto in `src/lib/dayfive.ts`; re-id data in `src/lib/reidentData.ts`.
+
+**Day 5 code:** `PRIVACY-2026` · Migration: `supabase/migrations/20260709_1233_rewrite_day5_privacy_v4.sql` · Generator: `scripts/gen-day5-privacy.py` (image + crypto material + migration; image key random per run — re-apply migration if regenerated). Day 5 routes: `/challenge/ghost-profile|referer-burn|cookie-jar|entropy-portal|supercookie|re-identified` + `/challenge/verify/p5_metadata_mirage`. (Old v3 `MaskMatchChallenge.tsx` + mask-match route removed.)
 
 **Day 4 core IDs:** `net_pcap_creds`, `net_carve_png`, `net_exif_geo`, `net_router_live`, `net_cyberchef`, `net_pcap_hunt`, `net_chain_danger` · Extras: `cookie`, `chain`.
 
@@ -163,18 +165,25 @@ src/pages/Board.tsx         projector
 src/pages/AnswerVerifyChallenge.tsx   /challenge/verify/:id (generic dynamic)
 src/pages/RouterConsoleChallenge.tsx  Day 4 SNMP
 src/pages/CookieChallenge.tsx         Day 4 extra
-src/pages/CachePhantomChallenge.tsx   Day 5 live
-src/pages/ConsentLabyrinthChallenge.tsx
-src/pages/MaskMatchChallenge.tsx      key unlocks only at 100% live alignment
-public/challenges/day4|day5/          artifacts
+src/pages/CachePhantomChallenge.tsx   Day 5 easy live
+src/pages/ConsentLabyrinthChallenge.tsx  Day 5 easy live
+src/pages/GhostProfileChallenge.tsx   Day 5 M — fingerprint match gate
+src/pages/RefererBurnChallenge.tsx    Day 5 M — network leak inspect
+src/pages/CookieJarChallenge.tsx      Day 5 M — cookie tamper
+src/pages/EntropyPortalChallenge.tsx  Day 5 H — fingerprint entropy reduce
+src/pages/SupercookieChallenge.tsx    Day 5 H — multi-vector evercookie
+src/pages/ReidentifiedChallenge.tsx   Day 5 D — k-anon linkage (verify_reident RPC)
+src/lib/dayfive.ts                    Day 5 live-challenge crypto helpers
+src/lib/reidentData.ts                Day 5 re-identification datasets
+public/challenges/day4|day5/          artifacts (day5: places.sqlite + metadata-mirage.jpg only)
 scripts/gen-day4-artifacts.py
-scripts/gen-day5-artifacts.py          regenerates artifacts + v3 migration
+scripts/gen-day5-privacy.py            Day 5 v4: image + crypto material + migration
 supabase/migrations/                  history; live DB is source of truth
 ADMIN_MANUAL.md | _DAY4.md | _DAY5.md instructor keys
 .cursor/skills/manage-ctf-challenges/SKILL.md
 ```
 
-**Routes:** `/` Play · `/admin` · `/board` · `/challenge/admin-panel` · `/challenge/router-console` · `/challenge/cache-phantom` · `/challenge/consent-labyrinth` · `/challenge/mask-match` · `/challenge/verify/:challengeId`
+**Routes:** `/` Play · `/admin` · `/board` · `/challenge/admin-panel` · `/challenge/router-console` · `/challenge/cache-phantom` · `/challenge/consent-labyrinth` · `/challenge/ghost-profile` · `/challenge/referer-burn` · `/challenge/cookie-jar` · `/challenge/entropy-portal` · `/challenge/supercookie` · `/challenge/re-identified` · `/challenge/verify/:challengeId`
 
 ---
 

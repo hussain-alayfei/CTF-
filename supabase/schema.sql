@@ -463,6 +463,36 @@ begin
   return jsonb_build_object('ok', true, 'material', coalesce(v_material, '{}'::jsonb));
 end; $$;
 
+-- Day 5 "Re-Identified" (danger): server-gated k-anonymity linkage. Releases the
+-- recovery token ONLY when the submitted (anon_id, public_id) pair is the one
+-- unique confident match (stored in live_material). Knowing the dataset alone is
+-- therefore not submittable.
+create or replace function public.verify_reident(p_player_id uuid, p_token uuid, p_anon text, p_public text)
+returns jsonb language plpgsql security definer set search_path = public, extensions, pg_temp as $$
+declare v_mat jsonb; v_ans text; v_starts timestamptz; v_ends timestamptz; v_day int;
+begin
+  if not public._verify_player(p_player_id, p_token) then
+    return jsonb_build_object('ok', false, 'message', 'Session invalid - please register again.');
+  end if;
+  select starts_at, ends_at into v_starts, v_ends from public.event_config where id = 1;
+  if v_starts is null or now() < v_starts then
+    return jsonb_build_object('ok', false, 'message', 'The event has not started yet.');
+  end if;
+  if v_ends is not null and now() > v_ends then
+    return jsonb_build_object('ok', false, 'message', 'Time is up - the event has ended.');
+  end if;
+  select day into v_day from public.challenges where id = 'p5_reidentified';
+  if v_day is null or not exists (select 1 from public.days d where d.day = v_day and d.is_open) then
+    return jsonb_build_object('ok', false, 'message', 'This challenge is locked right now.');
+  end if;
+  select live_material, answer into v_mat, v_ans from public.challenge_answer_keys where challenge_id = 'p5_reidentified';
+  if v_mat is null then return jsonb_build_object('ok', false, 'message', 'Unknown challenge.'); end if;
+  if upper(btrim(p_anon)) = upper(v_mat->>'anon_id') and upper(btrim(p_public)) = upper(v_mat->>'public_id') then
+    return jsonb_build_object('ok', true, 'token', v_ans, 'message', 'Linkage confirmed.');
+  end if;
+  return jsonb_build_object('ok', false, 'message', 'No unique linkage - those two records are not a confident match.');
+end; $$;
+
 -- Day-scoped "live" leaderboard: entrants of the day only, admin/excluded hidden.
 create or replace function public.day_leaderboard(p_day integer)
 returns jsonb language sql security definer set search_path = public, pg_temp as $$
@@ -689,6 +719,7 @@ grant execute on function public.submit_flag(uuid,uuid,text,text)             to
 grant execute on function public.unlock_hint(uuid,uuid,text,integer)          to anon, authenticated;
 grant execute on function public.verify_challenge_answer(uuid,uuid,text,text) to anon, authenticated;
 grant execute on function public.challenge_live_material(uuid,uuid,text)      to anon, authenticated;
+grant execute on function public.verify_reident(uuid,uuid,text,text)          to anon, authenticated;
 grant execute on function public.day_leaderboard(integer)                     to anon, authenticated;
 grant execute on function public.admin_start_event(text,integer)              to anon, authenticated;
 grant execute on function public.admin_stop_event(text)                       to anon, authenticated;
