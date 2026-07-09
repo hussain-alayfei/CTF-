@@ -154,7 +154,9 @@ export default function ChallengeModal({
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-terminal-amber/40 bg-terminal-amber/5 px-5 py-10 text-center">
               <span className="text-3xl">🔒</span>
               <span className="text-sm font-semibold text-terminal-amber">
-                Challenge details hidden until the event starts
+                {eventStatus === 'idle'
+                  ? 'Challenge details hidden until the event starts'
+                  : 'Challenge details hidden — the event has ended'}
               </span>
             </div>
           ) : (
@@ -185,8 +187,11 @@ export default function ChallengeModal({
             </div>
           )}
 
-          {/* Hint — only one is ever offered, and it costs points to reveal. */}
-          {challenge.num_hints > 0 && (
+          {/* Hint — hidden when the event isn't running, unless the player already
+              unlocked it this session (they paid for it) or already solved the challenge
+              (hints become free). Showing a disabled locked-hint button when idle/ended
+              just creates noise in an otherwise clean locked modal. */}
+          {challenge.num_hints > 0 && (running || solved || hints.size > 0) && (
             <div className="rounded-lg border border-terminal-border bg-terminal-input/60 p-4">
               <h4 className="mb-3 text-xs font-bold uppercase tracking-widest text-terminal-amber">
                 {solved ? 'Hint (free — you solved this)' : '⚠ One hint available — costs points'}
