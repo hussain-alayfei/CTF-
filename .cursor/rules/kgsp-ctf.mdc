@@ -1,14 +1,29 @@
 ---
-description: KGSP CTF — always read project context before changing challenges, DB, or deploy
+description: KGSP CTF — context, owner style, and never-repeat bugs for every chat
 alwaysApply: true
 ---
 
 # KGSP CTF agent bootstrap
 
-Before exploring the whole repo or inventing challenge/DB patterns:
+1. Read `.cursor/context.md` first (state, hard rules, **owner style**, **lessons learned**).
+2. Challenge CRUD → `.cursor/skills/manage-ctf-challenges/SKILL.md`.
+3. Day 4/5 answers → `ADMIN_MANUAL_DAY4.md` / `ADMIN_MANUAL_DAY5.md` only — never invent.
 
-1. Read `.cursor/context.md` (source of truth for stack, days, hard rules, task routing).
-2. For add/edit/delete challenges → follow `.cursor/skills/manage-ctf-challenges/SKILL.md`.
-3. For Day 4/5 answers → `ADMIN_MANUAL_DAY4.md` / `ADMIN_MANUAL_DAY5.md` only.
+## Owner style (match this)
 
-**Defaults:** Day 4+ challenges are `is_dynamic` with per-player flags. Medium+ artifacts must be incomplete without `live_material` keys. Never put tool/algorithm recipes in prompts, hints, or files. Live DB is production (`xehzdlfrzlokwvtcfvjx`); push to `master` deploys Vercel. Ship frontend before DB when both change. Ask before deleting challenges that have solves.
+- Day 4 / Day 5 **v3** quality: real tools, mixed formats, not all text downloads.
+- Full day mix ≈ 3 easy (not trivial) · 4 medium · 2 hard · 1 danger.
+- Medium+ must be **unsolvable from the file alone** (off-file high-entropy key).
+- Hints = short nudge; challenge UI = soft panels, not scary warning popups.
+- Commit/push when he asks; ship frontend before DB; say clearly if old solves were wiped.
+
+## Never repeat (real past bugs)
+
+- No recipes/tools/algorithms in prompt, hint, or artifact text.
+- No key beside ciphertext; no 1-byte XOR; key length ≥ plaintext; key in `live_material` only.
+- No plaintext answers in URLs/logs/JSON/HTML; no `KGSP{` in files; no flags in JS bundle.
+- Don’t wipe all days in resets; don’t ignore `*.log` challenge assets; keep binary `.gitattributes`.
+- No MCP SQL with shell-like syntax (WAF); always `WHERE` on UPDATE/DELETE (pg-safeupdate).
+- No full-viewport `mix-blend-mode`; no fake “sound on” without gesture (`isAudioRunning`).
+- Regenerating Day 5 artifacts **requires** re-applying the emitted migration (keys change).
+- Check `solves` before deleting/changing answers; update admin manuals with rewrites.

@@ -68,6 +68,68 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
 ---
 
+## Owner style (how Hussain wants work done)
+
+- **Quality bar = Day 4 / Day 5 v3:** real tools, mixed formats (live pages + binary artifacts), not 10 similar “download a text file” tasks.
+- **Difficulty mix when authoring a full day:** usually 3 easy (not trivial) · ~4 medium · 2 hard · 1 danger — students should *feel* the level, not steamroll via chatbot.
+- **Easy ≠ spoon-fed:** still require thinking / DevTools / a real app; just shorter paths.
+- **Medium+ must need the live page key** (or equivalent off-file material) — file-alone AI solve = failed design.
+- **Hints:** name-level nudge only; never a recipe. Soft UI feedback > scary browser warning popups for challenge UX.
+- **Ship when asked:** commit/push when he says so (often “I’m sleeping / refresh everything”); otherwise ask. Don’t leave half-deployed DB vs frontend.
+- **Prefer Arabic-friendly clarity** when explaining status to him; keep agent docs in English.
+- **Don’t invent answers** — manuals / live DB only. Don’t regenerate `challenge_answer_keys.secret` if players may already hold personal flags.
+- **After challenge rewrites:** expect old solves for deleted IDs to be wiped; tell him clearly.
+
+---
+
+## Lessons learned — never repeat these bugs
+
+These already burned us. Treat as hard bans.
+
+### Challenge / anti-AI failures
+
+| What went wrong | Symptom | Never again |
+|-----------------|---------|-------------|
+| Recipe in prompt/file/hint | AI follows our own CyberChef/AES steps | No tool/algorithm/step text in player-facing content |
+| Key next to ciphertext | Upload zip → instant decrypt | Key only in `live_material` |
+| 1-byte XOR / tiny key | AI brute-forces in seconds | Key ≥ plaintext length, high entropy (~48 bytes) |
+| Answer in URL / log / JSON / HTML source | AI reads source or sorts JSON | No plaintext answer in downloads; opaque binary/noise |
+| Flag-shaped `KGSP{…}` in artifact | `strings` / shareable static flag | Recovery **answer** only; mint flag server-side |
+| All challenges = same download-text pattern | Day feels cheap; AI batch-solves | Mix live UI + sqlite/pcap/har/png/zip |
+| Hard/danger still file-complete | Claude solved Mask Match / Re-Identified from upload | Gate hard ones on live alignment / off-file key |
+| Hint spells the method | Hint = free solve | One vague nudge |
+| Warning-style challenge UI | Feels like a broken site | Neutral in-app panels |
+
+### Platform / ops failures
+
+| What went wrong | Never again |
+|-----------------|-------------|
+| `admin_reset` wiped **all** days’ scores | Scope resets to **active day** only; verify SQL before apply |
+| `.gitignore` `*.log` hid challenge logs → 404 | Don’t ignore challenge artifact extensions; check downloads after deploy |
+| Windows `autocrlf` corrupted pcap/png/zip | Keep `.gitattributes` binary pins |
+| MCP SQL with `nmap -p-` / backticks → Cloudflare WAF HTML | Keep shell syntax out of DB strings |
+| `UPDATE`/`DELETE` without `WHERE` → pg-safeupdate reject | Always `WHERE` / `where true` |
+| Ship DB before frontend (or reverse mismatch) | Frontend first when both change |
+| Trust “Sound on” without gesture | `/board` needs click; use `isAudioRunning()` |
+| Full-viewport `mix-blend-mode` | Leaderboard shimmer — banned |
+| Per-second arena re-render | Boundary timers only |
+| Hardcoded flag in JS (`cookie` old) | Always `verify_challenge_answer` |
+| Target-box extras needing instructor IP | No challenges that require sharing a live IP |
+| Regenerate Day 5 artifacts without re-applying migration | Keys won’t match live `live_material` |
+| Edit answers without checking `solves` | Ask user if solves > 0 |
+| Leave stale `ADMIN_MANUAL_DAY*.md` after rewrite | Update or delete manuals with content |
+
+### Pre-ship checklist (challenges)
+
+1. Query live DB for IDs + solve counts.
+2. Grep prompts/hints/artifacts for tool names, encodings, answer strings, `KGSP{`.
+3. Confirm medium+ needs page key / live material; file alone useless.
+4. `npm run build`; grep `dist/` for answers.
+5. Apply migration + save under `supabase/migrations/`; update `.cursor/context.md` + admin manual.
+6. Hit download URLs once after deploy (catch 404 / gitignore).
+
+---
+
 ## Identity (no Supabase Auth)
 
 - Players: username + password + emoji; `token` uuid; mutations via `SECURITY DEFINER` RPCs that check token.
