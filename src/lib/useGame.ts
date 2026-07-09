@@ -55,6 +55,20 @@ export function useGame(player: Player | null) {
     setCache('leaderboard', lb);
   }, []);
 
+  // Debounced board refresh. Postgres Realtime fires ONE event per affected
+  // row, so an admin "Reset day" (which bulk-deletes every solve for that day)
+  // or "Delete all players" would otherwise trigger dozens of back-to-back
+  // refetches. This coalesces any burst into a single refetch shortly after
+  // the first event, keeping the leaderboard/board correct without hammering.
+  const boardRefreshTimer = useRef<number | null>(null);
+  const scheduleBoardRefresh = useCallback(() => {
+    if (boardRefreshTimer.current != null) return; // a refresh is already queued
+    boardRefreshTimer.current = window.setTimeout(() => {
+      boardRefreshTimer.current = null;
+      void refreshBoard();
+    }, 300);
+  }, [refreshBoard]);
+
   const refreshEvent = useCallback(async () => {
     const ev = await fetchEventConfig();
     const dayChanged = activeDayRef.current !== (ev.active_day ?? null);
@@ -142,10 +156,27 @@ export function useGame(player: Player | null) {
         },
       )
       .on(
+        // Solves are DELETED (not inserted) when an admin resets a day or
+        // deletes a player. Without this, players' boards kept showing the
+        // reset day's stale scores until a manual page refresh. Debounced
+        // because a reset deletes many rows at once (one event each).
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'players' },
+        { event: 'DELETE', schema: 'public', table: 'solves' },
         () => {
-          void refreshBoard();
+          scheduleBoardRefresh();
+        },
+      )
+      .on(
+        // Listen to ALL player changes, not just INSERT:
+        //  - INSERT: a new registrant appears on the board.
+        //  - UPDATE: an admin toggled exclude_from_board (hide/show a test
+        //            account) — the board must add/drop them live.
+        //  - DELETE: an admin removed a player — they must disappear for
+        //            everyone, not linger until a refresh.
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players' },
+        () => {
+          scheduleBoardRefresh();
         },
       )
       .on(
@@ -175,8 +206,12 @@ export function useGame(player: Player | null) {
 
     return () => {
       void supabase.removeChannel(channel);
+      if (boardRefreshTimer.current != null) {
+        clearTimeout(boardRefreshTimer.current);
+        boardRefreshTimer.current = null;
+      }
     };
-  }, [refreshBoard, refreshEvent, refreshDaysAndChallenges]);
+  }, [refreshBoard, refreshEvent, refreshDaysAndChallenges, scheduleBoardRefresh]);
 
   const mySolvedIds = useMemo(() => {
     const set = new Set<string>();
