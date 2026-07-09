@@ -141,7 +141,8 @@ create table if not exists public.days (
   event_label   text,
   sort_order    int not null default 0,
   is_rest       boolean not null default false,
-  requires_code boolean not null default false
+  requires_code boolean not null default false,
+  is_completed  boolean not null default false   -- done → always open for practice, never fairness-blurred
 );
 
 -- Per-day access codes. SECRET (RLS, no select policy).
@@ -581,6 +582,18 @@ begin
   return jsonb_build_object('ok', true, 'day', p_day, 'is_open', p_is_open);
 end; $$;
 
+-- Mark a day completed (or not) — completed days stay open for practice and are
+-- never fairness-blurred in the arena.
+create or replace function public.admin_set_day_completed(p_secret text, p_day integer, p_completed boolean)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ok boolean;
+begin
+  select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
+  if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
+  update public.days set is_completed = p_completed where day = p_day;
+  return jsonb_build_object('ok', true, 'day', p_day, 'is_completed', p_completed);
+end; $$;
+
 create or replace function public.admin_set_freeze(p_secret text, p_minutes integer)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_ok boolean;
@@ -691,7 +704,7 @@ begin
     'total_solves', (select count(*) from public.solves),
     'days', (select coalesce(jsonb_agg(to_jsonb(d) order by d.sort_order, d.day),'[]'::jsonb) from (
         select dd.day, dd.title, dd.subtitle, dd.is_open, dd.event_label, dd.sort_order,
-               dd.is_rest, dd.requires_code, dc.code
+               dd.is_rest, dd.requires_code, dd.is_completed, dc.code
         from public.days dd left join public.day_codes dc on dc.day = dd.day) d),
     'challenges', (select coalesce(jsonb_agg(to_jsonb(x) order by x.day, x.sort_order),'[]'::jsonb) from (
         select c.id, c.title, c.day, c.category, c.difficulty, c.points, c.first_blood_bonus,
@@ -725,6 +738,7 @@ grant execute on function public.admin_start_event(text,integer)              to
 grant execute on function public.admin_stop_event(text)                       to anon, authenticated;
 grant execute on function public.admin_reset(text,integer)                    to anon, authenticated;
 grant execute on function public.admin_set_day(text,integer,boolean)          to anon, authenticated;
+grant execute on function public.admin_set_day_completed(text,integer,boolean) to anon, authenticated;
 grant execute on function public.admin_set_freeze(text,integer)               to anon, authenticated;
 grant execute on function public.admin_set_day_code(text,integer,text)        to anon, authenticated;
 grant execute on function public.admin_set_active_day(text,integer)           to anon, authenticated;

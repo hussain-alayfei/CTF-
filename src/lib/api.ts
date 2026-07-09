@@ -350,6 +350,20 @@ export async function adminSetPlayerExcluded(secret: string, playerId: string, e
   return data as { error?: string; message?: string; ok?: boolean; exclude_from_board?: boolean };
 }
 
+/**
+ * Mark a day "completed" (or not). Completed days stay open for practice and are
+ * never fairness-blurred, so students can revisit past days even with the clock idle.
+ */
+export async function adminSetDayCompleted(secret: string, day: number, completed: boolean) {
+  const { data, error } = await supabase.rpc('admin_set_day_completed', {
+    p_secret: secret,
+    p_day: day,
+    p_completed: completed,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; is_completed?: boolean };
+}
+
 export async function adminSetDayCode(secret: string, day: number, code: string) {
   const { data, error } = await supabase.rpc('admin_set_day_code', {
     p_secret: secret,

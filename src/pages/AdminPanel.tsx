@@ -9,6 +9,7 @@ import {
   adminSetActiveDay,
   adminSetDay,
   adminSetDayCode,
+  adminSetDayCompleted,
   adminSetFreeze,
   adminSetPlayerExcluded,
   adminStartEvent,
@@ -692,6 +693,22 @@ function DaysWeekGroup({
                     >
                       {d.is_open ? '● Open' : '○ Locked'}
                     </span>
+                    <button
+                      disabled={busy}
+                      title={
+                        d.is_completed
+                          ? 'Marked completed — always open for practice, never hidden before the clock starts. Click to unmark.'
+                          : 'Mark this day completed so students can practice it any time (never fairness-blurred).'
+                      }
+                      onClick={() => runAction(() => adminSetDayCompleted(secret, d.day, !d.is_completed))}
+                      className={`w-28 rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-widest transition disabled:opacity-40 ${
+                        d.is_completed
+                          ? 'border-terminal-cyan/60 bg-terminal-cyan/10 text-terminal-cyan hover:bg-terminal-cyan/20'
+                          : 'border-terminal-border text-terminal-dim hover:border-terminal-cyan/50 hover:text-terminal-cyan'
+                      }`}
+                    >
+                      {d.is_completed ? '✓ Completed' : 'Mark done'}
+                    </button>
                     <button
                       disabled={busy}
                       onClick={() => runAction(() => adminSetDay(secret, d.day, !d.is_open))}

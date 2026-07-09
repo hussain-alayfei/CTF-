@@ -26,6 +26,8 @@ export interface Day {
   sort_order: number;
   is_rest: boolean;
   requires_code: boolean;
+  /** Admin-marked "done" — always readable for practice, never fairness-blurred. */
+  is_completed: boolean;
 }
 
 export interface Player {

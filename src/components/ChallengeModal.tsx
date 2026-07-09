@@ -27,6 +27,7 @@ export default function ChallengeModal({
   solved,
   firstBloodBy,
   eventStatus,
+  hidden = false,
   onClose,
   onSolved,
 }: {
@@ -35,6 +36,9 @@ export default function ChallengeModal({
   solved: boolean;
   firstBloodBy?: string;
   eventStatus: EventStatus;
+  /** Fairness blur for the LIVE day before its round starts. Practice/completed
+   *  days pass false so they stay fully readable regardless of event status. */
+  hidden?: boolean;
   onClose: () => void;
   onSolved: () => void;
 }) {
@@ -145,27 +149,24 @@ export default function ChallengeModal({
 
         {/* Body */}
         <div className="space-y-5 p-5">
-          {/* Prompt — hidden behind a clean, fixed-size panel whenever the round
-              isn't actively running (before start, or after it's stopped/ended).
-              Solved challenges are always readable (player already earned it).
-              No real text is rendered underneath, so nothing can bleed through
-              a blur filter — this is a swap, not an overlay. */}
-          {!running && !solved ? (
+          {/* Prompt — hidden behind a clean, fixed-size panel only for the LIVE
+              day before its round starts (fairness). Practice/completed days and
+              solved challenges are always readable. No real text is rendered
+              underneath, so nothing can bleed through — this is a swap. */}
+          {hidden && !solved ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-terminal-amber/40 bg-terminal-amber/5 px-5 py-10 text-center">
               <span className="text-3xl">🔒</span>
               <span className="text-sm font-semibold text-terminal-amber">
-                {eventStatus === 'idle'
-                  ? 'Challenge details hidden until the event starts'
-                  : 'Challenge details hidden — the event has ended'}
+                Challenge details hidden until the event starts
               </span>
             </div>
           ) : (
             <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
           )}
 
-          {/* Asset / action buttons — hidden whenever the prompt above is hidden,
-              to prevent downloading artifacts before/after the live window. */}
-          {(running || solved) && (
+          {/* Asset / action buttons — hidden only while the prompt is fairness-blurred,
+              to prevent grabbing the live day's artifacts before the round starts. */}
+          {!(hidden && !solved) && (
             <div className="flex flex-wrap gap-3">
               {challenge.asset_url && (
                 <a

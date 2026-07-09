@@ -235,13 +235,25 @@ export default function Play() {
   const staleEnded = eventState.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
   const effectiveStatus = staleEnded ? 'idle' : eventState.status;
 
+  // Fairness blur applies ONLY to the live competition day before/after its
+  // round runs — never to completed/practice days. A day marked is_completed by
+  // the admin is always readable so students can practice it, even with the
+  // clock idle. Previously every open day blurred while idle, which wrongly hid
+  // past days (3, 4) that students want to practice.
+  const dayIsBlurred = (d: Day) =>
+    !d.is_completed && d.day === activeDay && effectiveStatus !== 'running';
+
   // Day categories
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
-  const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest);
-  // Locked days: split into "finished" (at or before active day in sort order) and truly future
+  // The live section holds open, non-rest days that are NOT marked completed.
+  const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest && !d.is_completed);
   const activeSortOrder = activeDayObj?.sort_order ?? -1;
+  // Practice section: days the admin marked completed (still open) plus any past
+  // closed days at/before the active day. All are always readable, never blurred.
   const finishedLockedDays = sortedDays.filter(
-    (d) => !d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order <= activeSortOrder,
+    (d) =>
+      (d.is_open && !d.is_rest && d.is_completed) ||
+      (!d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order <= activeSortOrder),
   );
   // Future locked days are intentionally not rendered — students shouldn't see them.
 
@@ -288,14 +300,10 @@ export default function Play() {
   // Has this player legally entered the live day?
   const enteredActiveDay = activeDayObj ? isDayAccessible(activeDayObj) : false;
 
-  // finished=true → past/practice day: never blur regardless of event state.
-  // Hide whenever the round is NOT actively running — this covers both
-  // "hasn't started yet" (idle) AND "stopped/ended" (ended). Gating only on
-  // 'idle' was the bug: admin_stop_event sets ends_at but leaves starts_at
-  // alone, so status becomes 'ended', not 'idle' — the cards stayed visible
-  // after Stop and only re-hid once admin_reset nulled starts_at back out.
-  function renderChallengeGrid(list: Challenge[], finished = false) {
-    const shouldBlur = !finished && effectiveStatus !== 'running';
+  // `blurred` is decided per-day by the caller (dayIsBlurred) so only the live
+  // day's cards are fairness-blurred; completed/practice days pass false.
+  function renderChallengeGrid(list: Challenge[], blurred = false) {
+    const shouldBlur = blurred;
     return order.map((diff) => {
       const group = list.filter((c) => c.difficulty === diff);
       if (group.length === 0) return null;
@@ -366,6 +374,7 @@ export default function Play() {
       );
     }
 
+    const blurThisDay = dayIsBlurred(d);
     // Finished days start collapsed, live days start expanded
     const collapsed = finished ? !collapsedDays.has(d.day) : collapsedDays.has(d.day);
     function toggle() {
@@ -393,7 +402,7 @@ export default function Play() {
               </span>
             ) : finished ? (
               <span className="rounded border border-terminal-dim/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
-                ✓ Finished
+                {d.is_completed ? '✓ Completed · practice' : '✓ Finished'}
               </span>
             ) : d.event_label ? (
               <span className="rounded border border-terminal-green/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
@@ -407,7 +416,9 @@ export default function Play() {
           <>
             {finished && (
               <p className="mb-4 rounded-lg border border-terminal-dim/30 bg-terminal-input/40 px-3 py-2 text-xs text-terminal-dim">
-                ✓ This day is finished. You can still open challenges for practice.
+                {d.is_completed
+                  ? '✓ This day is completed — open any challenge to practice, no waiting for the clock.'
+                  : '✓ This day is finished. You can still open challenges for practice.'}
               </p>
             )}
             {d.subtitle && <p className="mb-4 text-xs text-terminal-dim">{d.subtitle}</p>}
@@ -416,7 +427,7 @@ export default function Play() {
               <p className="text-sm text-terminal-dim">No challenges available for this day.</p>
             ) : (
               <>
-                {mainList.length > 0 && renderChallengeGrid(mainList, finished)}
+                {mainList.length > 0 && renderChallengeGrid(mainList, blurThisDay)}
 
                 {extraList.length > 0 && (
                   <div className={mainList.length > 0 ? 'mt-2 rounded-xl border border-dashed border-terminal-cyan/30 bg-terminal-cyan/5 p-4' : ''}>
@@ -428,7 +439,7 @@ export default function Play() {
                         </span>
                       </h3>
                     )}
-                    {renderChallengeGrid(extraList, finished)}
+                    {renderChallengeGrid(extraList, blurThisDay)}
                   </div>
                 )}
               </>
@@ -652,6 +663,11 @@ export default function Play() {
           solved={game.mySolvedIds.has(open.id)}
           firstBloodBy={game.firstBloodByChallenge.get(open.id)}
           eventStatus={effectiveStatus}
+          hidden={
+            open.day === activeDay &&
+            effectiveStatus !== 'running' &&
+            !(sortedDays.find((d) => d.day === open.day)?.is_completed ?? false)
+          }
           onClose={() => setOpenId(null)}
           onSolved={() => void game.refreshBoard()}
         />

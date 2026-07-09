@@ -143,7 +143,9 @@ These already burned us. Treat as hard bans.
 
 ## Schema cheat sheet
 
-**Tables:** `players`, `challenges` (`is_dynamic`, `is_extra`, `day`, `difficulty` easy|medium|hard|danger), `challenge_flags` (static only), `challenge_answer_keys` (answer, secret, live_material), `challenge_hints`, `solves`, `hint_unlocks`, `submission_attempts`, `days`, `day_codes`, `day_entries`, `event_config` (active_day, freeze_minutes), `admin_config`.
+**Tables:** `players`, `challenges` (`is_dynamic`, `is_extra`, `day`, `difficulty` easy|medium|hard|danger), `challenge_flags` (static only), `challenge_answer_keys` (answer, secret, live_material), `challenge_hints`, `solves`, `hint_unlocks`, `submission_attempts`, `days` (`is_open`, `is_rest`, `requires_code`, **`is_completed`** = done→always practiceable, never blurred), `day_codes`, `day_entries`, `event_config` (active_day, freeze_minutes), `admin_config`.
+
+**Fairness blur:** only the **active, non-completed** day is hidden pre-start (`effectiveStatus !== 'running'`). Completed days (`is_completed`, admin toggle in Days tab → `admin_set_day_completed`) and past/closed days are always readable for practice. `ChallengeModal` takes a `hidden` prop (per-challenge decision from Play), not raw event status.
 
 **Player RPCs:** `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code` (also writes `day_entries`), `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`.
 
