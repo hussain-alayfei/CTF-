@@ -132,47 +132,28 @@ Click **Let the tracker tag me**. The id is scattered, in this order, across:
 Read each from DevTools ▸ Application and join in that order →
 **`evercookie_rebuilt`**. (Cache Storage is the vector students miss.)
 
-## 10 · Re-Identified (danger) — server-side query exploration (v2)
+## 10 · Re-Identified (danger) — k-anonymity linkage, server-gated
 
-**Anti-AI note:** The anonymized patient table is NOT in the JS bundle (v1's fatal
-flaw). It lives only inside the `query_anon_db` RPC. The page shows a query
-interface; students must make API calls to explore the search space.
-
-**Solve path:** Open the challenge page. Use the query tool:
-- Start broad, narrow down. The answer is (age=29, zip=11215, gender=F) → count=1.
-- Good exploration: filter by zip=11215 first (3 zip codes to try), then add gender=F,
-  then age — or try individual ages. Smart path ≈ 5–8 queries.
-- When count=1 the tool reveals: **anon_id `A-7731`**, condition **HIV treatment**.
-- Cross-reference the public roll (visible in the UI): the one 29-year-old F in
-  11215 is **`V-2050` Nadia Osman**.
-
-Submit: `A-7731` / `V-2050` → `verify_reident` confirms the linkage → returns
-`subject_relinked` → auto-exchanged for the personal flag.
-
-**Budget:** 40 queries total per player; max 3 per 15 seconds. All other
-(count > 1) pairs are rejected. Re-identifying Nadia exposes her HIV-treatment
-record — the privacy harm the lesson is about.
+Two tables shown live. Every patient shares their exact (age, zip, gender) with a
+"twin" **except one**: `A-7731` = (29, 11215, F) is unique in the release, and the
+public roll has exactly one (29, 11215, F) = **`V-2050` Nadia Osman**. Submit the
+pair `A-7731` / `V-2050`. The `verify_reident` RPC confirms the unique linkage
+server-side and releases **`subject_relinked`** (auto-exchanged for the flag).
+All other pairs are ambiguous (k ≥ 2) and rejected. Re-identifying Nadia exposes
+her HIV-treatment record — the privacy harm being taught.
 
 ---
 
 ## Anti-AI notes for instructors
 
-- **Chatbot paste → nothing.** Only 2 files; every other answer needs live browser work.
-- **Bundle grep → nothing.** No answer string ships in JS. Confirmed at build.
+- **Chatbot paste → nothing.** There are only 2 files; every other answer needs
+  live browser work the AI can't perform in the student's browser.
+- **Bundle grep → nothing.** No answer string ships in the JS. Confirmed at build.
 - **Fingerprint answers exist nowhere as plaintext** until the browser matches.
-- **Danger (Re-Identified v2):** The anonymized data is GONE from the JS bundle.
-  The page shows an empty query interface — pasting the source into a chatbot gives
-  only the public roll. The anonymized data lives only inside `query_anon_db` RPC
-  body (a Postgres VALUES clause), never in any table the client can SELECT.
-  Even a student who fully understands the solution must make real API calls (rate-
-  limited, budgeted) to confirm it. Reading the page gives ≈ half the picture.
+- **Danger is server-gated:** only the correct unique linkage releases the token.
 - **Flag-sharing → nothing:** flags are per-player HMAC via `verify_challenge_answer`.
 
 ## SQL / generator source
 
-- `scripts/gen-day5-privacy.py` (image + crypto material + v4 migration).
-- `supabase/migrations/20260709_1233_rewrite_day5_privacy_v4.sql` (challenge rows).
-- `supabase/migrations/20260710_1700_reident_server_query.sql` (Re-Identified v2:
-  `reident_query_log` table + `query_anon_db` RPC).
-- **Do NOT regenerate** without re-applying both migrations — image session key
-  changes on every generator run.
+- `scripts/gen-day5-privacy.py` (image + crypto material + migration).
+- `supabase/migrations/*_rewrite_day5_privacy_v4.sql` (supersedes v1/v2/v3).
