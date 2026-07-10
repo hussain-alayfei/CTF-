@@ -261,11 +261,16 @@ export default function Play() {
   const activeDays = sortedDays.filter((d) => d.is_open && !d.is_rest && !d.is_completed);
   const activeSortOrder = activeDayObj?.sort_order ?? -1;
   // Practice section: days the admin marked completed (still open) plus any past
-  // closed days at/before the active day. All are always readable, never blurred.
+  // closed days STRICTLY before the active day. All are always readable, never
+  // blurred. Note the `<` (not `<=`): a closed day that IS the active day is a
+  // staged/upcoming day that has never been opened (e.g. active_day was pointed
+  // at next week's day early) — it is not "finished". `<=` made such a day render
+  // here as a blurred "✓ Finished" ghost, which contradicts the never-blurred
+  // intent of this section. Keep it hidden until the instructor actually opens it.
   const finishedLockedDays = sortedDays.filter(
     (d) =>
       (d.is_open && !d.is_rest && d.is_completed) ||
-      (!d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order <= activeSortOrder),
+      (!d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order < activeSortOrder),
   );
   // Future locked days are intentionally not rendered — students shouldn't see them.
 
