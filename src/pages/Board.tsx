@@ -20,24 +20,41 @@ function BoardTimer({ event }: { event: EventConfig | null }) {
     return () => clearInterval(id);
   }, []);
   const state = getEventState(event, now);
-  const label =
-    state.status === 'running'
-      ? formatDuration(state.remainingMs)
-      : state.status === 'ended'
-        ? "TIME'S UP"
-        : 'WAITING';
+  const running = state.status === 'running';
+  // Same escalation as the arena banner: blue during the freeze, red in the last
+  // 3 minutes, lighter red in the last minute.
+  const secs = state.remainingMs / 1000;
+  const freezeMs = (event?.freeze_minutes ?? 0) * 60_000;
+  const inFreeze = running && freezeMs > 0 && state.remainingMs <= freezeMs;
+  const final1 = running && secs <= 60;
+  const final3 = running && secs <= 180;
+  const label = running
+    ? formatDuration(state.remainingMs)
+    : state.status === 'ended'
+      ? "TIME'S UP"
+      : 'WAITING';
   const color =
-    state.status === 'running'
-      ? 'text-terminal-green'
-      : state.status === 'ended'
-        ? 'text-terminal-red'
-        : 'text-terminal-amber';
+    state.status === 'ended'
+      ? 'text-terminal-red'
+      : state.status === 'idle'
+        ? 'text-terminal-amber'
+        : final1
+          ? 'text-terminal-redlight'
+          : final3
+            ? 'text-terminal-red'
+            : inFreeze
+              ? 'text-terminal-cyan'
+              : 'text-terminal-green';
   const glow =
-    state.status === 'running'
-      ? 'drop-shadow-[0_0_28px_rgb(var(--c-green)/0.55)]'
-      : state.status === 'ended'
-        ? 'drop-shadow-[0_0_28px_rgb(var(--c-red)/0.5)]'
-        : 'drop-shadow-[0_0_28px_rgb(var(--c-amber)/0.5)]';
+    state.status === 'ended'
+      ? 'drop-shadow-[0_0_28px_rgb(var(--c-red)/0.5)]'
+      : state.status === 'idle'
+        ? 'drop-shadow-[0_0_28px_rgb(var(--c-amber)/0.5)]'
+        : final1 || final3
+          ? 'drop-shadow-[0_0_28px_rgb(var(--c-red)/0.5)]'
+          : inFreeze
+            ? 'drop-shadow-[0_0_28px_rgb(var(--c-cyan)/0.5)]'
+            : 'drop-shadow-[0_0_28px_rgb(var(--c-green)/0.55)]';
   return (
     <div className="text-center">
       <div className="text-[11px] uppercase tracking-[0.5em] text-terminal-dim">
@@ -314,12 +331,17 @@ export default function Board() {
                     className={a.type === 'first_blood' ? 'text-terminal-red' : 'text-terminal-dim'}
                   >
                     <span className="mr-1">{a.type === 'first_blood' ? '🩸' : '✓'}</span>
-                    <span className="mr-1">{a.avatar}</span>
-                    <strong className="text-terminal-green">{a.username}</strong>{' '}
+                    {/* During the freeze the feed keeps flowing (so the room still
+                        feels the action) but names/avatars are hidden so it can't
+                        reveal who's climbing while standings are blacked out. */}
+                    <span className="mr-1">{frozen ? '🕵️' : a.avatar}</span>
+                    <strong className="text-terminal-green">
+                      {frozen ? 'Anonymous' : a.username}
+                    </strong>{' '}
                     {a.type === 'first_blood' ? 'drew first blood on' : 'solved'}{' '}
                     <strong className="text-terminal-green">{a.challengeTitle}</strong>{' '}
                     {frozen ? (
-                      <span className="text-terminal-dim">(+🔒)</span>
+                      <span className="text-terminal-dim">(🔒)</span>
                     ) : (
                       <span className="text-terminal-amber">(+{a.points})</span>
                     )}

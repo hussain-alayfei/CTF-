@@ -18,6 +18,7 @@ export default {
           dim: 'rgb(var(--c-dim) / <alpha-value>)',
           amber: 'rgb(var(--c-amber) / <alpha-value>)',
           red: 'rgb(var(--c-red) / <alpha-value>)',
+          redlight: 'rgb(var(--c-red-light) / <alpha-value>)',
           cyan: 'rgb(var(--c-cyan) / <alpha-value>)',
           text: 'rgb(var(--c-text) / <alpha-value>)',
           strong: 'rgb(var(--c-strong) / <alpha-value>)',

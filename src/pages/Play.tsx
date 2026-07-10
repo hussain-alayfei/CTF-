@@ -16,6 +16,7 @@ import Toasts from '../components/Toasts';
 import Podium from '../components/Podium';
 import ProfileModal from '../components/ProfileModal';
 import GoOverlay from '../components/GoOverlay';
+import AdminPanel from './AdminPanel';
 
 const order: Difficulty[] = ['easy', 'medium', 'hard', 'danger'];
 const sectionTitle: Record<Difficulty, string> = {
@@ -79,6 +80,7 @@ export default function Play() {
   const [now, setNow] = useState(Date.now());
   const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [showGo, setShowGo] = useState(false);
   const podiumShown = useRef(false);
   const prevStatus = useRef<string | null>(null);
@@ -198,6 +200,16 @@ export default function Play() {
     }
     prevStatus.current = status;
   }, [eventState.status, game.event?.starts_at]);
+
+  // Close the in-page admin overlay with Escape (it replaces the old /admin route).
+  useEffect(() => {
+    if (!showAdmin) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowAdmin(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showAdmin]);
 
   const challengesByDay = useMemo(() => {
     const map = new Map<number, Challenge[]>();
@@ -475,7 +487,7 @@ export default function Play() {
 
   return (
     <div className="min-h-full">
-      <Toasts announcements={game.announcements} />
+      <Toasts announcements={game.announcements} event={game.event} />
 
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-terminal-border bg-terminal-bg/95">
@@ -496,12 +508,12 @@ export default function Play() {
           <div className="flex items-center gap-2">
             {player?.is_admin && (
               <>
-                <Link
-                  to="/admin"
+                <button
+                  onClick={() => setShowAdmin(true)}
                   className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
                 >
                   🛠 Admin
-                </Link>
+                </button>
                 <Link
                   to="/board"
                   className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
@@ -601,10 +613,18 @@ export default function Play() {
 
           <p className="mt-4 text-center text-xs text-terminal-dim">
             Flags always look like <code className="text-terminal-green">KGSP&#123;...&#125;</code> · Delivered by
-            KUAST Academy ·{' '}
-            <Link to="/admin" className="underline decoration-dotted hover:text-terminal-green">
-              instructor panel
-            </Link>
+            KUAST Academy
+            {player?.is_admin && (
+              <>
+                {' '}·{' '}
+                <button
+                  onClick={() => setShowAdmin(true)}
+                  className="underline decoration-dotted hover:text-terminal-green"
+                >
+                  instructor panel
+                </button>
+              </>
+            )}
           </p>
         </section>
 
@@ -689,6 +709,12 @@ export default function Play() {
       {/* Finale */}
       {showPodium && (
         <Podium rows={game.leaderboard} meId={player?.id ?? null} onClose={() => setShowPodium(false)} />
+      )}
+
+      {/* Instructor panel — in-page overlay (replaces the old /admin route so the
+          arena's realtime/game state stays mounted underneath). Admins only. */}
+      {showAdmin && player?.is_admin && (
+        <AdminPanel embedded onClose={() => setShowAdmin(false)} />
       )}
     </div>
   );

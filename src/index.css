@@ -12,6 +12,7 @@
   --c-dim: 122 138 122;
   --c-amber: 255 176 0;
   --c-red: 255 59 59;
+  --c-red-light: 255 130 130;   /* final-minute "about to finish" — a softer red */
   --c-cyan: 0 229 255;
   --c-text: 215 255 208;
   --c-strong: 240 255 236;
@@ -31,6 +32,7 @@
   --c-dim: 88 102 90;
   --c-amber: 168 110 0;
   --c-red: 198 40 40;
+  --c-red-light: 220 88 88;   /* final-minute "about to finish" — a softer red */
   --c-cyan: 12 122 150;
   --c-text: 26 38 28;
   --c-strong: 12 20 12;

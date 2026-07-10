@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  adminAddTime,
   adminDeleteAllPlayers,
   adminDeletePlayer,
   adminListPlayers,
@@ -44,7 +45,15 @@ const OLD_TAB_MIGRATION: Record<string, TabId> = {
   challenges: 'days',
 };
 
-export default function AdminPanel() {
+export default function AdminPanel({
+  embedded = false,
+  onClose,
+}: {
+  /** When true the panel renders as a full-screen overlay on the arena URL
+   *  (no /admin route) — "back to the arena" calls onClose instead of navigating. */
+  embedded?: boolean;
+  onClose?: () => void;
+} = {}) {
   const { player, setPlayer, theme, toggleTheme } = useApp();
   // Seed from the session cache so the dashboard paints instantly on refresh /
   // re-entry; load() still fetches fresh data below and the 5s poll revalidates.
@@ -59,6 +68,8 @@ export default function AdminPanel() {
   // Duration & freeze as local string state — synced from server only on genuine changes
   const [minutesStr, setMinutesStr] = useState('35');
   const [freezeStr, setFreezeStr] = useState('15');
+  // Mid-round clock adjustment (add/remove minutes without restarting).
+  const [adjustStr, setAdjustStr] = useState('15');
   const lastServerMinutes = useRef<number | null>(null);
   const lastServerFreeze = useRef<number | null>(null);
 
@@ -221,26 +232,47 @@ export default function AdminPanel() {
   const validMinutes = !isNaN(parsedMinutes) && parsedMinutes > 0 ? parsedMinutes : 35;
   const parsedFreeze = parseInt(freezeStr, 10);
   const validFreeze = !isNaN(parsedFreeze) && parsedFreeze >= 0 ? parsedFreeze : 15;
+  const parsedAdjust = parseInt(adjustStr, 10);
+  const validAdjust = !isNaN(parsedAdjust) && parsedAdjust > 0 ? parsedAdjust : 0;
+
+  // In embedded mode the panel is a full-screen overlay ON the arena URL — there
+  // is no /admin route anymore (navigating to a separate route was causing the
+  // arena's realtime/game state to remount). Otherwise render as a normal page.
+  const wrap = (node: JSX.Element) =>
+    embedded ? (
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-terminal-bg">{node}</div>
+    ) : (
+      node
+    );
 
   // Not logged in
   if (!player) return <Register />;
 
   // Not an admin
   if (!player.is_admin) {
-    return (
+    return wrap(
       <div className="mx-auto max-w-md px-4 py-24 text-center">
         <div className="text-4xl">🚫</div>
         <h1 className="mt-3 text-xl font-extrabold text-terminal-red">Instructors only</h1>
         <p className="mt-2 text-sm text-terminal-dim">
           This page is for course instructors. Head back to the arena to keep playing.
         </p>
-        <Link
-          to="/"
-          className="mt-4 inline-block rounded-lg border border-terminal-green px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/10"
-        >
-          ‹ Back to the arena
-        </Link>
-      </div>
+        {embedded ? (
+          <button
+            onClick={onClose}
+            className="mt-4 inline-block rounded-lg border border-terminal-green px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/10"
+          >
+            ‹ Back to the arena
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className="mt-4 inline-block rounded-lg border border-terminal-green px-4 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/10"
+          >
+            ‹ Back to the arena
+          </Link>
+        )}
+      </div>,
     );
   }
 
@@ -266,20 +298,29 @@ export default function AdminPanel() {
     run(async () => {
       return await adminStartEvent(secret, validMinutes);
     }, isRunning
-      ? `An event is already running. Restart it now with a fresh ${validMinutes}-minute timer? Progress so far is kept, but the clock resets.`
+      ? `Restart the round with a fresh ${validMinutes}-minute timer? The clock resets to full and the "3-2-1 GO!" intro plays again for everyone. Scores are kept.\n\nJust want to give more time? Cancel and use "Adjust the running clock" instead — it adds minutes without restarting or replaying the intro.`
       : undefined);
   }
 
-  return (
+  return wrap(
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Header bar */}
       <div className="mb-4 flex items-center justify-between">
-        <Link
-          to="/"
-          className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
-        >
-          ‹ back to the arena
-        </Link>
+        {embedded ? (
+          <button
+            onClick={onClose}
+            className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+          >
+            ‹ back to the arena
+          </button>
+        ) : (
+          <Link
+            to="/"
+            className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+          >
+            ‹ back to the arena
+          </Link>
+        )}
         <div className="flex items-center gap-2">
           <Link
             to="/board"
@@ -494,6 +535,67 @@ export default function AdminPanel() {
               to <strong>0</strong> to keep the board live the whole round.
             </p>
 
+            {/* Adjust the running clock without restarting — the clean way to
+                "give players 15 more minutes". Unlike Restart this never resets
+                starts_at, so the 3-2-1 GO! intro does NOT replay and elapsed
+                time is preserved. Only meaningful once a round has started. */}
+            {(isRunning || isEnded) && (
+              <div className="mt-5 rounded-lg border border-terminal-green/30 bg-terminal-green/5 p-4">
+                <h3 className="mb-1 text-xs font-bold uppercase tracking-widest text-terminal-green">
+                  ▸ Adjust the running clock
+                </h3>
+                <p className="mb-3 text-[11px] leading-relaxed text-terminal-dim">
+                  Give the <strong>current</strong> round more (or less) time. This only moves the
+                  clock — it does <strong className="text-terminal-green">not</strong> restart the
+                  event or replay the “3-2-1 GO!” intro, and time already played is kept.
+                  {isEnded && ' Adding time to an ended round brings it back to live.'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {[5, 15].map((m) => (
+                    <button
+                      key={m}
+                      disabled={busy}
+                      onClick={() => run(() => adminAddTime(secret, m))}
+                      className="rounded-lg border border-terminal-green/50 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                    >
+                      +{m} min
+                    </button>
+                  ))}
+                  <button
+                    disabled={busy}
+                    onClick={() => run(() => adminAddTime(secret, -5))}
+                    className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    −5 min
+                  </button>
+                  <span className="mx-1 hidden h-6 w-px bg-terminal-border sm:block" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={adjustStr}
+                    onChange={(e) => setAdjustStr(e.target.value)}
+                    aria-label="Custom minutes to add or remove"
+                    className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
+                  />
+                  <span className="text-[11px] uppercase tracking-widest text-terminal-dim">min</span>
+                  <button
+                    disabled={busy || validAdjust === 0}
+                    onClick={() => run(() => adminAddTime(secret, validAdjust))}
+                    className="rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                  >
+                    ＋ Add
+                  </button>
+                  <button
+                    disabled={busy || validAdjust === 0}
+                    onClick={() => run(() => adminAddTime(secret, -validAdjust))}
+                    className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    － Remove
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="mt-5 flex flex-wrap gap-3">
               <button
@@ -612,7 +714,7 @@ export default function AdminPanel() {
 
       </div>
 
-    </div>
+    </div>,
   );
 }
 

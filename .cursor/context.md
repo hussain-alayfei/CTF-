@@ -67,6 +67,21 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 - No `mix-blend-mode` / full-viewport `backdrop-blur` over live UI (causes leaderboard shimmer).
 - Arena clock: boundary `setTimeout` only — not per-second full-tree re-renders.
 - `/board` first-blood sound needs a real user gesture; use `isAudioRunning()` (don’t trust mute UI alone).
+- **Admin panel has NO route** (2026-07-10). It renders as an in-page overlay from
+  `Play.tsx` (`showAdmin` state; `AdminPanel embedded onClose`) so the arena's
+  `useGame`/realtime never remounts. Don't re-add a `/admin` route. Header 🛠 Admin
+  button + footer "instructor panel" (admins only) open it; Esc closes.
+- **"3-2-1 GO!" intro is keyed on `event.starts_at`** (sessionStorage `GO_ROUND_KEY`).
+  Only `admin_start_event` changes `starts_at` (→ intro replays = a new round, correct).
+  To extend/shorten a running round use `admin_add_time` (moves `ends_at` only) — never
+  restart to add time (that was the "looping GO" bug). Frontend: "Adjust the running
+  clock" panel in Event Control.
+- **Timer colour escalation** (`ArenaTimerBanner` + board `BoardTimer`): green → cyan
+  during freeze window → red ≤3 min → `terminal-redlight` ≤1 min. Haptic buzz on the
+  last 3 s + at time-up (`navigator.vibrate`, best-effort).
+- **Freeze anonymises identities, keeps the feed flowing:** board live feed + arena
+  first-blood/solve toasts show 🕵️ "Anonymous" (points hidden) while `isFrozen`, so a
+  toast can't leak who's climbing during the blackout. Board ranking stays fully hidden.
 
 ---
 

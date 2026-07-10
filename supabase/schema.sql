@@ -605,6 +605,40 @@ begin
   return jsonb_build_object('ok', true, 'freeze_minutes', p_minutes);
 end; $$;
 
+-- Change the running clock WITHOUT restarting the round. Restart resets
+-- starts_at (which the arena keys its one-time "3-2-1 GO!" intro on), so
+-- extending time via Restart replayed the intro and reset elapsed time. This
+-- moves only ends_at and keeps duration_minutes in sync; positive = extend,
+-- negative = shorten. Adding time to an ended round revives it for those minutes.
+create or replace function public.admin_add_time(p_secret text, p_minutes integer)
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
+declare v_ok boolean; v_s timestamptz; v_e timestamptz; v_new_end timestamptz; v_dur integer;
+begin
+  select exists(select 1 from public.admin_config where id=1 and secret = p_secret) into v_ok;
+  if not v_ok then return jsonb_build_object('error','auth','message','Wrong admin secret.'); end if;
+  if p_minutes is null or p_minutes = 0 then
+    return jsonb_build_object('error','no_change','message','No time change specified.');
+  end if;
+  if p_minutes < -600 or p_minutes > 600 then
+    return jsonb_build_object('error','range','message','Time change must be within ±600 minutes.');
+  end if;
+  select starts_at, ends_at into v_s, v_e from public.event_config where id = 1;
+  if v_s is null then
+    return jsonb_build_object('error','not_started','message','No round has started — start the event first.');
+  end if;
+  v_new_end := greatest(coalesce(v_e, now()), now()) + make_interval(mins => p_minutes);
+  if v_new_end < now() then v_new_end := now(); end if;
+  if v_new_end < v_s then v_new_end := v_s; end if;
+  v_dur := greatest(1, round(extract(epoch from (v_new_end - v_s)) / 60.0)::integer);
+  update public.event_config
+     set ends_at = v_new_end, duration_minutes = v_dur, updated_at = now()
+   where id = 1;
+  return jsonb_build_object('ok', true, 'ends_at', v_new_end, 'duration_minutes', v_dur,
+    'message', case when p_minutes > 0
+      then '+' || p_minutes || ' min — clock extended (round kept running, intro not replayed).'
+      else p_minutes || ' min — clock shortened.' end);
+end; $$;
+
 create or replace function public.admin_set_day_code(p_secret text, p_day integer, p_code text)
 returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare v_ok boolean; v_clean text := btrim(coalesce(p_code,''));
@@ -740,6 +774,7 @@ grant execute on function public.admin_reset(text,integer)                    to
 grant execute on function public.admin_set_day(text,integer,boolean)          to anon, authenticated;
 grant execute on function public.admin_set_day_completed(text,integer,boolean) to anon, authenticated;
 grant execute on function public.admin_set_freeze(text,integer)               to anon, authenticated;
+grant execute on function public.admin_add_time(text,integer)                 to anon, authenticated;
 grant execute on function public.admin_set_day_code(text,integer,text)        to anon, authenticated;
 grant execute on function public.admin_set_active_day(text,integer)           to anon, authenticated;
 grant execute on function public.admin_set_player_excluded(text,uuid,boolean) to anon, authenticated;

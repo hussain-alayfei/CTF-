@@ -292,6 +292,21 @@ export async function adminStartEvent(secret: string, minutes: number) {
   return data as { error?: string; message?: string; ends_at?: string };
 }
 
+/**
+ * Add (positive) or remove (negative) minutes from the CURRENT round's clock
+ * without restarting it. Unlike adminStartEvent this never touches starts_at, so
+ * the arena's one-time "3-2-1 GO!" intro does not replay and elapsed time is
+ * kept — the clean way to give players "15 more minutes" mid-round.
+ */
+export async function adminAddTime(secret: string, minutes: number) {
+  const { data, error } = await supabase.rpc('admin_add_time', {
+    p_secret: secret,
+    p_minutes: minutes,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; ends_at?: string; duration_minutes?: number };
+}
+
 export async function adminStopEvent(secret: string) {
   const { data, error } = await supabase.rpc('admin_stop_event', { p_secret: secret });
   if (error) throw new Error(error.message);
