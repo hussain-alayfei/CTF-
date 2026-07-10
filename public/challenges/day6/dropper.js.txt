@@ -1,0 +1,40 @@
+/* captured post-exploitation dropper (defanged — the network calls are
+   stubbed). Reverse the obfuscation to recover the hardcoded C2 campaign
+   key it would phone home with. Everything you need is in this file. */
+
+(function () {
+  var _t = ["fromCharCode", "charCodeAt", "length", "push", "join"];
+
+  // stage 1: the packed config blob
+  var _p = "Mzk2ODA1MzEzZjIzMDUzODM2MmYzZjNjNmEyMjA1Njg2YTY4NmM=";
+
+  // stage 2: unpack — undo the outer transport encoding
+  function _s1(s) { return atob(s); }                 // -> a hex string
+
+  // stage 3: hex -> bytes
+  function _s2(h) {
+    var out = [];
+    for (var i = 0; i < h[_t[2]]; i += 2) {
+      out[_t[3]](parseInt(h.substr(i, 2), 16));
+    }
+    return out;
+  }
+
+  // stage 4: the "cipher" — each byte XORed with a rolling constant that
+  // is really just a fixed mask (look at what _k resolves to).
+  var _k = ((0x2d ^ 0x77) & 0xff);                      // <- resolve this
+  function _s3(bytes) {
+    var chars = [];
+    for (var i = 0; i < bytes[_t[2]]; i++) {
+      chars[_t[3]](String[_t[0]](bytes[i] ^ _k));
+    }
+    return chars[_t[4]]("");
+  }
+
+  var C2_CAMPAIGN_KEY = _s3(_s2(_s1(_p)));
+
+  // stub: would beacon C2_CAMPAIGN_KEY to the operator. Recover its value.
+  // return C2_CAMPAIGN_KEY;
+})();
+
+/* TASK: submit the recovered C2_CAMPAIGN_KEY string (lowercase). */

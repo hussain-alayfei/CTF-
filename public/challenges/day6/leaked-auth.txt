@@ -1,0 +1,39 @@
+<?php
+// leaked from a public .git/ directory: auth.php  (server-side source)
+// Review it like an attacker: there is a way in that ignores the password.
+
+require_once 'db.php';
+
+function normal_login($user, $pass) {
+    $row = db_user($user);
+    if (!$row) return false;
+    // passwords are peppered + hashed — not the weak point here
+    return hash_equals($row['pw_hash'], hash('sha256', PEPPER . $pass));
+}
+
+// ---- "temporary" maintenance shortcut the dev swore they'd remove ----
+// If this exact request header is present, auth is skipped entirely and
+// the maintenance token is emitted. Header + token were "hidden" by
+// encoding them so a casual reader wouldn't notice. (base64, and the
+// token is additionally ROT13'd. Classic.)
+$GATE  = base64_decode('WC1NYWludC1PdmVycmlkZTogMQ==');       // the magic request header
+$TOKEN = base64_decode(str_rot13('oJSanJAsnTIuMTIlK2W5pTSmpj==')); // emitted on bypass
+
+function maintenance_backdoor($headers) {
+    global $GATE, $TOKEN;
+    list($name, $want) = explode(':', $GATE, 2);
+    if (isset($headers[trim($name)]) && trim($headers[trim($name)]) === trim($want)) {
+        // AUTH BYPASSED — no username or password checked at all
+        echo "MAINT-OK token=" . $TOKEN;
+        return true;
+    }
+    return false;
+}
+?>
+
+<!--
+TASK: recover the maintenance TOKEN that this backdoor prints when the
+magic header is sent. Deobfuscate the source (undo the base64, and the
+ROT13 on the token) to read it. Submit the token string.
+Answer format: lowercase, words joined by underscores.
+-->

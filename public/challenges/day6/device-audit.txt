@@ -1,0 +1,35 @@
+=====================================================================
+ NETWORK DEVICE AUDIT  —  branch office 10.14.0.0/24
+=====================================================================
+
+Discovered devices (from an authenticated inventory sync):
+
+  host           vendor/model                 open mgmt ports
+  -----------    --------------------------   ---------------------
+  10.14.0.1      Cisco RV340 router           443 (https)
+  10.14.0.5      SunWave AP-5510 access pt.   23 (telnet), 80 (http)
+  10.14.0.9      Netgear GS724T switch        443 (https)
+  10.14.0.12     HP LaserJet M602             9100 (raw print)
+  10.14.0.20     Dahua IPC camera             (mgmt ports filtered)
+
+Notes from the assessor:
+  * Every device except one has had its management plane locked down
+    (TLS-only, no legacy cleartext services, creds rotated at install).
+  * One device still answers on a legacy cleartext management service
+    AND has never had its shipped credentials changed.
+
+------------------------------------------------------------------
+VENDOR DEFAULT-CREDENTIAL REFERENCE (partial, from public manuals)
+------------------------------------------------------------------
+  vendor/model            default user   default password
+  ---------------------   ------------   ---------------------
+  Cisco RV340             cisco          cisco
+  Netgear GS724T          admin          password
+  SunWave AP-5510         admin          sunwave_admin_5510
+  TP-Link Archer C7       admin          admin
+  HP LaserJet M602        admin          (no default password)
+
+------------------------------------------------------------------
+TASK: identify the ONE device an attacker could log into with factory
+credentials (reachable on a legacy cleartext mgmt service AND listed in
+the default table), then submit that device's default PASSWORD.

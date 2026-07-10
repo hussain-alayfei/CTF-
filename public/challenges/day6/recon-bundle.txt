@@ -1,0 +1,38 @@
+=====================================================================
+ PASSIVE RECON BUNDLE  —  target: shop.acme-internal.test
+ (captured with curl -I and a source-view; no packets sent to the box)
+=====================================================================
+
+--- GET / HTTP/1.1  response headers ------------------------------
+HTTP/1.1 200 OK
+Server: nginx/1.18.0
+X-Powered-By: PHP/7.4.3
+Set-Cookie: session=deleteme; Path=/
+X-Frame-Options: SAMEORIGIN
+# note: server & language versions are already useful fingerprints
+
+--- /robots.txt ---------------------------------------------------
+User-agent: *
+Disallow: /assets/
+Disallow: /cgi-bin/
+Disallow: /backup/            # <- why is a backup dir crawler-hidden?
+Disallow: /admin-legacy/
+
+--- view-source of /  (excerpt) -----------------------------------
+<footer>
+  <!-- built by the web team, ping #eng if it breaks -->
+  <!-- TODO: delete before go-live -> /backup/site-config.bak -->
+</footer>
+
+--- GET /backup/site-config.bak  (the dir listing was open) --------
+; recovered application config fragment
+; the deploy key below was base64'd "so nobody could read it". lol.
+deploy_env      = staging
+deploy_secret   = aGFydmVzdF90aGVfaGVhZGVycw==
+smtp_relay      = mail.acme-internal.test:25
+
+-------------------------------------------------------------------
+TASK: recon is about noticing what a target leaks about itself. Follow
+the trail (robots hint -> source comment -> the .bak file), then recover
+the plaintext deploy_secret. Submit that plaintext.
+Answer format: lowercase, words joined by underscores.

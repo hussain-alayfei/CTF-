@@ -1,0 +1,34 @@
+=====================================================================
+ VULNERABILITY SCAN — triage worksheet (CVSS v3.1 base vectors)
+=====================================================================
+You must pick the ONE finding to fix first. "Highest number" is a trap:
+read the exposure/context, not just the score.
+
+finding-01  Reflected XSS on marketing site (internet-facing)
+            CVSS: AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N   base 6.1 (Medium)
+
+finding-02  SQL injection in internal HR portal
+            reachable ONLY from the segmented HR VLAN, no route from DMZ
+            CVSS: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H   base 9.8 (Critical)
+
+finding-03  SSH weak ciphers on jump host (internal mgmt subnet)
+            CVSS: AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N   base 3.7 (Low)
+
+finding-04  Verbose stack traces on the public API (info leak)
+            CVSS: AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N   base 5.3 (Medium)
+
+finding-05  Privilege escalation via local service (needs a shell first)
+            CVSS: AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H   base 7.8 (High)
+
+finding-06  Unauthenticated RCE in the internet-facing customer portal
+            exposed on 0.0.0.0:443, no WAF, exploit code is public
+            CVSS: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H   base 9.8 (Critical)
+
+finding-07  Missing security headers on the public portal
+            CVSS: AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N   base 4.3 (Medium)
+
+------------------------------------------------------------------
+TASK: which finding is the true #1 priority — remotely reachable by
+anyone on the internet, no authentication, no user interaction, and
+full compromise with a public exploit already available? Submit its id
+exactly as written (e.g. finding-03).
