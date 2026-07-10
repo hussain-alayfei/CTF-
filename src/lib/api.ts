@@ -215,9 +215,40 @@ export interface LiveMaterialResult {
   material?: Record<string, string>;
 }
 
-// Day 5 "Re-Identified": server-gated linkage check. The recovery token is
-// returned ONLY when the submitted (anon_id, public_id) pair is the one unique
-// confident re-identification — so knowing the data alone is not submittable.
+// Day 5 "Re-Identified" — server-side query API for the anonymized dataset.
+// The patient records live ONLY inside the RPC body (never in a SELECT-able table
+// or the JS bundle), so the page never exposes data the student can paste into a
+// chatbot. The student must make actual API calls to explore the search space.
+export interface QueryAnonResult {
+  ok?: boolean;
+  error?: string;
+  message?: string;
+  count?: number;
+  /** Only present when count = 1: the uniquely identified patient. */
+  anon_id?: string;
+  condition?: string;
+  remaining?: number;
+}
+
+export async function queryAnonDb(
+  player: Player,
+  age: number | null,
+  zip: string | null,
+  gender: string | null,
+): Promise<QueryAnonResult> {
+  const { data, error } = await supabase.rpc('query_anon_db', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_age: age ?? null,
+    p_zip: zip || null,
+    p_gender: gender || null,
+  });
+  if (error) throw new Error(error.message);
+  return data as QueryAnonResult;
+}
+
+// Server-gated linkage confirmation. The recovery token is returned ONLY when
+// the submitted (anon_id, public_id) pair is the one unique re-identification.
 export interface ReidentResult {
   ok?: boolean;
   message?: string;
