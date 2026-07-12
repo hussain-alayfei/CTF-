@@ -25,9 +25,9 @@ import RoleChipChallenge from './pages/day7/RoleChipChallenge';
 import TwinCheckChallenge from './pages/day7/TwinCheckChallenge';
 import FrameWhisperChallenge from './pages/day7/FrameWhisperChallenge';
 import StashOrderChallenge from './pages/day7/StashOrderChallenge';
-import BlindCounterChallenge from './pages/day7/BlindCounterChallenge';
-import FriendlySinkChallenge from './pages/day7/FriendlySinkChallenge';
-import TripleLockChallenge from './pages/day7/TripleLockChallenge';
+import InheritedTrustChallenge from './pages/day7/InheritedTrustChallenge';
+import CrossTalkChallenge from './pages/day7/CrossTalkChallenge';
+import FlashSeatChallenge from './pages/day7/FlashSeatChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -123,9 +123,9 @@ export default function App() {
         <Route path="/challenge/twin-check" element={<TwinCheckChallenge />} />
         <Route path="/challenge/frame-whisper" element={<FrameWhisperChallenge />} />
         <Route path="/challenge/stash-order" element={<StashOrderChallenge />} />
-        <Route path="/challenge/blind-counter" element={<BlindCounterChallenge />} />
-        <Route path="/challenge/friendly-sink" element={<FriendlySinkChallenge />} />
-        <Route path="/challenge/triple-lock" element={<TripleLockChallenge />} />
+        <Route path="/challenge/inherited-trust" element={<InheritedTrustChallenge />} />
+        <Route path="/challenge/cross-talk" element={<CrossTalkChallenge />} />
+        <Route path="/challenge/flash-seat" element={<FlashSeatChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         {/* Neither /admin nor /board are routes anymore — the instructor panel and
             the projector board both open as in-page overlays from the arena (see
