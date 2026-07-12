@@ -25,14 +25,14 @@ Update this file when architecture, days, or challenge conventions change.
 | 4 | Securing Networks | Authored | **Dynamic** (7 core + 2 extras) |
 | 5 | Privacy | Authored **v4** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
 | 6 | (prior pack) | Authored | **Dynamic** |
-| 7 | Web Applications | Authored **v2.2 live** | **Dynamic** (12: 3E / 6M / 3D, **no files**) |
+| 7 | Web Applications | Authored **v2.3 live** | **Dynamic** (15: 3E / 6M / 3H / 3D, **no files**) |
 | 8–10 | Placeholders | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
-**Day 7 IDs (v2.2):** easy `d7_markup_trail`, `d7_side_door`, `d7_desk_wizard` · medium `d7_role_chip`, `d7_twin_check`, `d7_leaky_desk` (IDOR), `d7_frame_whisper`, `d7_safe_shelf` (path traversal), `d7_stash_order` · danger `d7_inherited_trust`, `d7_cross_talk`, `d7_flash_seat`.
+**Day 7 IDs (v2.3):** easy `d7_markup_trail`, `d7_side_door`, `d7_desk_wizard` · medium `d7_role_chip`, `d7_twin_check`, `d7_leaky_desk`, `d7_frame_whisper`, `d7_safe_shelf`, `d7_stash_order` · hard `d7_blind_lookup` (boolean blind), `d7_strict_book` (strict XSS), `d7_claim_ticket` (alg:none ticket) · danger `d7_inherited_trust`, `d7_cross_talk`, `d7_flash_seat`.
 
-**Day 7 model (v2.2):** all live browser labs under `src/pages/day7/`. IDOR/LFI use server RPCs (`d7_leaky_user`, `d7_safe_file`) so answers are not in the JS bundle. Manual: `ADMIN_MANUAL_DAY7.md`. Code: `WEB-2026`.
+**Day 7 model (v2.3):** live labs under `src/pages/day7/`. Blind/IDOR/LFI use server RPCs. Manual: `ADMIN_MANUAL_DAY7.md`. Code: `WEB-2026`.
 
 **Day 5 IDs (v4):** `p5_cache_phantom`, `p5_bookmark_vault`, `p5_consent_labyrinth` (easy, unchanged) · `p5_ghost_profile`, `p5_referer_burn`, `p5_metadata_mirage`, `p5_cookie_jar` (medium) · `p5_entropy_portal`, `p5_supercookie` (hard) · `p5_reidentified` (danger).
 

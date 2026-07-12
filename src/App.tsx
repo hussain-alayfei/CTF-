@@ -27,6 +27,9 @@ import FrameWhisperChallenge from './pages/day7/FrameWhisperChallenge';
 import StashOrderChallenge from './pages/day7/StashOrderChallenge';
 import LeakyDeskChallenge from './pages/day7/LeakyDeskChallenge';
 import SafeShelfChallenge from './pages/day7/SafeShelfChallenge';
+import QuietDirectoryChallenge from './pages/day7/QuietDirectoryChallenge';
+import StrictGuestbookChallenge from './pages/day7/StrictGuestbookChallenge';
+import ClaimTicketChallenge from './pages/day7/ClaimTicketChallenge';
 import InheritedTrustChallenge from './pages/day7/InheritedTrustChallenge';
 import CrossTalkChallenge from './pages/day7/CrossTalkChallenge';
 import FlashSeatChallenge from './pages/day7/FlashSeatChallenge';
@@ -127,6 +130,9 @@ export default function App() {
         <Route path="/challenge/stash-order" element={<StashOrderChallenge />} />
         <Route path="/challenge/leaky-desk" element={<LeakyDeskChallenge />} />
         <Route path="/challenge/safe-shelf" element={<SafeShelfChallenge />} />
+        <Route path="/challenge/quiet-directory" element={<QuietDirectoryChallenge />} />
+        <Route path="/challenge/strict-guestbook" element={<StrictGuestbookChallenge />} />
+        <Route path="/challenge/claim-ticket" element={<ClaimTicketChallenge />} />
         <Route path="/challenge/inherited-trust" element={<InheritedTrustChallenge />} />
         <Route path="/challenge/cross-talk" element={<CrossTalkChallenge />} />
         <Route path="/challenge/flash-seat" element={<FlashSeatChallenge />} />

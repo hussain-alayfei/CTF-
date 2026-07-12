@@ -253,6 +253,20 @@ export async function fetchChallengeLiveMaterial(
   return data as LiveMaterialResult;
 }
 
+/** Day 7 hard — blind boolean directory oracle. */
+export async function d7BlindLookup(
+  player: Player,
+  query: string,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('d7_blind_lookup', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_query: query,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, unknown>;
+}
+
 /** Day 7 IDOR lab — returns one desk profile per id (server-gated). */
 export async function d7LeakyUser(
   player: Player,

