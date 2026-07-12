@@ -65,11 +65,16 @@ function BoardClock({ event }: { event: EventConfig | null }) {
     >
       <div className="text-[11px] uppercase tracking-[0.5em] text-terminal-dim">{caption}</div>
       <div
-        // The clock has the column to itself now, so it can be read from the back of
-        // the room instead of politely sharing space with tiles nobody looked at.
-        className={`mt-3 font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl lg:text-[9rem] xl:text-[11rem] ${color} ${
-          critical ? 'animate-strobe' : ''
-        }`}
+        // The huge lg:/xl: scale is only safe for the numeric countdown (`19:58`
+        // — short, monospace, tabular-nums keeps every frame the same width). The
+        // status words ("TIME'S UP", "WAITING") are much wider strings; at the
+        // same giant size they blew straight past the card's edges on both sides
+        // instead of wrapping inside it. Word labels get their own, smaller scale.
+        className={`mt-3 max-w-full break-words font-mono font-black leading-none ${color} ${
+          status === 'running'
+            ? 'text-7xl tabular-nums sm:text-8xl lg:text-[9rem] xl:text-[11rem]'
+            : 'text-4xl sm:text-5xl lg:text-6xl xl:text-7xl'
+        } ${critical ? 'animate-strobe' : ''}`}
         style={{
           filter: `drop-shadow(0 0 32px rgb(var(${glowVar}) / 0.55))`,
           ...(critical ? { animationDuration: `${strobeMs(secs)}ms` } : {}),
