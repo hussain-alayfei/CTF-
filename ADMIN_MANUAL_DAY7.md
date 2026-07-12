@@ -58,9 +58,10 @@ Own JSON includes `badge_issuer: 2701`. Replay with `p_desk_id: 2701` →
 
 ### 8 · Safe Shelf (medium) — path traversal
 
-Open Terms. Note: internal notes are one shelf above guides. Replay RPC
-`d7_safe_file` with `p_file: ../secrets/desk_note.txt` → recovery line →
-**`shelf_escape_ok`**.
+Page auto-opens a public guide. The **file=** field is editable (also in the
+URL as `?file=`). Read Terms — notes live one shelf above guides. Set
+`file=` to `../secrets/desk_note.txt` → Open → recovery line →
+**`shelf_escape_ok`**. (Network replay of `d7_safe_file` works the same.)
 
 ---
 
