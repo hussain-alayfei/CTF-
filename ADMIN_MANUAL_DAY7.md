@@ -14,7 +14,7 @@ widget without the student doing browser work.
 
 | | |
 |--|--|
-| Count | **10** — 3 easy · 4 medium · **3 danger** |
+| Count | **12** — 3 easy · **6 medium** · 3 danger |
 | Day code | `WEB-2026` |
 | Files | **None** |
 | Flag model | All `is_dynamic` |
@@ -28,11 +28,13 @@ widget without the student doing browser work.
 | 3 | `d7_desk_wizard` | Desk Wizard | Easy | `/challenge/desk-wizard` | `quiet_path` |
 | 4 | `d7_role_chip` | Role Chip | Medium | `/challenge/role-chip` | `analyst_seat` |
 | 5 | `d7_twin_check` | Twin Check | Medium | `/challenge/twin-check` | `both_match` |
-| 6 | `d7_frame_whisper` | Frame Whisper | Medium | `/challenge/frame-whisper` | `posted_secret` |
-| 7 | `d7_stash_order` | Stash Order | Medium | `/challenge/stash-order` | `abc_order` |
-| 8 | `d7_inherited_trust` | Inherited Trust | Danger | `/challenge/inherited-trust` | `chief_clearance` |
-| 9 | `d7_cross_talk` | Cross Talk | Danger | `/challenge/cross-talk` | `null_origin_ok` |
-| 10 | `d7_flash_seat` | Flash Seat | Danger | `/challenge/flash-seat` | `race_won` |
+| 6 | `d7_leaky_desk` | Leaky Desk | Medium | `/challenge/leaky-desk` | `desk_owner_note` |
+| 7 | `d7_frame_whisper` | Frame Whisper | Medium | `/challenge/frame-whisper` | `posted_secret` |
+| 8 | `d7_safe_shelf` | Safe Shelf | Medium | `/challenge/safe-shelf` | `shelf_escape_ok` |
+| 9 | `d7_stash_order` | Stash Order | Medium | `/challenge/stash-order` | `abc_order` |
+| 10 | `d7_inherited_trust` | Inherited Trust | Danger | `/challenge/inherited-trust` | `chief_clearance` |
+| 11 | `d7_cross_talk` | Cross Talk | Danger | `/challenge/cross-talk` | `null_origin_ok` |
+| 12 | `d7_flash_seat` | Flash Seat | Danger | `/challenge/flash-seat` | `race_won` |
 
 ---
 
@@ -48,9 +50,21 @@ Unchanged from v2 — see previous sections in git history if needed. Short form
 6. Frame Whisper → catch iframe `postMessage` → **`posted_secret`**
 7. Stash Order → Network drawers `alpha/beta/gamma` into `d7_stash_a/b/c` → **`abc_order`**
 
+### 6 · Leaky Desk (medium) — IDOR
+
+Click **View My Profile Data**. Network → RPC `d7_leaky_user` with `p_desk_id: 4188`.
+Own JSON includes `badge_issuer: 2701`. Replay with `p_desk_id: 2701` →
+`internal_memo` → **`desk_owner_note`**. (Not id=1 — that 404s.)
+
+### 8 · Safe Shelf (medium) — path traversal
+
+Open Terms. Note: internal notes are one shelf above guides. Replay RPC
+`d7_safe_file` with `p_file: ../secrets/desk_note.txt` → recovery line →
+**`shelf_escape_ok`**.
+
 ---
 
-## 8 · Inherited Trust (danger) — prototype pollution
+## 10 · Inherited Trust (danger) — prototype pollution
 
 Merge blocks only the literal key `__proto__`. Payload:
 

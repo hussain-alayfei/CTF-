@@ -253,6 +253,34 @@ export async function fetchChallengeLiveMaterial(
   return data as LiveMaterialResult;
 }
 
+/** Day 7 IDOR lab — returns one desk profile per id (server-gated). */
+export async function d7LeakyUser(
+  player: Player,
+  deskId: number,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('d7_leaky_user', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_desk_id: deskId,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, unknown>;
+}
+
+/** Day 7 path-traversal lab — virtual shelf reader (server-gated). */
+export async function d7SafeFile(
+  player: Player,
+  file: string,
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('d7_safe_file', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_file: file,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, unknown>;
+}
+
 // --- admin ---
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResult> {
   const { data, error } = await supabase.rpc('admin_login', {

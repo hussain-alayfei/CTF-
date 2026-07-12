@@ -25,6 +25,8 @@ import RoleChipChallenge from './pages/day7/RoleChipChallenge';
 import TwinCheckChallenge from './pages/day7/TwinCheckChallenge';
 import FrameWhisperChallenge from './pages/day7/FrameWhisperChallenge';
 import StashOrderChallenge from './pages/day7/StashOrderChallenge';
+import LeakyDeskChallenge from './pages/day7/LeakyDeskChallenge';
+import SafeShelfChallenge from './pages/day7/SafeShelfChallenge';
 import InheritedTrustChallenge from './pages/day7/InheritedTrustChallenge';
 import CrossTalkChallenge from './pages/day7/CrossTalkChallenge';
 import FlashSeatChallenge from './pages/day7/FlashSeatChallenge';
@@ -123,6 +125,8 @@ export default function App() {
         <Route path="/challenge/twin-check" element={<TwinCheckChallenge />} />
         <Route path="/challenge/frame-whisper" element={<FrameWhisperChallenge />} />
         <Route path="/challenge/stash-order" element={<StashOrderChallenge />} />
+        <Route path="/challenge/leaky-desk" element={<LeakyDeskChallenge />} />
+        <Route path="/challenge/safe-shelf" element={<SafeShelfChallenge />} />
         <Route path="/challenge/inherited-trust" element={<InheritedTrustChallenge />} />
         <Route path="/challenge/cross-talk" element={<CrossTalkChallenge />} />
         <Route path="/challenge/flash-seat" element={<FlashSeatChallenge />} />
