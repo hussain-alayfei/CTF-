@@ -148,7 +148,7 @@ insert into public.challenge_answer_keys (challenge_id, answer, secret, live_mat
 values
 ('d7_blind_lookup', 'w7blindx', encode(extensions.gen_random_bytes(16), 'hex'), null),
 ('d7_strict_book', 'strict_spill', encode(extensions.gen_random_bytes(16), 'hex'),
-  jsonb_build_object('vault', 'strict_spill')),
+  jsonb_build_object('reveal_hex', 'f1acfd917ec743437b491f08')),
 ('d7_claim_ticket', 'forged_pass', encode(extensions.gen_random_bytes(16), 'hex'),
   jsonb_build_object('reveal_hex', 'ea060482d0255b65dc9a7b'))
 on conflict (challenge_id) do update set
@@ -161,7 +161,7 @@ update public.challenge_answer_keys
  where challenge_id = 'd7_blind_lookup';
 update public.challenge_answer_keys
    set answer = 'strict_spill',
-       live_material = jsonb_build_object('vault', 'strict_spill')
+       live_material = jsonb_build_object('reveal_hex', 'f1acfd917ec743437b491f08')
  where challenge_id = 'd7_strict_book';
 update public.challenge_answer_keys
    set answer = 'forged_pass',

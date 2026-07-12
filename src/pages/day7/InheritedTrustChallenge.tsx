@@ -10,13 +10,16 @@ const ID = 'd7_inherited_trust';
 
 type Dict = Record<string, unknown>;
 
-/** Naive recursive merge — blocks only the literal key __proto__ at each level. */
+/** Naive recursive merge — blocks only the literal key __proto__ at each level.
+ *  Still recurses into functions (e.g. constructor) so constructor.prototype works. */
 function merge(target: Dict, source: Dict): Dict {
   for (const key of Object.keys(source)) {
     if (key === '__proto__') continue;
     const sv = source[key];
     const tv = target[key];
-    if (sv && typeof sv === 'object' && !Array.isArray(sv) && tv && typeof tv === 'object' && !Array.isArray(tv)) {
+    const tvMergeable =
+      tv != null && (typeof tv === 'object' || typeof tv === 'function') && !Array.isArray(tv);
+    if (sv && typeof sv === 'object' && !Array.isArray(sv) && tvMergeable) {
       merge(tv as Dict, sv as Dict);
     } else {
       (target as Dict)[key] = sv;

@@ -67,7 +67,7 @@ True → "User exists." Loop positions 1..8 (or binary-search ASCII).
 ## 11 · Strict Guestbook (hard) — filtered XSS
 
 `onerror` / `onload` / `onclick` / `onmouseover` / … blocked.
-`window.__D7_STRICT` holds the vault after login.
+After login the page decrypts a vault into `window.__D7_STRICT` (seed `strict-vault`; Network only shows `reveal_hex`).
 
 Working idea:
 

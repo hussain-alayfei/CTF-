@@ -3,9 +3,11 @@ import ChallengeFrame from '../../components/ChallengeFrame';
 import AnswerBox from '../../components/AnswerBox';
 import { useApp } from '../../lib/app-context';
 import { fetchChallengeLiveMaterial } from '../../lib/api';
+import { looksLikeToken, xorDecryptHex } from '../../lib/dayseven';
 import { playClick, unlockAudio } from '../../lib/sounds';
 
 const ID = 'd7_strict_book';
+const VAULT_SEED = 'strict-vault';
 
 declare global {
   interface Window {
@@ -30,12 +32,18 @@ export default function StrictGuestbookChallenge() {
 
   useEffect(() => {
     if (!player) return;
+    let alive = true;
     fetchChallengeLiveMaterial(player, ID)
-      .then((r) => {
-        if (r.ok && r.material) window.__D7_STRICT = String(r.material.vault ?? '');
+      .then(async (r) => {
+        if (!alive || !r.ok || !r.material) return;
+        const hex = String(r.material.reveal_hex ?? '');
+        if (!hex) return;
+        const txt = await xorDecryptHex(hex, VAULT_SEED);
+        if (alive && looksLikeToken(txt)) window.__D7_STRICT = txt;
       })
       .catch(() => {});
     return () => {
+      alive = false;
       delete window.__D7_STRICT;
     };
   }, [player]);
