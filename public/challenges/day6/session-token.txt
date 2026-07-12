@@ -1,0 +1,9 @@
+Captured from an app's Authorization header. It is a JSON Web Token
+(JWT), HS256-signed. The signing secret is weak.
+
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMDI0IiwidXNlciI6Imd1ZXN0Iiwicm9sZSI6InVzZXIiLCJpYXQiOjE3NTIwMTkyMDB9.VocyvP6XcUlooa4My1LSYc0SZbYbvf2VgEXNWCZKsOs
+
+Recover the SECRET used to sign this token (hashcat mode 16500, john with
+the jwt format, or jwt_tool, against the standard wordlist). With it an
+attacker could forge an admin token — but for this challenge just submit
+the recovered signing secret.
