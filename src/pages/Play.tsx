@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState } from '../lib/time';
@@ -46,6 +46,7 @@ function saveUnlockedDays(s: Set<number>) {
 export default function Play() {
   const { player, setPlayer, muted, toggleMute, theme, toggleTheme } = useApp();
   const game = useGame(player);
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // A challenge page links back here as `/?c=<challengeId>` so pressing "back to
@@ -357,7 +358,15 @@ export default function Play() {
                 challenge={c}
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
-                onOpen={() => setOpenId(c.id)}
+                onOpen={() => {
+                  // Live browser labs: go straight into the page. File-based
+                  // challenges still open the modal (prompt + download + submit).
+                  if (c.action_url && !c.asset_url) {
+                    navigate(c.action_url);
+                    return;
+                  }
+                  setOpenId(c.id);
+                }}
                 blurred={shouldBlur}
               />
             ))}

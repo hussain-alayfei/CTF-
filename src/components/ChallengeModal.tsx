@@ -164,11 +164,12 @@ export default function ChallengeModal({
             <Prompt text={challenge.prompt} className="text-sm text-terminal-green/90" />
           )}
 
-          {/* Asset / action buttons — hidden only while the prompt is fairness-blurred,
-              to prevent grabbing the live day's artifacts before the round starts. */}
-          {!(hidden && !solved) && (
+          {/* Asset / action buttons. Live labs (action_url) stay clickable even
+              when the prompt is fairness-hidden — the page itself is the task,
+              and hiding "Open challenge" made cards look dead before start. */}
+          {(challenge.asset_url || challenge.action_url) && (
             <div className="flex flex-wrap gap-3">
-              {challenge.asset_url && (
+              {!(hidden && !solved) && challenge.asset_url && (
                 <a
                   href={challenge.asset_url}
                   download

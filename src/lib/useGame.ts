@@ -94,22 +94,34 @@ export function useGame(player: Player | null) {
         const ev = await fetchEventConfig();
         if (!alive) return;
         activeDayRef.current = ev.active_day ?? null;
-        const [ch, d, s, lb] = await Promise.all([
+        // Fetch independently so a leaderboard/players permission blip cannot
+        // leave the arena stuck on a stale empty challenge list.
+        const [chRes, dRes, sRes, lbRes] = await Promise.allSettled([
           fetchChallenges(),
           fetchDays(),
           fetchSolves(),
-          activeDayRef.current != null ? fetchDayLeaderboard(activeDayRef.current) : fetchLeaderboard(),
+          activeDayRef.current != null
+            ? fetchDayLeaderboard(activeDayRef.current)
+            : fetchLeaderboard(),
         ]);
         if (!alive) return;
-        setChallenges(ch);
-        setDays(d);
-        setSolves(s);
-        setLeaderboard(lb);
+        if (chRes.status === 'fulfilled') {
+          setChallenges(chRes.value);
+          setCache('challenges', chRes.value);
+        }
+        if (dRes.status === 'fulfilled') {
+          setDays(dRes.value);
+          setCache('days', dRes.value);
+        }
+        if (sRes.status === 'fulfilled') {
+          setSolves(sRes.value);
+          setCache('solves', sRes.value);
+        }
+        if (lbRes.status === 'fulfilled') {
+          setLeaderboard(lbRes.value);
+          setCache('leaderboard', lbRes.value);
+        }
         setEvent(ev);
-        setCache('challenges', ch);
-        setCache('days', d);
-        setCache('solves', s);
-        setCache('leaderboard', lb);
         setCache('event', ev);
       } finally {
         if (alive) setLoading(false);
