@@ -200,7 +200,7 @@ ADMIN_MANUAL.md | _DAY4.md | _DAY5.md instructor keys
 .cursor/skills/manage-ctf-challenges/SKILL.md
 ```
 
-**Routes:** `/` Play · `/admin` · `/board` · `/challenge/admin-panel` · `/challenge/router-console` · `/challenge/cache-phantom` · `/challenge/consent-labyrinth` · `/challenge/ghost-profile` · `/challenge/referer-burn` · `/challenge/cookie-jar` · `/challenge/entropy-portal` · `/challenge/supercookie` · `/challenge/re-identified` · `/challenge/verify/:challengeId`
+**Routes:** `/` Play · `/challenge/admin-panel` · `/challenge/router-console` · `/challenge/cache-phantom` · `/challenge/consent-labyrinth` · `/challenge/ghost-profile` · `/challenge/referer-burn` · `/challenge/cookie-jar` · `/challenge/entropy-portal` · `/challenge/supercookie` · `/challenge/re-identified` · `/challenge/verify/:challengeId`  (Admin dashboard **and** projector Board are in-page overlays in Play, not routes)
 
 ---
 

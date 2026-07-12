@@ -48,11 +48,15 @@ const OLD_TAB_MIGRATION: Record<string, TabId> = {
 export default function AdminPanel({
   embedded = false,
   onClose,
+  onPresentBoard,
 }: {
   /** When true the panel renders as a full-screen overlay on the arena URL
    *  (no /admin route) — "back to the arena" calls onClose instead of navigating. */
   embedded?: boolean;
   onClose?: () => void;
+  /** Opens the projector board overlay (closing this panel first). Provided by
+   *  the arena, which owns both overlays. */
+  onPresentBoard?: () => void;
 } = {}) {
   const { player, setPlayer, theme, toggleTheme } = useApp();
   // Seed from the session cache so the dashboard paints instantly on refresh /
@@ -322,12 +326,14 @@ export default function AdminPanel({
           </Link>
         )}
         <div className="flex items-center gap-2">
-          <Link
-            to="/board"
-            className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/10"
-          >
-            🖥 Present board
-          </Link>
+          {onPresentBoard && (
+            <button
+              onClick={onPresentBoard}
+              className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/10"
+            >
+              🖥 Present board
+            </button>
+          )}
           <button
             onClick={toggleTheme}
             className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
@@ -464,6 +470,25 @@ export default function AdminPanel({
               </div>
             </div>
 
+            {/* Guard rail: the live day is set but still LOCKED, so students hit
+                the code gate and can't enter — the #1 "why can't they play?"
+                footgun. Surface it right here with a one-click fix. */}
+            {data?.event?.active_day != null &&
+              days.find((d) => d.day === data?.event?.active_day)?.is_open === false && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
+                  <div className="text-sm text-terminal-amber">
+                    ⚠ The live day is <strong>locked</strong> — students can&apos;t enter it yet.
+                  </div>
+                  <button
+                    disabled={busy}
+                    onClick={() => run(() => adminSetDay(secret, data!.event!.active_day!, true))}
+                    className="shrink-0 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                  >
+                    🔓 Unlock it now
+                  </button>
+                </div>
+              )}
+
             {/* Auto-lock countdown */}
             {isEnded && autoLockMin !== null && (
               <div className="mt-4 flex items-center justify-between rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
@@ -529,10 +554,10 @@ export default function AdminPanel({
             </div>
 
             <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
-              On the projector board (<code className="text-terminal-cyan">/board</code>), scores hide during
-              the final <strong className="text-terminal-amber">{validFreeze}</strong> minute
-              {validFreeze === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time ends. Set
-              to <strong>0</strong> to keep the board live the whole round.
+              On the projector board (<strong className="text-terminal-cyan">🖥 Present board</strong>),
+              scores hide during the final <strong className="text-terminal-amber">{validFreeze}</strong>{' '}
+              minute{validFreeze === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time
+              ends. Set to <strong>0</strong> to keep the board live the whole round.
             </p>
 
             {/* Adjust the running clock without restarting — the clean way to

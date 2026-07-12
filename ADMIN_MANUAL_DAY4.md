@@ -265,7 +265,7 @@ static flag in the source or in any file).
 - [ ] Set Day 4 as the Active Day
 - [ ] Add or clear the Day 4 access code
 - [ ] Start the timer
-- [ ] Open `/board` on the projector
+- [ ] Click **🖥 Board** in the header to open the projector overlay
 
 > Last updated: per-player dynamic flags, live-delivered keys, no recipes
 > anywhere, pcap plaintext-leak fixed.

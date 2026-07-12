@@ -17,6 +17,7 @@ import Podium from '../components/Podium';
 import ProfileModal from '../components/ProfileModal';
 import GoOverlay from '../components/GoOverlay';
 import AdminPanel from './AdminPanel';
+import Board from './Board';
 
 const order: Difficulty[] = ['easy', 'medium', 'hard', 'danger'];
 const sectionTitle: Record<Difficulty, string> = {
@@ -81,6 +82,7 @@ export default function Play() {
   const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showBoard, setShowBoard] = useState(false);
   const [showGo, setShowGo] = useState(false);
   const podiumShown = useRef(false);
   const prevStatus = useRef<string | null>(null);
@@ -519,12 +521,12 @@ export default function Play() {
                 >
                   🛠 Admin
                 </button>
-                <Link
-                  to="/board"
+                <button
+                  onClick={() => setShowBoard(true)}
                   className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
                 >
                   🖥 Board
-                </Link>
+                </button>
               </>
             )}
             {player && (
@@ -719,8 +721,20 @@ export default function Play() {
       {/* Instructor panel — in-page overlay (replaces the old /admin route so the
           arena's realtime/game state stays mounted underneath). Admins only. */}
       {showAdmin && player?.is_admin && (
-        <AdminPanel embedded onClose={() => setShowAdmin(false)} />
+        <AdminPanel
+          embedded
+          onClose={() => setShowAdmin(false)}
+          onPresentBoard={() => {
+            setShowAdmin(false);
+            setShowBoard(true);
+          }}
+        />
       )}
+
+      {/* Projector board — in-page overlay (replaces the old /board route). It
+          reuses this component's live `game` object, so no second realtime
+          subscription is opened. Admins only. */}
+      {showBoard && player?.is_admin && <Board game={game} onClose={() => setShowBoard(false)} />}
     </div>
   );
 }

@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useApp } from '../lib/app-context';
-import { useGame } from '../lib/useGame';
+import { useEffect, useMemo, useState } from 'react';
 import { getEventState, formatDuration, isFrozen } from '../lib/time';
-import { isAudioRunning, playClick, playFirstBlood, unlockAudio } from '../lib/sounds';
 import type { EventConfig } from '../lib/types';
-import Register from '../components/Register';
+import type { Game } from '../lib/useGame';
 
 const medal = ['🥇', '🥈', '🥉'];
 
@@ -89,47 +85,14 @@ function FrozenPanel({ event, count }: { event: EventConfig | null; count: numbe
   );
 }
 
-// Full-screen, admin-only "present to the class" dashboard. Shares the same
-// realtime data feed as the main arena, so it's always in sync — no manual
-// refreshing needed while screen-sharing.
-export default function Board() {
-  const { player } = useApp();
-  const game = useGame(player);
-
+// Full-screen "present to the class" board, rendered as an in-page overlay on
+// the arena (no /board route). It reuses the arena's live `game` object — the
+// same realtime feed the arena already subscribes to — so it's always in sync
+// with zero extra network. First-blood/solve sounds are owned by the arena's
+// <Toasts> (which is mounted underneath this overlay), so the board doesn't
+// duplicate them.
+export default function Board({ game, onClose }: { game: Game; onClose: () => void }) {
   const activeDayNum = game.event?.active_day ?? null;
-
-  // Projectors have no prior user gesture, so the browser keeps the AudioContext
-  // suspended and every sound (even the .mp3 first-blood) silently fails until
-  // the operator clicks once. This gate makes that explicit.
-  // Default board sound ON so the operator doesn't have to remember to enable
-  // it. Browsers may still need one user gesture before audio plays on a
-  // projector (the toggle provides it), but we no longer start muted.
-  const [soundOn, setSoundOn] = useState(true);
-  const seenAnnouncements = useRef(0);
-  // The real, previously-hidden bug: calling unlockAudio() from a useEffect on
-  // mount is NOT a user gesture, so Chrome/Edge/Safari's autoplay policy keeps
-  // the AudioContext 'suspended' regardless — the "🔊 Sound on" pill looked
-  // correct while every first-blood siren silently failed to play. This polls
-  // the real AudioContext state so the UI can tell the truth and prompt for
-  // one genuine click instead of lying that sound is already working.
-  const [audioReady, setAudioReady] = useState(false);
-  useEffect(() => {
-    unlockAudio();
-    setAudioReady(isAudioRunning());
-    const id = window.setInterval(() => setAudioReady(isAudioRunning()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  useEffect(() => {
-    const anns = game.announcements;
-    if (anns.length <= seenAnnouncements.current) {
-      seenAnnouncements.current = anns.length;
-      return;
-    }
-    const fresh = anns.slice(seenAnnouncements.current);
-    seenAnnouncements.current = anns.length;
-    if (!soundOn) return; // advance the cursor even when muted so enabling later doesn't replay the backlog
-    fresh.forEach((a) => (a.type === 'first_blood' ? playFirstBlood() : playClick()));
-  }, [game.announcements, soundOn]);
 
   // Score-freeze for the final N minutes. Flip exactly at the freeze boundary
   // and again at time's up, rather than ticking every second — a per-second
@@ -152,6 +115,15 @@ export default function Board() {
     }
     return () => timers.forEach(clearTimeout);
   }, [game.event]);
+
+  // Close on Escape, like the other arena overlays.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   // Live feed seeded from real solves (so it isn't blank on open) and scoped to
   // the active day. Filtering to leaderboard members drops admin/excluded
@@ -178,20 +150,6 @@ export default function Board() {
       });
   }, [game.solves, game.leaderboard, game.challenges, activeDayNum]);
 
-  if (!player) return <Register />;
-
-  if (!player.is_admin) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-terminal-bg text-center text-terminal-text">
-        <div className="text-4xl">🚫</div>
-        <h1 className="mt-3 text-xl font-extrabold text-terminal-red">Instructors only</h1>
-        <Link to="/" className="mt-4 text-sm text-terminal-green underline">
-          ‹ Back to the arena
-        </Link>
-      </div>
-    );
-  }
-
   const activeDay = game.days.find((d) => d.day === game.event?.active_day);
   // Everyone who entered the live day is shown, even at 0 points.
   const rows = game.leaderboard.slice(0, 20);
@@ -200,54 +158,28 @@ export default function Board() {
   const totalSolves = game.leaderboard.reduce((n, r) => n + r.solves_count, 0);
 
   return (
-    <div className="min-h-screen bg-terminal-bg p-6 text-terminal-text sm:p-8">
+    <div className="fixed inset-0 z-40 min-h-screen overflow-y-auto bg-terminal-bg p-6 text-terminal-text sm:p-8">
       <div className="mx-auto max-w-6xl">
         {/* Top bar */}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <Link
-              to="/"
+            <button
+              onClick={onClose}
               className="mb-1 inline-flex items-center gap-1 text-xs text-terminal-dim underline decoration-dotted transition hover:text-terminal-green"
             >
               ‹ Back to arena
-            </Link>
+            </button>
             <div className="text-[10px] uppercase tracking-[0.4em] text-terminal-dim">
               KGSP // CTF — Live Board
             </div>
           </div>
           <button
-            onClick={() => {
-              unlockAudio();
-              setAudioReady(isAudioRunning());
-              setSoundOn((s) => !s);
-            }}
-            title={
-              !audioReady
-                ? 'Click to enable sound — the browser blocks audio until you click once on this tab'
-                : soundOn
-                  ? 'Mute board sounds'
-                  : 'Enable board sounds (needed once per projector)'
-            }
-            className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition ${
-              soundOn && audioReady
-                ? 'border-terminal-green/60 bg-terminal-green/10 text-terminal-green'
-                : 'border-terminal-amber/60 bg-terminal-amber/10 text-terminal-amber animate-flicker'
-            }`}
+            onClick={onClose}
+            className="rounded-lg border border-terminal-border px-3 py-2 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
           >
-            {!audioReady ? '🔇 Click to enable sound' : soundOn ? '🔊 Sound on' : '🔇 Enable sound'}
+            ✕ Close
           </button>
         </header>
-
-        {/* Explicit banner — this is the actual fix for "first blood sound never
-            plays on the dashboard": autoplay policy silently blocks the
-            AudioContext until a genuine click happens on THIS tab, and the old
-            "Sound on" pill never revealed that it hadn't actually happened. */}
-        {!audioReady && (
-          <div className="mb-4 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3 text-center text-sm font-semibold text-terminal-amber">
-            🔇 Sound is blocked by the browser until you click once on this tab — click the button
-            above to enable the first-blood siren.
-          </div>
-        )}
 
         {/* Hero: active-day title + HUGE hacker countdown */}
         <section className="mb-6 rounded-2xl border border-terminal-border bg-terminal-panel/60 px-6 py-8 shadow-neon">

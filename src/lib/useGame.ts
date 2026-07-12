@@ -251,3 +251,8 @@ export function useGame(player: Player | null) {
     refreshEvent,
   };
 }
+
+/** The full game state object returned by useGame — shared with overlays (e.g.
+ *  the projector Board) so they reuse this single realtime subscription instead
+ *  of opening their own. */
+export type Game = ReturnType<typeof useGame>;

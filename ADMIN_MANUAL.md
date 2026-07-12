@@ -22,7 +22,8 @@ add new content without touching the rest.
 
 > There is no separate `/admin` password screen anymore — the instructor account is
 > just a normal login with special privileges. Only this one account (`is_admin = true`
-> in the database) sees the Admin/Board links and can open `/admin` or `/board`.
+> in the database) sees the **🛠 Admin** and **🖥 Board** buttons in the header, which
+> open the dashboard and the projector board as in-page overlays (no separate URL).
 > This account is automatically excluded from the leaderboard and participant counts.
 
 ---
@@ -171,12 +172,14 @@ By default, first blood plays a synthesized siren sound. To use your own sound:
 
 ## 9. Presenting on a Projector
 
-The **🖥 Board** link (in the header once logged in as admin, or from the dashboard)
-opens a dedicated full-screen page at `/board`:
+The **🖥 Board** button (in the header once logged in as admin, or the **🖥 Present
+board** button inside the dashboard) opens a full-screen projector overlay right on
+the arena — no separate URL:
 
 - Large live leaderboard for the active day, a big countdown timer, and a live
   solve/first-blood feed — all synced in realtime, no manual refreshing needed.
-- Just open it and share your screen. Only the instructor account can access it.
+- Just open it and share your screen; press **Esc** or **✕ Close** to return.
+  Only the instructor account can open it.
 
 ---
 

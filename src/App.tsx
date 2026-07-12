@@ -8,7 +8,6 @@ import { applyTheme, getTheme, type Theme } from './lib/theme';
 import type { Player } from './lib/types';
 import Play from './pages/Play';
 import CookieChallenge from './pages/CookieChallenge';
-import Board from './pages/Board';
 import RouterConsoleChallenge from './pages/RouterConsoleChallenge';
 import AnswerVerifyChallenge from './pages/AnswerVerifyChallenge';
 import CachePhantomChallenge from './pages/CachePhantomChallenge';
@@ -107,10 +106,10 @@ export default function App() {
         <Route path="/challenge/supercookie" element={<SupercookieChallenge />} />
         <Route path="/challenge/re-identified" element={<ReidentifiedChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
-        {/* /admin is no longer a route — the instructor panel opens as an in-page
-            overlay from the arena (see Play.tsx) so the arena's realtime/game
-            state never remounts. Any old /admin link falls through to Play below. */}
-        <Route path="/board" element={<Board />} />
+        {/* Neither /admin nor /board are routes anymore — the instructor panel and
+            the projector board both open as in-page overlays from the arena (see
+            Play.tsx) so the arena's realtime/game state never remounts. Any old
+            /admin or /board link falls through to Play below. */}
         <Route path="*" element={<Play />} />
       </Routes>
     </AppContext.Provider>
