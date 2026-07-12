@@ -511,6 +511,12 @@ export default function Play() {
     return <Register />;
   }
 
+  // Exactly one view shows below the header at a time. Board and Admin are TABS,
+  // not overlays layered on the arena — so when either is up, the arena content
+  // (timer banner, status line, day list, leaderboard) is hidden rather than left
+  // stacked above them on one long scrolling page.
+  const showArena = !showAdmin && !showBoard;
+
   return (
     <div className="min-h-full">
       <Toasts announcements={game.announcements} event={game.event} />
@@ -535,11 +541,18 @@ export default function Play() {
         onProfile={() => setShowProfile(true)}
       />
 
-      {/* Large prominent timer display */}
-      <ArenaTimerBanner event={game.event} />
+      {/* 3-2-1 countdown + GO! overlay — fixed, fires once per new round no matter
+          which tab is currently up. */}
+      <GoOverlay show={showGo} onDone={() => setShowGo(false)} />
 
-      {/* Event status banner */}
-      {effectiveStatus === 'idle' && (
+      {/* ── ARENA VIEW ── only when neither the Board nor Admin tab is active. */}
+      {showArena && (
+        <>
+          {/* Large prominent timer display */}
+          <ArenaTimerBanner event={game.event} />
+
+          {/* Event status banner */}
+          {effectiveStatus === 'idle' && (
         <div className="animate-flicker border-b border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 text-center text-sm font-bold uppercase tracking-widest text-terminal-amber">
           ◷ Waiting for the event to start… get ready, hacker.
         </div>
@@ -565,9 +578,6 @@ export default function Play() {
           )}
         </div>
       )}
-
-      {/* 3-2-1 countdown + hurricane/fire GO! overlay — fires once per new round */}
-      <GoOverlay show={showGo} onDone={() => setShowGo(false)} />
 
       {/* Main */}
       <main className="mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[1fr_340px]">
@@ -661,6 +671,8 @@ export default function Play() {
           )}
         </aside>
       </main>
+        </>
+      )}
 
       {/* Challenge modal */}
       {open && player && (
@@ -705,8 +717,9 @@ export default function Play() {
         />
       )}
 
-      {/* Instructor panel — in-page overlay (replaces the old /admin route so the
-          arena's realtime/game state stays mounted underneath). Admins only. */}
+      {/* Instructor panel — the "Admin" tab. Renders alone below the header in
+          place of the arena (no /admin route), reusing this component's live
+          `game` state so nothing remounts. Admins only. */}
       {showAdmin && player?.is_admin && (
         <AdminPanel
           embedded
@@ -719,9 +732,9 @@ export default function Play() {
         />
       )}
 
-      {/* Projector board — in-page overlay (replaces the old /board route). It
-          reuses this component's live `game` object, so no second realtime
-          subscription is opened. Admins only. */}
+      {/* Projector board — the "Board" tab. Renders alone below the header in
+          place of the arena, reusing this component's live `game` object so no
+          second realtime subscription is opened. Admins only. */}
       {showBoard && player?.is_admin && <Board game={game} onClose={() => setShowBoard(false)} />}
     </div>
   );
