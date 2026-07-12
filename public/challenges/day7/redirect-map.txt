@@ -1,0 +1,35 @@
+=====================================================================
+ HTTP REDIRECT MAP  —  captured from a curl -sI crawl of api.acme.test
+=====================================================================
+ Each line is one route's response. A 302 sends you to its Location;
+ a 200 is the end of the road. Start at /entry, follow the Location
+ headers, and read the body where you finally get a 200 OK.
+ (Some routes are decoys — dead ends or loops. Ignore them.)
+
+  PATH            STATUS   LOCATION / BODY
+  --------------  ------   -----------------------------------------
+  /entry          302      Location: /a7
+  /mirror         302      Location: /old
+  /m1             302      Location: /near
+  /loopB          302      Location: /loopA
+  /near           302      Location: /p8
+  /q2             302      Location: /next
+  /void           404      Not Found
+  /hop            302      Location: /q2
+  /p8             302      Location: /almost
+  /step           302      Location: /k4
+  /loopA          302      Location: /loopB
+  /a7             302      Location: /hop
+  /w3             302      Location: /final
+  /k4             302      Location: /onward
+  /final          200      X-Flag-Data: Zm9sbG93X3RoZV9yZWRpcmVjdHM=
+  /trap           302      Location: /void
+  /old            302      Location: /trap
+  /z9             302      Location: /step
+  /almost         302      Location: /w3
+  /onward         302      Location: /m1
+  /next           302      Location: /z9
+
+TASK: walk the redirect chain from /entry to the single 200 OK, then
+base64-decode its X-Flag-Data body. Submit the decoded plaintext.
+Answer format: lowercase, words joined by underscores.

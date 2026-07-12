@@ -1,0 +1,22 @@
+=====================================================================
+ ENCODING SOUP  —  one value, several wrappers, order unknown
+=====================================================================
+A support tool logged this "obfuscated" token:
+
+    4e354b46474e4b4e4a4e4c5732535a534b4e544736555a5a4742584649534c544f455a46474e4b4c474a435753344a53475136513d3d3d3d
+
+It was wrapped in FOUR layers, applied one after another:
+    - base64
+    - ROT13
+    - base32
+    - hexadecimal
+
+You are NOT told the order they were applied in — but each layer's
+alphabet gives it away as you peel:
+    hex     = only 0-9 a-f
+    base32  = only A-Z and 2-7 (often '=' padded)
+    base64  = mixed case + / and '=' padding
+    ROT13   = still looks like text, just letter-shifted
+
+TASK: peel all four layers to recover the plaintext underneath and
+submit it. Answer format: lowercase, words joined by underscores.

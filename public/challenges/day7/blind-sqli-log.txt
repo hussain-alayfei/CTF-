@@ -1,0 +1,170 @@
+=====================================================================
+ BLIND SQL INJECTION  —  boolean oracle transcript
+=====================================================================
+ An attacker dumped a secret one character at a time through a
+ boolean-blind injection. For each position they ran comparisons of
+ the form:
+
+     ...' AND ASCII(SUBSTRING(secret,<pos>,1)) > <N> -- 
+
+ and recorded whether the page came back TRUE (the injected condition
+ held) or FALSE. Each position is a binary search over printable ASCII
+ (32..126). Replay the search per position to nail each character, then
+ read the secret across all positions.
+
+  position  1:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  FALSE
+      ASCII(...) >  94  ->  TRUE 
+      ASCII(...) >  96  ->  TRUE 
+
+  position  2:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  TRUE 
+      ASCII(...) > 100  ->  FALSE
+      ASCII(...) >  99  ->  TRUE 
+
+  position  3:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  FALSE
+      ASCII(...) > 106  ->  TRUE 
+      ASCII(...) > 108  ->  TRUE 
+
+  position  4:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  FALSE
+      ASCII(...) > 106  ->  FALSE
+      ASCII(...) > 105  ->  FALSE
+      ASCII(...) > 104  ->  TRUE 
+
+  position  5:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  TRUE 
+      ASCII(...) > 112  ->  FALSE
+      ASCII(...) > 111  ->  FALSE
+      ASCII(...) > 110  ->  FALSE
+
+  position  6:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  FALSE
+      ASCII(...) >  94  ->  TRUE 
+      ASCII(...) >  96  ->  FALSE
+      ASCII(...) >  95  ->  FALSE
+
+  position  7:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  TRUE 
+      ASCII(...) > 100  ->  FALSE
+      ASCII(...) >  99  ->  TRUE 
+
+  position  8:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  TRUE 
+      ASCII(...) > 100  ->  FALSE
+      ASCII(...) >  99  ->  FALSE
+      ASCII(...) >  98  ->  FALSE
+
+  position  9:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  FALSE
+      ASCII(...) >  94  ->  TRUE 
+      ASCII(...) >  96  ->  FALSE
+      ASCII(...) >  95  ->  FALSE
+
+  position 10:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  TRUE 
+      ASCII(...) > 112  ->  FALSE
+      ASCII(...) > 111  ->  TRUE 
+
+  position 11:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  FALSE
+      ASCII(...) >  94  ->  TRUE 
+      ASCII(...) >  96  ->  TRUE 
+
+  position 12:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  TRUE 
+      ASCII(...) > 112  ->  TRUE 
+      ASCII(...) > 114  ->  TRUE 
+
+  position 13:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  TRUE 
+      ASCII(...) > 115  ->  FALSE
+      ASCII(...) > 109  ->  TRUE 
+      ASCII(...) > 112  ->  TRUE 
+      ASCII(...) > 114  ->  TRUE 
+
+  position 14:
+      ASCII(...) >  79  ->  TRUE 
+      ASCII(...) > 103  ->  FALSE
+      ASCII(...) >  91  ->  TRUE 
+      ASCII(...) >  97  ->  FALSE
+      ASCII(...) >  94  ->  TRUE 
+      ASCII(...) >  96  ->  FALSE
+      ASCII(...) >  95  ->  FALSE
+
+  position 15:
+      ASCII(...) >  79  ->  FALSE
+      ASCII(...) >  55  ->  FALSE
+      ASCII(...) >  43  ->  TRUE 
+      ASCII(...) >  49  ->  TRUE 
+      ASCII(...) >  52  ->  FALSE
+      ASCII(...) >  51  ->  FALSE
+      ASCII(...) >  50  ->  FALSE
+
+  position 16:
+      ASCII(...) >  79  ->  FALSE
+      ASCII(...) >  55  ->  FALSE
+      ASCII(...) >  43  ->  TRUE 
+      ASCII(...) >  49  ->  FALSE
+      ASCII(...) >  46  ->  TRUE 
+      ASCII(...) >  48  ->  FALSE
+      ASCII(...) >  47  ->  TRUE 
+
+  position 17:
+      ASCII(...) >  79  ->  FALSE
+      ASCII(...) >  55  ->  FALSE
+      ASCII(...) >  43  ->  TRUE 
+      ASCII(...) >  49  ->  TRUE 
+      ASCII(...) >  52  ->  FALSE
+      ASCII(...) >  51  ->  FALSE
+      ASCII(...) >  50  ->  FALSE
+
+  position 18:
+      ASCII(...) >  79  ->  FALSE
+      ASCII(...) >  55  ->  FALSE
+      ASCII(...) >  43  ->  TRUE 
+      ASCII(...) >  49  ->  TRUE 
+      ASCII(...) >  52  ->  TRUE 
+      ASCII(...) >  54  ->  FALSE
+      ASCII(...) >  53  ->  TRUE 
+
+TASK: reconstruct the secret from the per-position binary searches and
+submit it. Answer format: lowercase, words joined by underscores.

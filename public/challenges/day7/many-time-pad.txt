@@ -1,0 +1,30 @@
+=====================================================================
+ KEY REUSE  —  twelve messages, one keystream   [DANGER]
+=====================================================================
+ Twelve plaintext messages (English, ASCII) were each XOR-encrypted
+ with the SAME keystream — a many-time pad. That reuse is fatal:
+ XOR-ing any two ciphertexts cancels the key and leaks the XOR of the
+ two plaintexts. Because English is mostly lowercase letters and
+ spaces, and (space XOR letter) flips a predictable bit, you can
+ recover the keystream position-by-position (crib-dragging / the
+ space-XOR method), then decrypt every message.
+
+ Ciphertexts (hex), all the same length:
+
+  c 0 = 2898ec57359a6c66180ce983059b5ad0ae2fa9cbd01a10cacb56ff0f9f832e5155d81a2d78a01c151f6e450600c49a2bc3ca8224f394ec2e16297efe73a9c14ea1ed45e891e6e271
+  c 1 = 3d84fd1627842564070cef901d821496ba2fbccbce07189ad619e20d92947c4b1dcf53257ebf45541565024e18c09767d282936cfaddf13e587c63ef6eb6c14fa8eb5ce287b4ee7f
+  c 2 = 3295ff1236cf7760065feed10bcc5b9ead60a582d70a5dcad912b01b9f926f504ed81a2a7ca345471e74514357c09626cd99d629e0d1ed22586468e874bb8658edfb5df1c8b5e874
+  c 3 = 2898ec57378a66771658ab81029e5583ad60b784c84f09d5d61ff7118ed167561dd05b2f6085115c16647d5616c8ac25d4859d29f894ec34586d62bb69b5951db9e75ee8c8b2e57f
+  c 4 = 3f82f00730806277125ce3884a8547d0a72ebd929a0e0e9acb02e21694962e444e9d4e297cfa015c08624b561bc59d228685906ce2dcfa7b086c62eb6bbfc148beeb5ce3c8ade863
+  c 5 = 3195ec03648260251155ab850289149fa424f188d6001ed19802ff0e9f832e44499d522075bc45451a72560619c59d22868b9828b6d6ed32166e2def6fbfc15fa1f757a48ea9e17e
+  c 6 = 2898ec57348e76760443f9954a985bd0bc28b4cbcc0e08d6cc56e2168e907a404e9d4d247cb1094c5b724d061ac99e28d4838c29b6ddeb7b196769bb69bf9758bfa245f681b2e83a
+  c 7 = 3385fb57258164690a5fffd109835a96a132bc8ede4f09d2dd56f9178e947c4658cd4e616ebb16151c644c531ec29667c784926ce2dcfa7b0b6678e964bfc154bea240e184afec78
+  c 8 = 309fee1e379b6c66000cf9941a834684bb60a583df4f1ed5d600ff00da956b555ccf4e3239b70a5b1f605b061ac38129cf84916ce0ddfe7b0c6168bb64b5804eb9e35ea49aa9ec7e
+  c 9 = 2e95e412298d60775358e3901ecc4c9fba60b8989a0609c99819e717da98605358cf492439ad0d5c1869024f048c963fc7898220ef94e833012979f36ea9c15cb9f653e783e6fa75
+  c10 = 2898ec57338a64711b49f9d1059a5182e834b98e9a0c15dbd618f515da987d055ed15f206bb30b525b724d0603c49667c0869f2bfec0bf2c116769f470fa8e4da8ec41a489b2ad69
+  c11 = 349fe513648e69695358f990049f5999bb33b884d41c5dcfd602f915da8861501dcf5f227cb313505b754a4357cf9c32c89e933eb6c7f63c16296be968b7c155a8e356f59da7ff6e
+
+ One of the decrypted messages contains a phrase of the form
+ word_word_word_word. Recover the keystream, decrypt the messages,
+ find that phrase, and submit it.
+ Answer format: lowercase, words joined by underscores.

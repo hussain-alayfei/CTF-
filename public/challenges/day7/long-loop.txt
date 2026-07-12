@@ -1,0 +1,19 @@
+=====================================================================
+ THE LONG LOOP  —  one trillion iterations (don't brute it)
+=====================================================================
+A device holds a 'register' updated by this deterministic step:
+
+    register = (register*register + register + 1) mod 65521
+
+It starts at register = 12345 and the step is applied EXACTLY
+
+    1,000,000,000,000   (one trillion) times.
+
+Simulating a trillion steps is hopeless. But the register can only ever
+hold one of 65521 values, so the sequence MUST eventually repeat — it
+falls into a cycle. Find the tail length and the cycle length starting
+from 12345, then use modular arithmetic to jump a trillion steps in a
+fraction of a second.
+
+TASK: submit the register's value after exactly one trillion steps, as
+a plain decimal number.

@@ -1,0 +1,33 @@
+=====================================================================
+ ONLY ONE SOLUTION  —  a 16-byte constraint system   [DANGER]
+=====================================================================
+ Find the 16 unknown bytes x[0..15]. Every byte is printable ASCII
+ (0x20..0x7e). The following constraints have exactly ONE solution;
+ feed them to an SMT solver (Z3) — or notice that the XOR-chain pins
+ every byte to x[0], leaving just 256 candidates to test.
+
+ CONSTRAINTS (all arithmetic on bytes, mod 256 where relevant):
+
+   x[0] XOR x[1] == 0x49
+   x[1] XOR x[2] == 0x6c
+   x[2] XOR x[3] == 0x3c
+   x[3] XOR x[4] == 0x11
+   x[4] XOR x[5] == 0x13
+   x[5] XOR x[6] == 0x02
+   x[6] XOR x[7] == 0x08
+   x[7] XOR x[8] == 0x18
+   x[8] XOR x[9] == 0x2c
+   x[9] XOR x[10] == 0x2b
+   x[10] XOR x[11] == 0x1c
+   x[11] XOR x[12] == 0x01
+   x[12] XOR x[13] == 0x1a
+   x[13] XOR x[14] == 0x52
+   x[14] XOR x[15] == 0x00
+   (x[0] + x[1] + ... + x[15]) mod 256 == 0xdc
+   (x[2] * x[5]) mod 256 == 0xff
+   x[0] AND 0x0f == 0x0a
+   popcount(x[7]) == 5
+   every x[i] is printable ASCII (0x20 <= x[i] <= 0x7e)
+
+ When solved, the 16 bytes are printable ASCII text. Submit that text
+ exactly as recovered (it is the answer).

@@ -1,0 +1,25 @@
+=====================================================================
+ THE COMBINATION  —  reverse the bit-mixer to open the vault
+=====================================================================
+A vault takes a secret 32-bit INPUT, runs it through this fixed
+sequence of operations, and opens only if the result equals TARGET.
+All arithmetic is on unsigned 32-bit values (mask 0xffffffff).
+
+    x = INPUT
+    x = x XOR 0xDEADBEEF
+    x = rotate_left(x, 7)
+    x = (x + 0x01234567) mod 2^32
+    x = x XOR 0xA5A5A5A5
+    x = rotate_right(x, 11)
+    x = (x - 0x0BADF00D) mod 2^32
+    x = x XOR 0x0F0F0F0F
+    OUTPUT = x
+
+    TARGET = 0xb1cb02b5
+
+Every step is reversible, so there is exactly ONE input that produces
+TARGET. Run the pipeline backwards (invert each op, in reverse order:
+XOR undoes itself, + undoes with -, rotate_left(r) undoes with
+rotate_right(r)).
+
+TASK: recover INPUT and submit it as 8 lowercase hexadecimal digits.

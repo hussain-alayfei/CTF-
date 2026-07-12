@@ -1,0 +1,84 @@
+      =====================================================================
+       THE MACHINE  —  reverse the custom VM's serial check   [DANGER]
+      =====================================================================
+      A licensing binary embeds a tiny STACK VM that validates a 15-character
+      serial. Below is the opcode spec and the full program (one block per
+      input character). ACCEPT only if every CMP matches.
+
+      OPCODES (all values are unsigned 8-bit; rotates are 8-bit rotates):
+        LOADIN k   push the k-th input byte onto the stack
+        XOR   v    pop a, push (a XOR v)
+        ROL   r    pop a, push rotate_left8(a, r)
+        ROR   r    pop a, push rotate_right8(a, r)
+        ADD   v    pop a, push (a + v) mod 256
+        CMP   v    pop a; if a != v the whole check FAILS
+
+      PROGRAM (disassembly):
+        idx  0:  LOADIN 0    ; push input[0]
+         XOR   0x0b   ; c ^= keystream[0]
+         ROL   2      ; rotate-left 8-bit by 2
+         CMP   0xa1   ; must equal ciphertext[0]
+idx  1:  LOADIN 1    ; push input[1]
+         XOR   0x30   ; c ^= keystream[1]
+         ROL   5      ; rotate-left 8-bit by 5
+         CMP   0xa8   ; must equal ciphertext[1]
+idx  2:  LOADIN 2    ; push input[2]
+         XOR   0x55   ; c ^= keystream[2]
+         ROL   1      ; rotate-left 8-bit by 1
+         CMP   0x4c   ; must equal ciphertext[2]
+idx  3:  LOADIN 3    ; push input[3]
+         XOR   0x7a   ; c ^= keystream[3]
+         ROL   4      ; rotate-left 8-bit by 4
+         CMP   0xe0   ; must equal ciphertext[3]
+idx  4:  LOADIN 4    ; push input[4]
+         XOR   0x9f   ; c ^= keystream[4]
+         ROL   7      ; rotate-left 8-bit by 7
+         CMP   0xd7   ; must equal ciphertext[4]
+idx  5:  LOADIN 5    ; push input[5]
+         XOR   0xc4   ; c ^= keystream[5]
+         ROL   3      ; rotate-left 8-bit by 3
+         CMP   0x4d   ; must equal ciphertext[5]
+idx  6:  LOADIN 6    ; push input[6]
+         XOR   0xe9   ; c ^= keystream[6]
+         ROL   6      ; rotate-left 8-bit by 6
+         CMP   0xad   ; must equal ciphertext[6]
+idx  7:  LOADIN 7    ; push input[7]
+         XOR   0x0e   ; c ^= keystream[7]
+         ROL   2      ; rotate-left 8-bit by 2
+         CMP   0xe1   ; must equal ciphertext[7]
+idx  8:  LOADIN 8    ; push input[8]
+         XOR   0x33   ; c ^= keystream[8]
+         ROL   5      ; rotate-left 8-bit by 5
+         CMP   0xcb   ; must equal ciphertext[8]
+idx  9:  LOADIN 9    ; push input[9]
+         XOR   0x58   ; c ^= keystream[9]
+         ROL   1      ; rotate-left 8-bit by 1
+         CMP   0x0e   ; must equal ciphertext[9]
+idx 10:  LOADIN 10    ; push input[10]
+         XOR   0x7d   ; c ^= keystream[10]
+         ROL   4      ; rotate-left 8-bit by 4
+         CMP   0xd0   ; must equal ciphertext[10]
+idx 11:  LOADIN 11    ; push input[11]
+         XOR   0xa2   ; c ^= keystream[11]
+         ROL   7      ; rotate-left 8-bit by 7
+         CMP   0xea   ; must equal ciphertext[11]
+idx 12:  LOADIN 12    ; push input[12]
+         XOR   0xc7   ; c ^= keystream[12]
+         ROL   3      ; rotate-left 8-bit by 3
+         CMP   0x4d   ; must equal ciphertext[12]
+idx 13:  LOADIN 13    ; push input[13]
+         XOR   0xec   ; c ^= keystream[13]
+         ROL   6      ; rotate-left 8-bit by 6
+         CMP   0xf7   ; must equal ciphertext[13]
+idx 14:  LOADIN 14    ; push input[14]
+         XOR   0x11   ; c ^= keystream[14]
+         ROL   2      ; rotate-left 8-bit by 2
+         CMP   0xd5   ; must equal ciphertext[14]
+
+      Each block computes:  rotate_left8( input[i] XOR XORKEY[i], ROLAMT[i] )
+      and requires it to equal the block's CMP constant. Every step is
+      reversible, so exactly one input passes. Invert each block:
+          input[i] = rotate_right8( CMP[i], ROLAMT[i] ) XOR XORKEY[i]
+
+      TASK: recover the 15-character serial the VM accepts and submit it
+      (it is printable ASCII; submit exactly as recovered).
