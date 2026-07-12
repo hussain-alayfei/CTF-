@@ -182,3 +182,64 @@ body::after {
   from { opacity: 1; }
   to   { opacity: 0; }
 }
+
+/* ── Header ────────────────────────────────────────────────────────────────
+   A faint scanline wash across the header bar, and an RGB-split glitch on the
+   wordmark that fires occasionally rather than continuously — a logo that
+   twitches every few seconds reads as "hacked"; one that twitches constantly
+   just reads as broken. */
+.ctf-header {
+  position: relative;
+}
+.ctf-header::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(var(--c-green) / 0.05) 0px,
+    rgb(var(--c-green) / 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.ctf-glitch {
+  position: relative;
+  display: inline-block;
+}
+.ctf-glitch::before,
+.ctf-glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  clip-path: inset(0 0 0 0);
+}
+.ctf-glitch::before {
+  color: rgb(var(--c-cyan));
+  animation: ctf-glitch-a 6s infinite steps(1, end);
+}
+.ctf-glitch::after {
+  color: rgb(var(--c-red));
+  animation: ctf-glitch-b 6s infinite steps(1, end);
+}
+@keyframes ctf-glitch-a {
+  0%, 92%, 100% { opacity: 0; transform: none; }
+  93% { opacity: 0.9; transform: translate(-2px, -1px); clip-path: inset(0 0 55% 0); }
+  95% { opacity: 0.9; transform: translate(2px, 1px);   clip-path: inset(60% 0 0 0); }
+  97% { opacity: 0; }
+}
+@keyframes ctf-glitch-b {
+  0%, 92%, 100% { opacity: 0; transform: none; }
+  94% { opacity: 0.8; transform: translate(2px, 1px);   clip-path: inset(0 0 65% 0); }
+  96% { opacity: 0.8; transform: translate(-2px, -1px); clip-path: inset(45% 0 0 0); }
+  98% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctf-glitch::before,
+  .ctf-glitch::after { animation: none; opacity: 0; }
+}

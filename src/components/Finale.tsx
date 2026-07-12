@@ -86,13 +86,16 @@ export default function Finale({
     const prev = prevStage.current;
     prevStage.current = stage;
 
-    // First render: land on the current stage without replaying anything. A screen
-    // that joins late (or refreshes mid-finale) must not re-run a countdown the
-    // room has already watched.
-    if (prev === null) {
-      if (stage >= 3) setTakeover({ place: 1, phase: 'show' });
-      return;
-    }
+    // First render: land on the card table at whatever stage the room is at, and
+    // replay NOTHING. A screen that joins late — or refreshes after the reveal —
+    // gets the cards it has already earned, face up, and can walk away.
+    //
+    // This used to drop a refreshing screen straight into the winner's full-screen
+    // takeover, which had no exit but a small ✕ and (with the old never-ending
+    // fireworks) no way to stop the show. That was the "refresh gets stuck on the
+    // results" trap: the takeover is a *moment*, so it may only ever be entered by
+    // living through a stage advance, never by mounting into one.
+    if (prev === null) return;
     if (stage <= prev || stage < 1) {
       if (stage < 1) setTakeover(null);
       return;
@@ -252,6 +255,18 @@ export default function Finale({
               );
             })}
           </div>
+        )}
+
+        {/* Once every card is up the show is over — but the instructor may want to
+            run the winner's moment again for the room (or for a photo). Explicit,
+            never automatic: mounting into the finale must stay calm. */}
+        {stage >= 3 && isAdmin && (
+          <button
+            onClick={() => setTakeover({ place: 1, phase: 'show' })}
+            className="mt-10 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20"
+          >
+            ⟲ Replay the winner
+          </button>
         )}
       </div>
 

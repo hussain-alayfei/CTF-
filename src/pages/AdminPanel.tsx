@@ -11,6 +11,7 @@ import {
   adminSetDay,
   adminSetDayCode,
   adminSetDayCompleted,
+  adminSetDuration,
   adminSetFinaleStage,
   adminSetFreeze,
   adminSetPlayerExcluded,
@@ -80,7 +81,6 @@ export default function AdminPanel({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
-  const [autoLockMin, setAutoLockMin] = useState<number | null>(null);
 
   // Duration & freeze as local string state — synced from server only on genuine changes
   const [minutesStr, setMinutesStr] = useState('35');
@@ -110,8 +110,6 @@ export default function AdminPanel({
     data: null,
     players: [],
   });
-
-  const autoLockState = useRef<{ endsAt: string; interval: number } | null>(null);
 
   const secret = player?.admin_token ?? '';
 
@@ -168,45 +166,11 @@ export default function AdminPanel({
     return () => clearInterval(id);
   }, [secret, load]);
 
-  // Auto-lock the active day 30 minutes after event ends
-  useEffect(() => {
-    const endsAt = data?.event?.ends_at;
-    const activeD = data?.event?.active_day;
-    const eventIsEnded = !!endsAt && Date.now() >= Date.parse(endsAt);
-
-    if (!eventIsEnded || !endsAt || activeD == null) {
-      if (autoLockState.current) {
-        clearInterval(autoLockState.current.interval);
-        autoLockState.current = null;
-      }
-      setAutoLockMin(null);
-      return;
-    }
-
-    if (autoLockState.current?.endsAt === endsAt) return;
-    if (autoLockState.current) clearInterval(autoLockState.current.interval);
-
-    const lockTime = Date.parse(endsAt) + 30 * 60 * 1000;
-
-    const tick = () => {
-      const rem = Math.max(0, Math.ceil((lockTime - Date.now()) / 60000));
-      setAutoLockMin(rem);
-      if (rem === 0) {
-        if (autoLockState.current) clearInterval(autoLockState.current.interval);
-        autoLockState.current = null;
-        void adminSetDay(secret, activeD, false).then(() => void load());
-      }
-    };
-
-    tick();
-    const interval = window.setInterval(tick, 30_000);
-    autoLockState.current = { endsAt, interval };
-
-    return () => {
-      clearInterval(interval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.event?.ends_at, data?.event?.active_day, secret]);
+  // (The day used to auto-lock itself 30 minutes after the round ended, from a
+  // timer in this panel. It is gone: it locked the day out from under the class
+  // while people were still practising, then the arena — which had nothing to do
+  // with the decision — started nagging about it. Locking a day is a decision, so
+  // it is now only ever made by hand, from the Days tab.)
 
   function logout() {
     clearPlayer();
@@ -258,6 +222,22 @@ export default function AdminPanel({
   const validFreeze = !isNaN(parsedFreeze) && parsedFreeze >= 0 ? parsedFreeze : 15;
   const parsedAdjust = parseInt(adjustStr, 10);
   const validAdjust = !isNaN(parsedAdjust) && parsedAdjust > 0 ? parsedAdjust : 0;
+
+  // Compared against the live event, so the button honestly reflects whether what
+  // is on screen differs from what the server will actually use on the next start.
+  const setupDirty =
+    validMinutes !== (liveEvent?.duration_minutes ?? 35) ||
+    validFreeze !== (liveEvent?.freeze_minutes ?? 15);
+
+  async function saveSetup() {
+    await run(async () => {
+      const a = await adminSetDuration(secret, validMinutes);
+      if (a.error) return a;
+      const b = await adminSetFreeze(secret, validFreeze);
+      if (b.error) return b;
+      return { message: `Saved — ${validMinutes} min round, ${validFreeze} min score freeze.` };
+    });
+  }
 
   // In embedded mode the panel is a full-screen overlay ON the arena URL — there
   // is no /admin route anymore (navigating to a separate route was causing the
@@ -577,42 +557,13 @@ export default function AdminPanel({
                 </span>
               </div>
 
-              {/* The #1 "why can't they play?" footgun: day is live but still locked. */}
-              {activeDay != null &&
-                days.find((d) => d.day === activeDay)?.is_open === false && (
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
-                    <div className="text-sm text-terminal-amber">
-                      ⚠ Locked — students can&apos;t enter it yet.
-                    </div>
-                    <button
-                      disabled={busy}
-                      onClick={() => run(() => adminSetDay(secret, activeDay, true))}
-                      className="shrink-0 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-                    >
-                      🔓 Unlock now
-                    </button>
-                  </div>
-                )}
-
-              {isEnded && autoLockMin !== null && activeDay != null && (
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
-                  <div className="text-sm text-terminal-amber">
-                    ⏳ Auto-locks in ~{autoLockMin} min
-                  </div>
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      run(() => adminSetDay(secret, activeDay, false), 'Lock the active day now?')
-                    }
-                    className="shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                  >
-                    Lock now
-                  </button>
-                </div>
-              )}
             </Card>
 
-            {/* ── SETUP ────────────────────────────────────────────────── */}
+            {/* ── SETUP ──────────────────────────────────────────────────
+                Both fields are real, saved settings. Round length used to be
+                local-only state that Start happened to read, so editing it and
+                refreshing threw the edit away — the field looked broken because
+                nothing was ever written back. */}
             <Card title="Setup">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
@@ -624,30 +575,33 @@ export default function AdminPanel({
                     onChange={(e) => setMinutesStr(e.target.value)}
                     className="mt-1 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
                   />
-                  <p className="mt-1 text-[11px] text-terminal-dim">Applied on the next start.</p>
+                  <p className="mt-1 text-[11px] text-terminal-dim">Used by the next start.</p>
                 </div>
                 <div>
                   <Label>Score freeze (final min)</Label>
-                  <div className="mt-1 flex gap-2">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={freezeStr}
-                      onChange={(e) => setFreezeStr(e.target.value)}
-                      className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-                    />
-                    <button
-                      disabled={busy}
-                      onClick={() => run(() => adminSetFreeze(secret, validFreeze))}
-                      className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
-                    >
-                      Save
-                    </button>
-                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={freezeStr}
+                    onChange={(e) => setFreezeStr(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+                  />
                   <p className="mt-1 text-[11px] text-terminal-dim">
                     Board hides scores for the last {validFreeze} min. 0 = never hide.
                   </p>
                 </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  disabled={busy || !setupDirty}
+                  onClick={() => void saveSetup()}
+                  className="rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
+                >
+                  {setupDirty ? '💾 Save setup' : '✓ Saved'}
+                </button>
+                {setupDirty && (
+                  <span className="text-[11px] text-terminal-amber">Unsaved changes.</span>
+                )}
               </div>
             </Card>
 

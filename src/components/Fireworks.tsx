@@ -25,6 +25,13 @@ const COLORS = ['#39ff14', '#ffd400', '#00e5ff', '#ff3b3b', '#ff6ec7', '#ffffff'
 const GRAVITY = 0.035;
 const DRAG = 0.985;
 
+// A firework show is a moment, not a screensaver. Launching stops after this
+// long and the loop shuts itself down once the last particle dies, so the tab
+// goes back to 0% CPU and silent. The first build launched forever: refreshing
+// on the winner's screen left an endless, un-leavable barrage running (and
+// booming) until the tab was closed.
+const SHOW_MS: Record<number, number> = { 1: 4500, 2: 9000 };
+
 /**
  * Canvas firework show for the finale. Hand-rolled rather than pulling in a
  * confetti library — the repo has no animation dependencies and this needs to
@@ -105,13 +112,17 @@ export default function Fireworks({ intensity = 1 }: { intensity?: number }) {
 
     // Opening barrage — the winner's reveal should hit immediately, not ramp up.
     const opening = intensity >= 2 ? 5 : 2;
-    for (let i = 0; i < opening; i++) window.setTimeout(launch, i * 130);
+    const openers: number[] = [];
+    for (let i = 0; i < opening; i++) openers.push(window.setTimeout(launch, i * 130));
 
     let raf = 0;
     let sinceLaunch = 0;
+    const startedAt = performance.now();
+    const showMs = SHOW_MS[intensity] ?? SHOW_MS[1];
 
-    const frame = () => {
+    const frame = (t: number) => {
       const big = intensityRef.current >= 2;
+      const launching = t - startedAt < showMs;
 
       // Trails: paint a translucent black over the last frame instead of clearing,
       // so particles smear into comet tails.
@@ -122,7 +133,7 @@ export default function Fireworks({ intensity = 1 }: { intensity?: number }) {
 
       sinceLaunch += 1;
       const interval = big ? 16 : 34;
-      if (sinceLaunch >= interval) {
+      if (launching && sinceLaunch >= interval) {
         sinceLaunch = 0;
         launch();
         if (big && Math.random() < 0.5) launch(); // winner gets doubles
@@ -162,12 +173,23 @@ export default function Fireworks({ intensity = 1 }: { intensity?: number }) {
       }
       ctx.globalAlpha = 1;
 
+      // The show is over once we've stopped launching AND the sky is empty. Wipe
+      // the trails and stop the loop entirely rather than burning a frame budget
+      // (and a laptop battery) on an empty canvas for as long as the page is open.
+      if (!launching && shells.length === 0 && particles.length === 0) {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.clearRect(0, 0, width, height);
+        raf = 0;
+        return;
+      }
+
       raf = window.requestAnimationFrame(frame);
     };
     raf = window.requestAnimationFrame(frame);
 
     return () => {
-      window.cancelAnimationFrame(raf);
+      openers.forEach(clearTimeout);
+      if (raf) window.cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
     };
     // `intensity` is read live through intensityRef; it's in the deps only so the

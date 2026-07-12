@@ -202,7 +202,18 @@ export function useGame(player: Player | null) {
           void refreshDaysAndChallenges();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        // Every (re)subscribe is a catch-up. A websocket that drops — a closed
+        // laptop lid, campus wifi roaming, a Realtime hiccup — silently misses every
+        // event while it is down, and the socket comes back with no replay of what
+        // was missed. Without this, a screen looked live but was frozen on whatever
+        // it knew before the drop, and only a manual refresh fixed it.
+        if (status === 'SUBSCRIBED') {
+          void refreshEvent();
+          void refreshBoard();
+          void refreshDaysAndChallenges();
+        }
+      });
 
     return () => {
       void supabase.removeChannel(channel);
@@ -212,6 +223,35 @@ export function useGame(player: Player | null) {
       }
     };
   }, [refreshBoard, refreshEvent, refreshDaysAndChallenges, scheduleBoardRefresh]);
+
+  // Belt and braces for the realtime feed: revalidate when the tab comes back to
+  // life, when the network returns, and on a slow timer while visible. Realtime is
+  // the fast path, not the only path — if it is silently dead, the room still
+  // converges within 30 seconds instead of showing a stale board all round.
+  useEffect(() => {
+    const revalidate = () => {
+      if (document.visibilityState !== 'visible') return;
+      void refreshEvent();
+      void refreshBoard();
+    };
+    const onWake = () => {
+      if (document.visibilityState !== 'visible') return;
+      revalidate();
+      void refreshDaysAndChallenges();
+    };
+
+    window.addEventListener('focus', onWake);
+    window.addEventListener('online', onWake);
+    document.addEventListener('visibilitychange', onWake);
+    const id = window.setInterval(revalidate, 30_000);
+
+    return () => {
+      window.removeEventListener('focus', onWake);
+      window.removeEventListener('online', onWake);
+      document.removeEventListener('visibilitychange', onWake);
+      clearInterval(id);
+    };
+  }, [refreshEvent, refreshBoard, refreshDaysAndChallenges]);
 
   const mySolvedIds = useMemo(() => {
     const set = new Set<string>();

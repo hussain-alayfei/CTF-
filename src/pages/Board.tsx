@@ -66,7 +66,9 @@ function BoardClock({ event }: { event: EventConfig | null }) {
     >
       <div className="text-[11px] uppercase tracking-[0.5em] text-terminal-dim">{caption}</div>
       <div
-        className={`mt-3 font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl lg:text-[7.5rem] ${color} ${
+        // The clock has the column to itself now, so it can be read from the back of
+        // the room instead of politely sharing space with tiles nobody looked at.
+        className={`mt-3 font-mono text-7xl font-black leading-none tabular-nums sm:text-8xl lg:text-[9rem] xl:text-[11rem] ${color} ${
           critical ? 'animate-strobe' : ''
         }`}
         style={{
@@ -167,7 +169,6 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
   const activeDay = game.days.find((d) => d.day === game.event?.active_day);
   const rows = game.leaderboard.slice(0, 12); // everyone who entered, even at 0 points
   const overflow = game.leaderboard.length - rows.length;
-  const totalSolves = game.leaderboard.reduce((n, r) => n + r.solves_count, 0);
 
   return (
     <div className="fixed inset-0 z-40 overflow-y-auto bg-terminal-bg p-5 text-terminal-text sm:p-7">
@@ -200,34 +201,24 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
 
         {/* Column 1: the clock, on its own. Column 2: standings + activity. */}
         <div className="grid gap-6 lg:grid-cols-[minmax(400px,0.85fr)_1.15fr]">
-          {/* Column flexes so the clock takes the space that's left and the two
-              tiles stay pinned under it. (BoardClock is h-full: without the flex
-              column it filled the whole section and pushed the tiles off-screen.) */}
-          <section className="lg:sticky lg:top-7 lg:flex lg:h-[calc(100vh-7rem)] lg:flex-col">
-            <div className="lg:min-h-0 lg:flex-1">
-              <BoardClock event={game.event} />
-            </div>
-            <div className="mt-4 grid shrink-0 grid-cols-2 gap-3">
-              <div className="rounded-xl border border-terminal-border bg-terminal-panel/60 px-4 py-3 text-center">
-                <div className="text-3xl font-black tabular-nums text-terminal-green">
-                  {game.leaderboard.length}
-                </div>
-                <div className="text-[10px] uppercase tracking-[0.25em] text-terminal-dim">
-                  competitors
-                </div>
-              </div>
-              <div className="rounded-xl border border-terminal-border bg-terminal-panel/60 px-4 py-3 text-center">
-                <div className="text-3xl font-black tabular-nums text-terminal-amber">{totalSolves}</div>
-                <div className="text-[10px] uppercase tracking-[0.25em] text-terminal-dim">solves</div>
-              </div>
-            </div>
+          {/* The clock owns this column outright. The competitor/solve tiles that used
+              to sit under it are gone — from ten metres away nobody reads them, and
+              they were stealing height from the only thing on the board that has to be
+              legible from the back of the room. */}
+          <section className="lg:sticky lg:top-7 lg:h-[calc(100vh-7rem)]">
+            <BoardClock event={game.event} />
           </section>
 
-          <section className="space-y-5">
+          <section className="flex flex-col gap-5">
             {frozen ? (
               <FrozenPanel event={game.event} count={game.leaderboard.length} />
             ) : (
-              <ol className="space-y-2">
+              // One shared grid template across every row, so rank, avatar, name,
+              // solve count and score line up in true columns instead of each row
+              // packing itself independently with flex. Names are a step smaller than
+              // before — they were competing with the clock for attention and losing
+              // the space that the solve feed needed.
+              <ol className="space-y-1.5">
                 {rows.length === 0 && (
                   <li className="rounded-xl border border-dashed border-terminal-border p-12 text-center text-terminal-dim">
                     No one has entered this day yet — waiting for competitors. 🕵️
@@ -239,26 +230,28 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
                   return (
                     <li
                       key={r.player_id}
-                      className={`flex items-center gap-4 rounded-xl border px-5 py-3 transition ${
+                      className={`grid grid-cols-[2.25rem_2rem_1fr_auto_4.5rem] items-center gap-3 rounded-lg border px-4 py-2 transition ${
                         podium
                           ? 'border-terminal-amber/40 bg-terminal-amber/5 shadow-neon-amber'
                           : 'border-terminal-border bg-terminal-panel'
                       }`}
                     >
-                      <span className="w-10 shrink-0 text-center text-2xl font-extrabold text-terminal-dim">
+                      <span className="text-center text-xl font-extrabold tabular-nums text-terminal-dim">
                         {podium ? medal[i] : i + 1}
                       </span>
-                      <span className="text-3xl">{r.avatar}</span>
-                      <span className="flex flex-1 items-center gap-2 truncate text-lg font-bold text-terminal-green sm:text-xl">
-                        <span className="truncate">{r.username}</span>
+                      <span className="text-center text-2xl leading-none">{r.avatar}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-base font-bold text-terminal-green">
+                          {r.username}
+                        </span>
                         {!hasPoints && (
-                          <span className="shrink-0 rounded border border-terminal-dim/40 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">
+                          <span className="shrink-0 rounded border border-terminal-dim/40 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-terminal-dim">
                             entered
                           </span>
                         )}
                       </span>
-                      <span className="shrink-0 text-sm text-terminal-dim">{r.solves_count}★</span>
-                      <span className="w-20 shrink-0 text-right text-2xl font-extrabold tabular-nums text-terminal-amber sm:text-3xl">
+                      <span className="text-xs tabular-nums text-terminal-dim">{r.solves_count}★</span>
+                      <span className="text-right text-xl font-extrabold tabular-nums text-terminal-amber">
                         {r.total_points}
                       </span>
                     </li>
@@ -272,42 +265,47 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
               </ol>
             )}
 
-            {/* The last 3 solves — one card each, not a run-on sentence. */}
-            <div>
+            {/* The last 3 solves, given the room the tiles and the oversized rows were
+                using. This is the part of the board that actually moves during a round,
+                so it should be big enough to catch the eye from across the class. */}
+            <div className="flex min-h-0 flex-1 flex-col">
               <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan">
                 ▸ Latest solves
               </h2>
-              <ul className="space-y-2">
+              <ul className="space-y-2.5">
                 {feed.length === 0 && (
-                  <li className="rounded-xl border border-dashed border-terminal-border px-4 py-5 text-center text-sm text-terminal-dim">
+                  <li className="rounded-xl border border-dashed border-terminal-border px-4 py-10 text-center text-terminal-dim">
                     {game.loading ? 'Loading…' : 'No solves yet — waiting for the first flag! 🚩'}
                   </li>
                 )}
                 {feed.map((a) => (
                   <li
                     key={a.id}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 ${
+                    className={`grid grid-cols-[2.5rem_3rem_1fr_auto] items-center gap-3 rounded-xl border px-4 py-3.5 ${
                       a.type === 'first_blood'
                         ? 'border-terminal-red/50 bg-terminal-red/5'
                         : 'border-terminal-border bg-terminal-panel'
                     }`}
                   >
-                    <span className="text-xl">{a.type === 'first_blood' ? '🩸' : '✓'}</span>
+                    <span className="text-center text-2xl">
+                      {a.type === 'first_blood' ? '🩸' : '✓'}
+                    </span>
                     {/* During the freeze the feed keeps flowing (so the room still
                         feels the action) but names are hidden so it can't reveal
                         who's climbing while standings are blacked out. */}
-                    <span className="text-2xl">{frozen ? '🕵️' : a.avatar}</span>
-                    <span className="flex-1 truncate">
-                      <span className="font-bold text-terminal-green">
+                    <span className="text-center text-3xl leading-none">
+                      {frozen ? '🕵️' : a.avatar}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-lg font-bold text-terminal-green">
                         {frozen ? 'Anonymous' : a.username}
                       </span>
-                      <span className="text-terminal-dim">
-                        {' '}
-                        {a.type === 'first_blood' ? 'drew first blood on' : 'solved'}{' '}
+                      <span className="block truncate text-sm text-terminal-dim">
+                        {a.type === 'first_blood' ? 'first blood · ' : ''}
+                        <span className="text-terminal-text">{a.challengeTitle}</span>
                       </span>
-                      <span className="font-bold text-terminal-text">{a.challengeTitle}</span>
                     </span>
-                    <span className="shrink-0 font-bold tabular-nums text-terminal-amber">
+                    <span className="text-right text-2xl font-extrabold tabular-nums text-terminal-amber">
                       {frozen ? '🔒' : `+${a.points}`}
                     </span>
                   </li>

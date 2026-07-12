@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState } from '../lib/time';
@@ -8,6 +8,7 @@ import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
 import type { Challenge, Day, Difficulty } from '../lib/types';
 import Register from '../components/Register';
+import HeaderBar from '../components/HeaderBar';
 import Timer, { ArenaTimerBanner } from '../components/Timer';
 import Leaderboard from '../components/Leaderboard';
 import ChallengeCard from '../components/ChallengeCard';
@@ -93,7 +94,6 @@ export default function Play() {
   useEffect(() => {
     if (finaleStage >= 0) setFinaleDismissed(false);
   }, [finaleStage]);
-  const showFinale = finaleStage >= 0 && !finaleDismissed;
 
   async function openFinale() {
     if (player?.is_admin && finaleStage < 0) {
@@ -249,6 +249,13 @@ export default function Play() {
   const staleEnded = eventState.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
   const effectiveStatus = staleEnded ? 'idle' : eventState.status;
 
+  // `finale_stage` stays where the instructor left it until the next round starts,
+  // so a stage of 3 from last week's round is still sitting in the database today.
+  // Without this gate every visit — and every refresh — reopened last round's
+  // results over the arena and there was no way to get past them. The finale
+  // belongs to the round that just ended; once that round is stale it's history.
+  const showFinale = finaleStage >= 0 && !finaleDismissed && !staleEnded;
+
   // Fairness blur applies ONLY to the live competition day before/after its
   // round runs — never to completed/practice days. A day marked is_completed by
   // the admin is always readable so students can practice it, even with the
@@ -269,11 +276,23 @@ export default function Play() {
   // at next week's day early) — it is not "finished". `<=` made such a day render
   // here as a blurred "✓ Finished" ghost, which contradicts the never-blurred
   // intent of this section. Keep it hidden until the instructor actually opens it.
-  const finishedLockedDays = sortedDays.filter(
-    (d) =>
-      (d.is_open && !d.is_rest && d.is_completed) ||
-      (!d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order < activeSortOrder),
-  );
+  //
+  // Ordered newest-first (reverse sort_order): the day you just finished is the one
+  // you want to look back at, so it belongs at the top of the section rather than
+  // under every day that came before it.
+  //
+  // A day the instructor marked completed belongs here whether or not it is still
+  // open. It used to require is_open, so the day that had just been played — closed
+  // by the old auto-lock the moment the round ended — matched neither this filter
+  // nor the live one (it was the active day, so `sort_order < activeSortOrder` was
+  // false too) and vanished from the arena entirely.
+  const finishedLockedDays = sortedDays
+    .filter(
+      (d) =>
+        (!d.is_rest && d.is_completed) ||
+        (!d.is_open && !d.is_rest && activeSortOrder >= 0 && d.sort_order < activeSortOrder),
+    )
+    .reverse();
   // Future locked days are intentionally not rendered — students shouldn't see them.
 
   const open = game.challenges.find((c) => c.id === openId) ?? null;
@@ -496,72 +515,25 @@ export default function Play() {
     <div className="min-h-full">
       <Toasts announcements={game.announcements} event={game.event} />
 
-      {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-terminal-border bg-terminal-bg/95">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          {/* Logo — clickable home link */}
-          <Link to="/" className="flex flex-col no-underline">
-            <span className="text-xl font-extrabold tracking-tight text-terminal-green drop-shadow-[0_0_8px_rgb(var(--c-green)/0.5)]">
-              KGSP<span className="text-terminal-strong">//</span>CTF
-            </span>
-            <span className="text-[9px] uppercase tracking-[0.25em] text-terminal-dim">
-              KUAST Academy
-            </span>
-          </Link>
+      {/* Sound-only timer — plays the countdown cues, renders nothing. Mounted here,
+          outside every overlay, so the cues keep playing over the Board and Admin. */}
+      <Timer event={game.event} />
 
-          {/* Sound-only timer — plays tick/time-up sounds, no visual */}
-          <Timer event={game.event} />
-
-          <div className="flex items-center gap-2">
-            {player?.is_admin && (
-              <>
-                <button
-                  onClick={() => setShowAdmin(true)}
-                  className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
-                >
-                  🛠 Admin
-                </button>
-                <button
-                  onClick={() => setShowBoard(true)}
-                  className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/10"
-                >
-                  🖥 Board
-                </button>
-              </>
-            )}
-            {player && (
-              <button
-                onClick={() => setShowProfile(true)}
-                className="group flex items-center gap-2 rounded-lg border border-terminal-border bg-terminal-input/60 px-3 py-1.5 transition hover:border-terminal-green hover:shadow-neon"
-              >
-                <span className="text-lg">{player.avatar}</span>
-                <div className="text-right">
-                  <div className="max-w-[9rem] truncate text-sm font-bold text-terminal-green group-hover:underline">
-                    {player.username}
-                  </div>
-                  <div className="text-[11px] text-terminal-dim">
-                    <span className="text-terminal-amber">{game.myPoints}</span> / {totalPossible} pts
-                  </div>
-                </div>
-              </button>
-            )}
-            <button
-              onClick={toggleTheme}
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
-            <button
-              onClick={toggleMute}
-              title={muted ? 'Unmute' : 'Mute'}
-              className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-            >
-              {muted ? '🔇' : '🔊'}
-            </button>
-          </div>
-        </div>
-      </header>
+      <HeaderBar
+        player={player}
+        view={showAdmin ? 'admin' : showBoard ? 'board' : 'arena'}
+        onView={(v) => {
+          setShowAdmin(v === 'admin');
+          setShowBoard(v === 'board');
+        }}
+        myPoints={game.myPoints}
+        totalPoints={totalPossible}
+        muted={muted}
+        toggleMute={toggleMute}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        onProfile={() => setShowProfile(true)}
+      />
 
       {/* Large prominent timer display */}
       <ArenaTimerBanner event={game.event} />

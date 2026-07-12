@@ -305,7 +305,23 @@ export async function adminAddTime(secret: string, minutes: number) {
     p_minutes: minutes,
   });
   if (error) throw new Error(error.message);
-  return data as { error?: string; message?: string; ok?: boolean; ends_at?: string; duration_minutes?: number };
+  return data as { error?: string; message?: string; ok?: boolean; ends_at?: string };
+}
+
+/**
+ * Persist the round length used by the next start. This has to be saved server-side:
+ * while it lived only in the panel's local state, typing a value and refreshing threw
+ * it away, and adminAddTime used to overwrite duration_minutes with the running
+ * round's elapsed span — so a round that got "+15 min" four times came back as a
+ * 188-minute round length.
+ */
+export async function adminSetDuration(secret: string, minutes: number) {
+  const { data, error } = await supabase.rpc('admin_set_duration', {
+    p_secret: secret,
+    p_minutes: minutes,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; duration_minutes?: number };
 }
 
 export async function adminStopEvent(secret: string) {
