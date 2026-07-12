@@ -239,15 +239,16 @@ export default function AdminPanel({
     });
   }
 
-  // In embedded mode the panel is a full-screen overlay ON the arena URL — there
-  // is no /admin route anymore (navigating to a separate route was causing the
-  // arena's realtime/game state to remount). Otherwise render as a normal page.
+  // In embedded mode the panel is one of the tabs in the persistent HeaderBar —
+  // there is no /admin route anymore (navigating to a separate route was causing
+  // the arena's realtime/game state to remount). It renders as normal in-page
+  // content below that header, NOT a `fixed inset-0` overlay: a fixed overlay
+  // opens a stacking context above the header's `sticky` one and paints straight
+  // over it, which is what made clicking "Admin" look like it navigated away to a
+  // different, header-less page. Otherwise (standalone/non-embedded) render as a
+  // normal page.
   const wrap = (node: JSX.Element) =>
-    embedded ? (
-      <div className="fixed inset-0 z-40 overflow-y-auto bg-terminal-bg">{node}</div>
-    ) : (
-      node
-    );
+    embedded ? <div className="bg-terminal-bg">{node}</div> : node;
 
   // Not logged in
   if (!player) return <Register />;
@@ -309,19 +310,14 @@ export default function AdminPanel({
 
   return wrap(
     <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header bar */}
-      <div className="mb-4 flex items-center justify-between">
-        {embedded ? (
-          <button
-            onClick={onClose}
-            className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
-          >
-            ‹ back to the arena
-          </button>
-        ) : (
+      {/* Header bar. Embedded mode has no "back to the arena" link — the persistent
+          HeaderBar's "Arena" tab above already is that link, and duplicating it here
+          reads as a second, disconnected page rather than a tab of the same one. */}
+      <div className="mb-4 flex items-center justify-end">
+        {!embedded && (
           <Link
             to="/"
-            className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+            className="mr-auto text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
           >
             ‹ back to the arena
           </Link>

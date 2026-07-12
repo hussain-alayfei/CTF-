@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatDuration, isFrozen, strobeMs } from '../lib/time';
 import useCountdown from '../lib/useCountdown';
-import { useApp } from '../lib/app-context';
 import type { EventConfig } from '../lib/types';
 import type { Game } from '../lib/useGame';
 
@@ -102,14 +101,16 @@ function FrozenPanel({ event, count }: { event: EventConfig | null; count: numbe
 }
 
 /**
- * Full-screen "present to the class" board, rendered as an in-page overlay on the
- * arena (no /board route). It reuses the arena's live `game` object — the same
- * realtime feed the arena already subscribes to — so it's always in sync with zero
- * extra network. Countdown sounds are owned by <Timer> in the arena header, which
- * stays mounted underneath this overlay.
+ * The "present to the class" board — one of the tabs in the persistent header
+ * (HeaderBar), rendered as normal in-page content below it (NOT a fixed
+ * full-viewport overlay: that used to paint over the header, in a higher
+ * stacking context than its `sticky`, and made switching tabs look like a
+ * broken navigation to a different page). It reuses the arena's live `game`
+ * object — the same realtime feed the arena already subscribes to — so it's
+ * always in sync with zero extra network. Countdown sounds are owned by
+ * <Timer> in the arena header, which stays mounted the whole time.
  */
 export default function Board({ game, onClose }: { game: Game; onClose: () => void }) {
-  const { muted, toggleMute } = useApp();
   const activeDayNum = game.event?.active_day ?? null;
 
   // Score-freeze for the final N minutes. Flip exactly at the freeze boundary and
@@ -171,32 +172,16 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
   const overflow = game.leaderboard.length - rows.length;
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-terminal-bg p-5 text-terminal-text sm:p-7">
+    <div className="bg-terminal-bg p-5 text-terminal-text sm:p-7">
       <div className="mx-auto max-w-[1600px]">
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.4em] text-terminal-dim">
-              KGSP // CTF — Live Board
-            </div>
-            <h1 className="text-xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgb(var(--c-green)/0.4)] sm:text-2xl">
-              {activeDay?.title ?? 'No active day set'}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleMute}
-              title={muted ? 'Unmute the countdown' : 'Mute the countdown'}
-              className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-            >
-              {muted ? '🔇' : '🔊'}
-            </button>
-            <button
-              onClick={onClose}
-              className="rounded-lg border border-terminal-border px-3 py-2 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
-            >
-              ✕ Close
-            </button>
-          </div>
+        {/* No brand eyebrow, mute toggle or close button here — the persistent
+            HeaderBar above already owns all three (mute icon, and the "Arena" tab
+            is the way back). Duplicating them made this look like a second,
+            disconnected header rather than a tab of the same page. */}
+        <header className="mb-5">
+          <h1 className="text-xl font-extrabold text-terminal-green drop-shadow-[0_0_10px_rgb(var(--c-green)/0.4)] sm:text-2xl">
+            {activeDay?.title ?? 'No active day set'}
+          </h1>
         </header>
 
         {/* Column 1: the clock, on its own. Column 2: standings + activity. */}
