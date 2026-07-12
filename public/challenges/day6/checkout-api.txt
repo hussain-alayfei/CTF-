@@ -1,0 +1,20 @@
+A store's checkout API, captured while an attacker probed the money math.
+
+  POST /api/cart/checkout   {"item":"laptop","qty":1,"price":1200}
+  200 OK  {"charged":1200.00,"status":"paid"}
+
+  POST /api/cart/checkout   {"item":"laptop","qty":1,"price":1}
+  400 Bad Request  {"error":"price is set server-side, not by the client"}
+
+  POST /api/cart/checkout   {"item":"laptop","qty":90,"coupon":"SAVE10"}
+  200 OK  {"charged":97200.00,"status":"paid"}          # coupon = 10% off, fine
+
+  POST /api/cart/checkout   {"item":"laptop","qty":-5}
+  200 OK  {"charged":-6000.00,"status":"refunded",
+            "store_credit_code":"bG9naWNfYmVhdHNfYnJ1dGU="}            # negative qty => refund!
+
+The price field is validated, but the QUANTITY is not — a negative quantity
+turns a purchase into a refund and mints store credit. No exploit tool
+finds this; only reading the math does. It is a business-logic flaw. Decode
+the store_credit_code from the successful attack and submit it.
+Answer format: lowercase, words joined by underscores.

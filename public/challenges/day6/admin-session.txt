@@ -1,0 +1,10 @@
+Pulled straight from a user's Authorization header:
+
+    Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4NDIiLCJ1c2VyIjoiaGVscGRlc2siLCJyb2xlIjoic3VwcG9ydCIsIm5vdGUiOiJhbmQwWDI1dmRGOWxibU55ZVhCMFpXUT0iLCJpYXQiOjE3NTIwMTkyMDB9.GXmtFIW29cAdt1tzbAHWytSYRAHVOLMKmI8wP9uVNx8
+
+A JSON Web Token is SIGNED, not ENCRYPTED — the middle section is just
+base64url-encoded JSON that anyone can read with no key at all. A careless
+developer stashed a private note inside one of the claims. Decode the
+token (jwt.io, CyberChef, or `base64 -d`), read the "note" claim, decode
+THAT too, and submit what it says. No cracking, no special tools.
+Answer format: lowercase, words joined by underscores.

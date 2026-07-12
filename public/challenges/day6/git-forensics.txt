@@ -1,0 +1,18 @@
+A web app left its .git/ directory exposed, so you cloned the full history.
+
+  $ git log --oneline
+  e91a2c7 (HEAD) hotfix: read DB creds from an environment variable
+  3b4f8a1 remove hardcoded database password
+  7c2d9e0 initial commit
+
+  $ git show 3b4f8a1          # the commit that "removed" the secret
+  --- a/config/database.php
+  +++ b/config/database.php
+  @@ -8,7 +8,7 @@
+  -$DB_PASSWORD = base64_decode("Z2l0X25ldmVyX2ZvcmdldHM=");
+  +$DB_PASSWORD = getenv("DB_PASSWORD");
+
+Deleting a secret in a LATER commit does not erase it from history — the
+diff of the "removal" commit still shows exactly what was taken out.
+Recover the old database password (decode it) and submit the plaintext.
+Answer format: lowercase, words joined by underscores.
