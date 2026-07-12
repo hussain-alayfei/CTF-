@@ -42,7 +42,13 @@ export default function HeaderBar({
 
   return (
     <header className="ctf-header sticky top-0 z-20 border-b border-terminal-green/25 bg-terminal-bg/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
+      {/* `relative` on the row + `absolute inset-0 flex justify-center` on the nav is
+          what actually centers it IN THE HEADER: a plain flex `justify-between` only
+          centers between whatever the logo and the profile chip happen to measure,
+          which drifts off-middle the moment either side changes width (a longer
+          username, admin-only tabs appearing). Layering the nav absolutely over the
+          row centers it against the header itself, independent of both sides. */}
+      <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         {/* ── Identity ── */}
         <Link to="/" className="group flex shrink-0 items-baseline gap-2 no-underline">
           <span
@@ -56,8 +62,12 @@ export default function HeaderBar({
           </span>
         </Link>
 
-        {/* ── Navigation — the actual tabs ── */}
-        <nav className="order-3 flex w-full items-center gap-1 rounded-lg border border-terminal-border bg-terminal-input/50 p-1 sm:order-none sm:ml-auto sm:w-auto">
+        {/* ── Navigation — big, uniform tabs, dead center of the header ──
+            The true-center trick (absolute + left-1/2 + -translate-x-1/2) only has
+            room once the logo and profile chip aren't fighting it for space, so it
+            only kicks in at `lg`. Below that the nav drops to its own full-width row
+            (order-3) and centers itself there with justify-center instead. */}
+        <nav className="order-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-terminal-border bg-terminal-input/50 p-1.5 lg:order-none lg:absolute lg:left-1/2 lg:top-1/2 lg:w-auto lg:-translate-x-1/2 lg:-translate-y-1/2">
           <Tab active={view === 'arena'} onClick={() => onView('arena')} glyph="▚" label="Arena" />
           {player.is_admin && (
             <>
@@ -68,7 +78,7 @@ export default function HeaderBar({
         </nav>
 
         {/* ── You ── */}
-        <div className="ml-auto flex items-center gap-2 sm:ml-0">
+        <div className="ml-auto flex items-center gap-2 sm:ml-auto">
           <button
             onClick={onProfile}
             title="Your profile"
@@ -127,7 +137,10 @@ function Tab({
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3.5 py-1.5 font-mono text-xs font-bold uppercase tracking-widest transition sm:flex-none ${
+      // Fixed width (not flex-1 / content-width) so Arena / Board / Admin are the
+      // same size as each other regardless of label length — a uniform row of
+      // buttons instead of one that visibly balloons or shrinks per tab.
+      className={`flex w-24 shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-mono text-sm font-bold uppercase tracking-widest transition sm:w-28 ${
         active
           ? 'bg-terminal-green/15 text-terminal-green shadow-neon ring-1 ring-terminal-green/60'
           : 'text-terminal-dim hover:bg-terminal-green/5 hover:text-terminal-green/80'
