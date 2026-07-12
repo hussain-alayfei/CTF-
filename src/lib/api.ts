@@ -167,7 +167,7 @@ function sortLeaderboard(rows: LeaderboardRow[]): LeaderboardRow[] {
 export async function fetchEventConfig(): Promise<EventConfig> {
   const { data, error } = await supabase
     .from('event_config')
-    .select('name, starts_at, ends_at, duration_minutes, freeze_minutes, active_day')
+    .select('name, starts_at, ends_at, duration_minutes, freeze_minutes, active_day, finale_stage')
     .eq('id', 1)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -178,6 +178,7 @@ export async function fetchEventConfig(): Promise<EventConfig> {
     duration_minutes: 35,
     freeze_minutes: 15,
     active_day: null,
+    finale_stage: -1,
   }) as EventConfig;
 }
 
@@ -311,6 +312,22 @@ export async function adminStopEvent(secret: string) {
   const { data, error } = await supabase.rpc('admin_stop_event', { p_secret: secret });
   if (error) throw new Error(error.message);
   return data as { error?: string; message?: string };
+}
+
+/**
+ * Advance the finale. Writing the stage to event_config (rather than firing a
+ * broadcast) means every screen picks it up through the realtime feed it already
+ * has — and a screen that joins late or refreshes lands on the right stage instead
+ * of missing the reveal entirely.
+ *   -1 closed · 0 cards face down · 1 third · 2 second · 3 first
+ */
+export async function adminSetFinaleStage(secret: string, stage: number) {
+  const { data, error } = await supabase.rpc('admin_set_finale_stage', {
+    p_secret: secret,
+    p_stage: stage,
+  });
+  if (error) throw new Error(error.message);
+  return data as { error?: string; message?: string; ok?: boolean; finale_stage?: number };
 }
 
 /**

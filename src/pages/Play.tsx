@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState } from '../lib/time';
-import { checkDayCode } from '../lib/api';
+import { adminSetFinaleStage, checkDayCode } from '../lib/api';
 import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
 import type { Challenge, Day, Difficulty } from '../lib/types';
@@ -13,7 +13,7 @@ import Leaderboard from '../components/Leaderboard';
 import ChallengeCard from '../components/ChallengeCard';
 import ChallengeModal from '../components/ChallengeModal';
 import Toasts from '../components/Toasts';
-import Podium from '../components/Podium';
+import Finale from '../components/Finale';
 import ProfileModal from '../components/ProfileModal';
 import GoOverlay from '../components/GoOverlay';
 import AdminPanel from './AdminPanel';
@@ -79,13 +79,28 @@ export default function Play() {
     }
   }, [openId, game.challenges]);
   const [now, setNow] = useState(Date.now());
-  const [showPodium, setShowPodium] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [showGo, setShowGo] = useState(false);
-  const podiumShown = useRef(false);
   const prevStatus = useRef<string | null>(null);
+
+  // The finale is driven by event.finale_stage, so the instructor's clicks land on
+  // every screen in the room at once. Local state only decides whether *this*
+  // screen has dismissed it; any advance by the instructor pulls it back up.
+  const finaleStage = game.event?.finale_stage ?? -1;
+  const [finaleDismissed, setFinaleDismissed] = useState(false);
+  useEffect(() => {
+    if (finaleStage >= 0) setFinaleDismissed(false);
+  }, [finaleStage]);
+  const showFinale = finaleStage >= 0 && !finaleDismissed;
+
+  async function openFinale() {
+    if (player?.is_admin && finaleStage < 0) {
+      await adminSetFinaleStage(player.admin_token ?? '', 0); // face-down cards, for everyone
+    }
+    setFinaleDismissed(false);
+  }
 
   // Per-day code gate (client-side unlock cache)
   const [unlockedDays, setUnlockedDays] = useState<Set<number>>(loadUnlockedDays);
@@ -146,22 +161,6 @@ export default function Play() {
     });
   }
 
-  // Only auto-show the podium if the status transitioned to 'ended' while this
-  // player was already on the page (prevStatus was 'running'). Logging in while
-  // the event is already over must NOT pop the podium automatically — the player
-  // missed the live reveal and can use "Show final results" if needed.
-  useEffect(() => {
-    if (
-      eventState.status === 'ended' &&
-      prevStatus.current === 'running' &&
-      !podiumShown.current &&
-      game.leaderboard.some((r) => r.total_points > 0)
-    ) {
-      podiumShown.current = true;
-      setShowPodium(true);
-    }
-  }, [eventState.status, game.leaderboard]);
-
   // Announce the round start exactly ONCE per round. The marker is keyed by the
   // round's starts_at and persisted in sessionStorage, so opening a challenge
   // route and returning here (which remounts this whole component) does NOT
@@ -186,9 +185,10 @@ export default function Play() {
         } catch {
           /* ignore */
         }
-        // A genuinely new round: allow its finale to trigger again later.
-        podiumShown.current = false;
-        setShowPodium(false);
+        // A genuinely new round. admin_start_event resets finale_stage to -1 on the
+        // server, so the finale closes itself on every screen; just clear the local
+        // dismissal so the next reveal isn't suppressed here.
+        setFinaleDismissed(false);
         playEventStart();
         setShowGo(true);
         // GoOverlay runs its own 3-2-1-GO sequence and calls onDone when done.
@@ -580,9 +580,17 @@ export default function Play() {
       {effectiveStatus === 'ended' && (
         <div className="border-b border-terminal-red/40 bg-terminal-red/10 px-4 py-2 text-center text-sm font-bold text-terminal-red">
           ⏹ The event has ended.{' '}
-          <button onClick={() => setShowPodium(true)} className="underline">
-            🏁 Show final results
-          </button>
+          {player?.is_admin ? (
+            <button onClick={() => void openFinale()} className="underline">
+              🏁 {finaleStage < 0 ? 'Start the final reveal' : 'Reopen the final reveal'}
+            </button>
+          ) : finaleStage >= 0 ? (
+            <button onClick={() => setFinaleDismissed(false)} className="underline">
+              🏁 Show final results
+            </button>
+          ) : (
+            <span className="font-normal">Watch the big screen for the results…</span>
+          )}
         </div>
       )}
 
@@ -713,9 +721,16 @@ export default function Play() {
         />
       )}
 
-      {/* Finale */}
-      {showPodium && (
-        <Podium rows={game.leaderboard} meId={player?.id ?? null} onClose={() => setShowPodium(false)} />
+      {/* Finale — synced card reveal, driven by event.finale_stage */}
+      {showFinale && (
+        <Finale
+          rows={game.leaderboard}
+          meId={player?.id ?? null}
+          event={game.event}
+          isAdmin={!!player?.is_admin}
+          adminSecret={player?.admin_token ?? ''}
+          onClose={() => setFinaleDismissed(true)}
+        />
       )}
 
       {/* Instructor panel — in-page overlay (replaces the old /admin route so the
@@ -723,6 +738,7 @@ export default function Play() {
       {showAdmin && player?.is_admin && (
         <AdminPanel
           embedded
+          game={game}
           onClose={() => setShowAdmin(false)}
           onPresentBoard={() => {
             setShowAdmin(false);

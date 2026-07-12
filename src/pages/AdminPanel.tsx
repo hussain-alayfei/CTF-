@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   adminAddTime,
@@ -11,12 +11,15 @@ import {
   adminSetDay,
   adminSetDayCode,
   adminSetDayCompleted,
+  adminSetFinaleStage,
   adminSetFreeze,
   adminSetPlayerExcluded,
   adminStartEvent,
   adminStopEvent,
 } from '../lib/api';
-import { formatDuration, getEventState } from '../lib/time';
+import { formatDuration, strobeMs, type CountdownState } from '../lib/time';
+import useCountdown from '../lib/useCountdown';
+import type { Game } from '../lib/useGame';
 import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer, AdminPlayerSolve } from '../lib/types';
 import { useApp } from '../lib/app-context';
 import { clearPlayer } from '../lib/session';
@@ -47,12 +50,22 @@ const OLD_TAB_MIGRATION: Record<string, TabId> = {
 
 export default function AdminPanel({
   embedded = false,
+  game,
   onClose,
   onPresentBoard,
 }: {
   /** When true the panel renders as a full-screen overlay on the arena URL
    *  (no /admin route) — "back to the arena" calls onClose instead of navigating. */
   embedded?: boolean;
+  /**
+   * The arena's live game object. The panel used to read the event from its own
+   * 5-second poll, so the instructor's clock jumped in 5s steps and could sit
+   * seconds behind what the room was seeing. Reading the event straight off the
+   * arena's realtime feed instead means "+5 min" lands here, on the players'
+   * screens and on the projector from the same update — no refresh, no drift, and
+   * no second subscription.
+   */
+  game?: Game;
   onClose?: () => void;
   /** Opens the projector board overlay (closing this panel first). Provided by
    *  the arena, which owns both overlays. */
@@ -219,10 +232,17 @@ export default function AdminPanel({
     }
   }
 
-  const state = getEventState(data?.event ?? null);
-  const isIdle = state.status === 'idle';
-  const isRunning = state.status === 'running';
-  const isEnded = state.status === 'ended';
+  // The live event, straight off the arena's realtime feed (falling back to the
+  // polled copy only if the panel is ever rendered outside the arena). useCountdown
+  // ticks it, so the clock below actually counts down instead of stepping in 5s
+  // jumps whenever the poll happened to land.
+  const liveEvent = game?.event ?? data?.event ?? null;
+  const clock = useCountdown(liveEvent);
+  const isIdle = clock.status === 'idle';
+  const isRunning = clock.status === 'running';
+  const isEnded = clock.status === 'ended';
+  const activeDay = liveEvent?.active_day ?? null;
+  const finaleStage = liveEvent?.finale_stage ?? -1;
   const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
   const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
 
@@ -299,11 +319,12 @@ export default function AdminPanel({
   const week2Days = days.filter((d) => d.day >= 6 && d.day <= 10);
 
   function handleStartEvent() {
-    run(async () => {
-      return await adminStartEvent(secret, validMinutes);
-    }, isRunning
-      ? `Restart the round with a fresh ${validMinutes}-minute timer? The clock resets to full and the "3-2-1 GO!" intro plays again for everyone. Scores are kept.\n\nJust want to give more time? Cancel and use "Adjust the running clock" instead — it adds minutes without restarting or replaying the intro.`
-      : undefined);
+    run(
+      async () => await adminStartEvent(secret, validMinutes),
+      isRunning
+        ? `Restart with a fresh ${validMinutes}-minute clock? Scores are kept, but the intro replays.\n\nJust need more time? Cancel and use "+ Add" instead.`
+        : undefined,
+    );
   }
 
   return wrap(
@@ -402,31 +423,123 @@ export default function AdminPanel({
       {/* Tab content */}
       <div className="mt-6">
         {tab === 'event' && (
-          <section className="rounded-xl border border-terminal-border bg-terminal-panel p-5">
-            <h2 className="mb-4 text-lg font-bold uppercase tracking-widest text-terminal-cyan">
-              ▸ Event Control
-            </h2>
+          <div className="space-y-4">
+            {/* ── THE ROUND ─────────────────────────────────────────────
+                Live clock + the three things you actually press mid-event. */}
+            <Card title="The round">
+              <AdminClock clock={clock} />
 
-            {/* Big status banner */}
-            <StatusBanner
-              status={state.status}
-              endsAt={data?.event?.ends_at ?? null}
-              remainingMs={state.remainingMs}
-            />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  disabled={busy}
+                  onClick={handleStartEvent}
+                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+                >
+                  {isRunning ? `🔁 Restart · ${validMinutes} min` : `▶ Start · ${validMinutes} min`}
+                </button>
+                <button
+                  disabled={busy || !isRunning}
+                  onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
+                  title={!isRunning ? 'Nothing is running right now.' : undefined}
+                  className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                >
+                  ⏹ Stop now
+                </button>
+              </div>
 
-            {/* Active day picker — merged in from the old separate "Active Day"
-                tab. This is the day players see as the "live" leaderboard and
-                what Reset/Players are scoped to, so it lives right next to the
-                status banner instead of being a click away in another tab. */}
-            <div className="mt-4 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 p-4">
-              <h3 className="mb-1 text-xs font-bold uppercase tracking-widest text-terminal-cyan">
-                ▸ Active day (live leaderboard)
-              </h3>
-              <p className="mb-3 text-[11px] text-terminal-dim">
-                Students only see the leaderboard for this day. Reset and the Players tab are also
-                scoped to it. Past days&apos; scores are never lost when you switch.
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
+              {/* Adjust the clock without restarting. Restart resets starts_at, which
+                  replays the 3-2-1 GO! intro; this only moves ends_at. */}
+              {(isRunning || isEnded) && (
+                <div className="mt-4 border-t border-terminal-border pt-4">
+                  <Label>
+                    Adjust the clock{' '}
+                    <span className="font-normal normal-case text-terminal-dim">
+                      — no restart, no replayed intro
+                    </span>
+                  </Label>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {[5, 15].map((m) => (
+                      <button
+                        key={m}
+                        disabled={busy}
+                        onClick={() => run(() => adminAddTime(secret, m))}
+                        className="rounded-lg border border-terminal-green/50 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                      >
+                        +{m} min
+                      </button>
+                    ))}
+                    <button
+                      disabled={busy}
+                      onClick={() => run(() => adminAddTime(secret, -5))}
+                      className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                    >
+                      −5 min
+                    </button>
+                    <span className="mx-1 hidden h-6 w-px bg-terminal-border sm:block" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={adjustStr}
+                      onChange={(e) => setAdjustStr(e.target.value)}
+                      aria-label="Custom minutes to add or remove"
+                      className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
+                    />
+                    <button
+                      disabled={busy || validAdjust === 0}
+                      onClick={() => run(() => adminAddTime(secret, validAdjust))}
+                      className="rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                    >
+                      ＋ Add
+                    </button>
+                    <button
+                      disabled={busy || validAdjust === 0}
+                      onClick={() => run(() => adminAddTime(secret, -validAdjust))}
+                      className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                    >
+                      － Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* ── THE FINALE ───────────────────────────────────────────
+                Drives the reveal on every screen in the room at once. */}
+            {isEnded && (
+              <Card title="The finale" tone="amber">
+                <p className="text-xs text-terminal-dim">
+                  Opens the card table on <strong className="text-terminal-amber">every screen</strong>.
+                  Click the cards to reveal 3rd → 2nd → 1st.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    disabled={busy || finaleStage >= 0}
+                    onClick={() => run(() => adminSetFinaleStage(secret, 0))}
+                    className="rounded-lg border border-terminal-amber bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    🏁 Open the reveal
+                  </button>
+                  <button
+                    disabled={busy || finaleStage < 0}
+                    onClick={() => run(() => adminSetFinaleStage(secret, -1))}
+                    className="rounded-lg border border-terminal-border px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red disabled:opacity-40"
+                  >
+                    ✕ End it
+                  </button>
+                  {finaleStage >= 0 && (
+                    <span className="self-center text-xs text-terminal-dim">
+                      {finaleStage === 0
+                        ? 'Cards are face down.'
+                        : `Revealed: ${finaleStage} of 3.`}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* ── THE LIVE DAY ─────────────────────────────────────────── */}
+            <Card title="The live day" tone="cyan">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={activeDaySel}
                   onChange={(e) => setActiveDaySel(Number(e.target.value))}
@@ -438,16 +551,12 @@ export default function AdminPanel({
                   {days.map((d) => (
                     <option key={d.day} value={d.day}>
                       {d.title}
-                      {d.day === data?.event?.active_day ? ' · live' : ''}
+                      {d.day === activeDay ? ' · live' : ''}
                     </option>
                   ))}
                 </select>
                 <button
-                  disabled={
-                    busy ||
-                    activeDaySel === '' ||
-                    Number(activeDaySel) === data?.event?.active_day
-                  }
+                  disabled={busy || activeDaySel === '' || Number(activeDaySel) === activeDay}
                   onClick={() =>
                     run(
                       () => adminSetActiveDay(secret, Number(activeDaySel)),
@@ -456,216 +565,122 @@ export default function AdminPanel({
                   }
                   className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
                 >
-                  {activeDaySel !== '' && Number(activeDaySel) === data?.event?.active_day
-                    ? '✓ Currently live'
-                    : 'Set active day'}
+                  {activeDaySel !== '' && Number(activeDaySel) === activeDay
+                    ? '✓ Live'
+                    : 'Set live'}
                 </button>
                 <span className="text-xs text-terminal-dim">
-                  Currently live:{' '}
+                  Now:{' '}
                   <strong className="text-terminal-green">
-                    {days.find((d) => d.day === data?.event?.active_day)?.title ??
-                      `Day ${data?.event?.active_day ?? '—'}`}
+                    {days.find((d) => d.day === activeDay)?.title ?? `Day ${activeDay ?? '—'}`}
                   </strong>
                 </span>
               </div>
-            </div>
 
-            {/* Guard rail: the live day is set but still LOCKED, so students hit
-                the code gate and can't enter — the #1 "why can't they play?"
-                footgun. Surface it right here with a one-click fix. */}
-            {data?.event?.active_day != null &&
-              days.find((d) => d.day === data?.event?.active_day)?.is_open === false && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
+              {/* The #1 "why can't they play?" footgun: day is live but still locked. */}
+              {activeDay != null &&
+                days.find((d) => d.day === activeDay)?.is_open === false && (
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-4 py-3">
+                    <div className="text-sm text-terminal-amber">
+                      ⚠ Locked — students can&apos;t enter it yet.
+                    </div>
+                    <button
+                      disabled={busy}
+                      onClick={() => run(() => adminSetDay(secret, activeDay, true))}
+                      className="shrink-0 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                    >
+                      🔓 Unlock now
+                    </button>
+                  </div>
+                )}
+
+              {isEnded && autoLockMin !== null && activeDay != null && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
                   <div className="text-sm text-terminal-amber">
-                    ⚠ The live day is <strong>locked</strong> — students can&apos;t enter it yet.
+                    ⏳ Auto-locks in ~{autoLockMin} min
                   </div>
                   <button
                     disabled={busy}
-                    onClick={() => run(() => adminSetDay(secret, data!.event!.active_day!, true))}
-                    className="shrink-0 rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                    onClick={() =>
+                      run(() => adminSetDay(secret, activeDay, false), 'Lock the active day now?')
+                    }
+                    className="shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
                   >
-                    🔓 Unlock it now
+                    Lock now
                   </button>
                 </div>
               )}
+            </Card>
 
-            {/* Auto-lock countdown */}
-            {isEnded && autoLockMin !== null && (
-              <div className="mt-4 flex items-center justify-between rounded-lg border border-terminal-amber/40 bg-terminal-amber/5 px-4 py-3">
+            {/* ── SETUP ────────────────────────────────────────────────── */}
+            <Card title="Setup">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <div>
-                  <div className="text-sm font-bold text-terminal-amber">
-                    ⏳ Active day auto-locks in ~{autoLockMin} minute{autoLockMin === 1 ? '' : 's'}
-                  </div>
-                  <div className="text-[11px] text-terminal-dim">
-                    30 minutes after the event ended — or lock it now to start fresh.
-                  </div>
-                </div>
-                <button
-                  disabled={busy || data?.event?.active_day == null}
-                  onClick={() =>
-                    run(
-                      () => adminSetDay(secret, data!.event!.active_day!, false),
-                      'Lock the active day now?',
-                    )
-                  }
-                  className="ml-4 shrink-0 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                >
-                  Lock now
-                </button>
-              </div>
-            )}
-
-            {/* Duration & freeze inputs side by side */}
-            <div className="mt-5 grid grid-cols-2 gap-6">
-              <div>
-                <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-                  Duration (minutes)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={minutesStr}
-                  onChange={(e) => setMinutesStr(e.target.value)}
-                  className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs uppercase tracking-widest text-terminal-dim">
-                  Score freeze (final minutes)
-                </label>
-                <div className="flex gap-2">
+                  <Label>Round length (min)</Label>
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={freezeStr}
-                    onChange={(e) => setFreezeStr(e.target.value)}
-                    className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+                    value={minutesStr}
+                    onChange={(e) => setMinutesStr(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
                   />
-                  <button
-                    disabled={busy}
-                    onClick={() => run(() => adminSetFreeze(secret, validFreeze))}
-                    className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
-                  >
-                    Save
-                  </button>
+                  <p className="mt-1 text-[11px] text-terminal-dim">Applied on the next start.</p>
                 </div>
-              </div>
-            </div>
-
-            <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
-              On the projector board (<strong className="text-terminal-cyan">🖥 Present board</strong>),
-              scores hide during the final <strong className="text-terminal-amber">{validFreeze}</strong>{' '}
-              minute{validFreeze === 1 ? '' : 's'} to keep the finish a surprise, then reveal when time
-              ends. Set to <strong>0</strong> to keep the board live the whole round.
-            </p>
-
-            {/* Adjust the running clock without restarting — the clean way to
-                "give players 15 more minutes". Unlike Restart this never resets
-                starts_at, so the 3-2-1 GO! intro does NOT replay and elapsed
-                time is preserved. Only meaningful once a round has started. */}
-            {(isRunning || isEnded) && (
-              <div className="mt-5 rounded-lg border border-terminal-green/30 bg-terminal-green/5 p-4">
-                <h3 className="mb-1 text-xs font-bold uppercase tracking-widest text-terminal-green">
-                  ▸ Adjust the running clock
-                </h3>
-                <p className="mb-3 text-[11px] leading-relaxed text-terminal-dim">
-                  Give the <strong>current</strong> round more (or less) time. This only moves the
-                  clock — it does <strong className="text-terminal-green">not</strong> restart the
-                  event or replay the “3-2-1 GO!” intro, and time already played is kept.
-                  {isEnded && ' Adding time to an ended round brings it back to live.'}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {[5, 15].map((m) => (
+                <div>
+                  <Label>Score freeze (final min)</Label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={freezeStr}
+                      onChange={(e) => setFreezeStr(e.target.value)}
+                      className="w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
+                    />
                     <button
-                      key={m}
                       disabled={busy}
-                      onClick={() => run(() => adminAddTime(secret, m))}
-                      className="rounded-lg border border-terminal-green/50 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                      onClick={() => run(() => adminSetFreeze(secret, validFreeze))}
+                      className="whitespace-nowrap rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-3 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
                     >
-                      +{m} min
+                      Save
                     </button>
-                  ))}
-                  <button
-                    disabled={busy}
-                    onClick={() => run(() => adminAddTime(secret, -5))}
-                    className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                  >
-                    −5 min
-                  </button>
-                  <span className="mx-1 hidden h-6 w-px bg-terminal-border sm:block" />
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={adjustStr}
-                    onChange={(e) => setAdjustStr(e.target.value)}
-                    aria-label="Custom minutes to add or remove"
-                    className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
-                  />
-                  <span className="text-[11px] uppercase tracking-widest text-terminal-dim">min</span>
-                  <button
-                    disabled={busy || validAdjust === 0}
-                    onClick={() => run(() => adminAddTime(secret, validAdjust))}
-                    className="rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-                  >
-                    ＋ Add
-                  </button>
-                  <button
-                    disabled={busy || validAdjust === 0}
-                    onClick={() => run(() => adminAddTime(secret, -validAdjust))}
-                    className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                  >
-                    － Remove
-                  </button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-terminal-dim">
+                    Board hides scores for the last {validFreeze} min. 0 = never hide.
+                  </p>
                 </div>
               </div>
-            )}
+            </Card>
 
-            {/* Action buttons */}
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                disabled={busy}
-                onClick={handleStartEvent}
-                className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
-              >
-                {isRunning ? `🔁 Restart with ${validMinutes}-min timer` : `▶ Start ${validMinutes}-min event`}
-              </button>
-              <button
-                disabled={busy || !isRunning}
-                onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
-                title={!isRunning ? 'Nothing is running right now.' : undefined}
-                className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-              >
-                ⏹ Stop now
-              </button>
-              <button
-                disabled={busy || isIdle || data?.event?.active_day == null}
-                onClick={() => {
-                  const resetDay = data?.event?.active_day;
-                  if (resetDay == null) return;
-                  const dayName = days.find((d) => d.day === resetDay)?.title ?? `Day ${resetDay}`;
-                  run(
-                    () => adminReset(secret, resetDay),
-                    `Reset scores for ${dayName} ONLY and clear the timer? Players keep their names but lose ${dayName}'s solves. Every other day's scores are untouched.`,
-                  );
-                }}
-                title={
-                  isIdle
-                    ? 'Nothing to reset — no event has been started.'
-                    : data?.event?.active_day == null
-                      ? 'Set an active day first (above).'
-                      : `Only clears ${days.find((d) => d.day === data?.event?.active_day)?.title ?? `Day ${data?.event?.active_day}`}'s scores.`
-                }
-                className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
-              >
-                ⟲ Reset {days.find((d) => d.day === data?.event?.active_day)?.title ?? 'active day'}
-              </button>
-            </div>
-            <p className="mt-2 text-[11px] leading-relaxed text-terminal-dim">
-              ⟲ Reset only clears scores for the <strong className="text-terminal-red">currently active day</strong>{' '}
-              (set above) — every other day's history is always safe.
-            </p>
-          </section>
+            {/* ── DANGER ───────────────────────────────────────────────── */}
+            <Card title="Danger zone" tone="red">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  disabled={busy || isIdle || activeDay == null}
+                  onClick={() => {
+                    if (activeDay == null) return;
+                    const dayName = days.find((d) => d.day === activeDay)?.title ?? `Day ${activeDay}`;
+                    run(
+                      () => adminReset(secret, activeDay),
+                      `Reset scores for ${dayName} ONLY? Players keep their names but lose ${dayName}'s solves. Every other day is untouched.`,
+                    );
+                  }}
+                  title={
+                    isIdle
+                      ? 'Nothing to reset — no event has been started.'
+                      : activeDay == null
+                        ? 'Set a live day first.'
+                        : undefined
+                  }
+                  className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
+                >
+                  ⟲ Reset {days.find((d) => d.day === activeDay)?.title ?? 'live day'}
+                </button>
+                <span className="text-[11px] text-terminal-dim">
+                  Clears the live day&apos;s scores and the clock. Other days are safe.
+                </span>
+              </div>
+            </Card>
+          </div>
         )}
 
         {tab === 'days' && (
@@ -957,57 +972,92 @@ function generateDayCode(day: AdminDay): string {
   return word ? `${word}-2026` : `DAY${day.day}-2026`;
 }
 
-// ---- Big status banner ----
-function StatusBanner({
-  status,
-  endsAt,
-  remainingMs,
-}: {
-  status: 'idle' | 'running' | 'ended';
-  endsAt: string | null;
-  remainingMs: number;
-}) {
-  if (status === 'running') {
-    const endsLabel = endsAt ? new Date(endsAt).toLocaleTimeString() : '—';
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border-2 border-terminal-green/60 bg-terminal-green/10 px-5 py-4 shadow-neon">
-        <div>
-          <div className="text-base font-extrabold uppercase tracking-widest text-terminal-green">
-            🟢 LIVE — players can submit flags right now
-          </div>
-          <div className="mt-1 text-xs text-terminal-dim">Ends at {endsLabel}</div>
-        </div>
-        <div className="text-3xl font-extrabold tabular-nums text-terminal-green">
-          {formatDuration(remainingMs)}
-        </div>
-      </div>
-    );
-  }
+// ---- Layout primitives: one card per job, so the panel reads as sections
+// rather than a wall of buttons and paragraphs. ----
+const cardTone: Record<string, string> = {
+  default: 'border-terminal-border',
+  cyan: 'border-terminal-cyan/30',
+  amber: 'border-terminal-amber/40',
+  red: 'border-terminal-red/40',
+};
+const titleTone: Record<string, string> = {
+  default: 'text-terminal-cyan',
+  cyan: 'text-terminal-cyan',
+  amber: 'text-terminal-amber',
+  red: 'text-terminal-red',
+};
 
-  if (status === 'ended') {
-    return (
-      <div className="rounded-lg border-2 border-terminal-red/60 bg-terminal-red/10 px-5 py-4">
-        <div className="text-base font-extrabold uppercase tracking-widest text-terminal-red">
-          🔴 ENDED — players see &quot;Time&apos;s up&quot;
-        </div>
-        <div className="mt-1 text-xs text-terminal-dim">
-          Click <strong className="text-terminal-red">Reset game</strong> to clear this before
-          starting a new round, or <strong className="text-terminal-green">Start</strong> to begin
-          fresh immediately.
-        </div>
-      </div>
-    );
-  }
+function Card({
+  title,
+  tone = 'default',
+  children,
+}: {
+  title: string;
+  tone?: 'default' | 'cyan' | 'amber' | 'red';
+  children: ReactNode;
+}) {
+  return (
+    <section className={`rounded-xl border bg-terminal-panel p-5 ${cardTone[tone]}`}>
+      <h2 className={`mb-3 text-sm font-bold uppercase tracking-widest ${titleTone[tone]}`}>
+        ▸ {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Label({ children }: { children: ReactNode }) {
+  return (
+    <label className="block text-xs font-bold uppercase tracking-widest text-terminal-dim">
+      {children}
+    </label>
+  );
+}
+
+/**
+ * The instructor's clock. It ticks — the old status banner only repainted when
+ * the 5-second poll happened to land, so the number the instructor was reading
+ * could be up to 5 seconds behind the number the room was reading. It also uses
+ * the same red-at-5-minutes / strobe-in-the-final-minute escalation as the arena
+ * and the projector, so all three screens agree at a glance.
+ */
+function AdminClock({ clock }: { clock: CountdownState }) {
+  const { status, remainingMs, secs, phase } = clock;
+  const critical = phase === 'critical';
+
+  const [tone, headline] =
+    status === 'running'
+      ? critical || phase === 'warn'
+        ? (['red', '🟢 LIVE — final stretch'] as const)
+        : (['green', '🟢 LIVE — players can submit'] as const)
+      : status === 'ended'
+        ? (['red', "🔴 ENDED — players see “Time's up”"] as const)
+        : (['amber', '⏳ NOT STARTED — players see “Stand by”'] as const);
+
+  const box =
+    tone === 'green'
+      ? 'border-terminal-green/60 bg-terminal-green/10 shadow-neon'
+      : tone === 'red'
+        ? 'border-terminal-red/60 bg-terminal-red/10'
+        : 'border-terminal-amber/50 bg-terminal-amber/10';
+  const text =
+    tone === 'green'
+      ? 'text-terminal-green'
+      : tone === 'red'
+        ? 'text-terminal-red'
+        : 'text-terminal-amber';
 
   return (
-    <div className="rounded-lg border-2 border-terminal-amber/50 bg-terminal-amber/10 px-5 py-4">
-      <div className="text-base font-extrabold uppercase tracking-widest text-terminal-amber">
-        ⏳ NOT STARTED — players see &quot;Waiting to start&quot;
-      </div>
-      <div className="mt-1 text-xs text-terminal-dim">
-        Click <strong className="text-terminal-green">Start</strong> below when you&apos;re ready to
-        begin the round.
-      </div>
+    <div className={`flex flex-wrap items-center justify-between gap-4 rounded-lg border-2 px-5 py-4 ${box}`}>
+      <div className={`text-sm font-extrabold uppercase tracking-widest ${text}`}>{headline}</div>
+      {status === 'running' && (
+        <div
+          className={`font-mono text-4xl font-black tabular-nums ${critical ? 'animate-strobe text-terminal-redlight' : text}`}
+          style={critical ? { animationDuration: `${strobeMs(secs)}ms` } : undefined}
+        >
+          {formatDuration(remainingMs)}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { EventConfig } from '../lib/types';
-import { formatDuration, getEventState } from '../lib/time';
-import { playTick, playTimeUp } from '../lib/sounds';
+import { CRITICAL_SECONDS, WARN_SECONDS, formatDuration, strobeMs } from '../lib/time';
+import useCountdown from '../lib/useCountdown';
+import { playCountdownBeep, playFinalMinute, playTimeUp, playWarn5 } from '../lib/sounds';
 
-// Standalone clock — used only to drive countdown sound cues on the arena page.
-// The large visual display lives in the ArenaTimerBanner below.
 const TIMEUP_ROUND_KEY = 'kgsp_ctf_timeup_round';
 
 // Best-effort haptic buzz (Android Chrome etc.); silently a no-op elsewhere.
@@ -18,43 +17,56 @@ function buzz(pattern: number | number[]) {
   }
 }
 
-function SoundClock({ event }: { event: EventConfig | null }) {
-  const [now, setNow] = useState(Date.now());
-  const lastTickSec = useRef<number>(-1);
-  const lastVibeSec = useRef<number>(-1);
-  // Tracks the status on the previous render so we only fire the "time's up"
-  // sound on a genuine live running -> ended transition. Starts null so a fresh
-  // mount straight into an already-ended round (i.e. a page refresh after the
-  // event finished) never replays the sound.
+/**
+ * The round's audio cues. Mounted once, in the arena header — and because the
+ * admin panel, the projector board and the finale are all in-page overlays
+ * rendered *inside* the arena, this stays mounted underneath them. So the
+ * countdown is heard on every screen, whichever one the instructor is showing.
+ *
+ * Escalation:
+ *   5:00  → one warning tone as the clock turns red
+ *   1:00  → alarm as the clock starts strobing
+ *   0:59… → a beep every second, hardening at 0:10 and again at 0:03
+ *   0:00  → time's up
+ *
+ * Every cue is edge-triggered (fired on a real crossing, once), so a client that
+ * joins mid-round doesn't replay cues it missed, and a re-render never doubles one.
+ */
+function RoundAudio({ event }: { event: EventConfig | null }) {
+  const { status, secs } = useCountdown(event);
+  const prevSecs = useRef<number | null>(null);
+  const lastBeepSec = useRef(-1);
   const prevStatus = useRef<string | null>(null);
 
   useEffect(() => {
-    const end = event?.ends_at ? Date.parse(event.ends_at) : null;
-    if (end != null && Date.now() >= end) return;
-    const id = setInterval(() => {
-      setNow(Date.now());
-      if (end != null && Date.now() >= end + 500) clearInterval(id);
-    }, 250);
-    return () => clearInterval(id);
-  }, [event]);
-
-  const state = getEventState(event, now);
-
-  useEffect(() => {
-    const status = state.status;
     if (status === 'running') {
-      const secs = Math.ceil(state.remainingMs / 1000);
-      if (secs <= 10 && secs > 0 && secs !== lastTickSec.current) {
-        lastTickSec.current = secs;
-        playTick();
+      const prev = prevSecs.current;
+
+      // Boundary cues — only on a genuine crossing during this mount.
+      if (prev != null && prev > WARN_SECONDS && secs <= WARN_SECONDS) {
+        playWarn5();
+        buzz(200);
       }
-      // Final 3-2-1: a short haptic buzz on each of the last three seconds so
-      // the "time's almost up" moment is felt, not just heard.
-      if (secs <= 3 && secs > 0 && secs !== lastVibeSec.current) {
-        lastVibeSec.current = secs;
-        buzz(160);
+      if (prev != null && prev > CRITICAL_SECONDS && secs <= CRITICAL_SECONDS) {
+        playFinalMinute();
+        buzz([120, 80, 120]);
       }
-    } else if (status === 'ended' && prevStatus.current === 'running') {
+
+      // Per-second countdown through the last minute (the 1:00 mark itself gets
+      // the alarm above, so the beeps start at 0:59).
+      if (secs > 0 && secs < CRITICAL_SECONDS && secs !== lastBeepSec.current) {
+        lastBeepSec.current = secs;
+        playCountdownBeep(secs);
+        if (secs <= 3) buzz(160);
+      }
+
+      prevSecs.current = secs;
+    } else {
+      prevSecs.current = null;
+      lastBeepSec.current = -1;
+    }
+
+    if (status === 'ended' && prevStatus.current === 'running') {
       // Only on a real live transition, and only once per round (keyed by the
       // round's ends_at) so refreshing the page after it ended stays silent.
       const roundKey = event?.ends_at ?? '';
@@ -71,40 +83,26 @@ function SoundClock({ event }: { event: EventConfig | null }) {
           /* ignore */
         }
         playTimeUp();
-        // A stronger final buzz — the round is over.
         buzz([300, 120, 300]);
       }
     }
     prevStatus.current = status;
-  }, [state.status, state.remainingMs, event?.ends_at]);
+  }, [status, secs, event?.ends_at]);
 
-  return null; // renders nothing — sound only
+  return null; // sound only
 }
 
 /**
- * Large, prominent timer banner shown between the sticky header and the event
- * status strip. This is the element the player's eye goes to first.
+ * Large countdown banner on the arena — the element the player's eye goes to first.
  */
 export function ArenaTimerBanner({ event }: { event: EventConfig | null }) {
-  const [now, setNow] = useState(Date.now());
+  const { status, remainingMs, secs, phase } = useCountdown(event);
 
-  useEffect(() => {
-    const end = event?.ends_at ? Date.parse(event.ends_at) : null;
-    if (end != null && Date.now() >= end) return;
-    const id = setInterval(() => {
-      setNow(Date.now());
-      if (end != null && Date.now() >= end + 500) clearInterval(id);
-    }, 250);
-    return () => clearInterval(id);
-  }, [event]);
-
-  const state = getEventState(event, now);
-
-  // After 30 min past the end, stop showing "TIME'S UP" and go back to standby
+  // After 30 min past the end, stop shouting "TIME'S UP" and go back to standby.
   const endedAt = event?.ends_at ? Date.parse(event.ends_at) : null;
-  const staleEnded = state.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
+  const staleEnded = status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
 
-  if (state.status === 'idle' || staleEnded) {
+  if (status === 'idle' || staleEnded) {
     return (
       <div className="flex items-center justify-center gap-3 border-b border-terminal-amber/30 bg-terminal-amber/5 py-4">
         <span className="animate-flicker text-4xl font-extrabold tracking-widest text-terminal-amber sm:text-5xl">
@@ -114,58 +112,57 @@ export function ArenaTimerBanner({ event }: { event: EventConfig | null }) {
     );
   }
 
-  if (state.status === 'ended') {
+  if (status === 'ended') {
     return (
       <div className="flex items-center justify-center gap-3 border-b border-terminal-red/30 bg-terminal-red/5 py-4 shadow-neon-red">
-        <span className="text-4xl font-extrabold text-terminal-red sm:text-5xl">
-          ⏱ TIME&apos;S UP
-        </span>
+        <span className="text-4xl font-extrabold text-terminal-red sm:text-5xl">⏱ TIME&apos;S UP</span>
       </div>
     );
   }
 
-  // Colour escalates with urgency, and turns blue during the score-freeze window:
-  //   normal → green · in freeze → blue · last 3 min → red · last 1 min → lighter red
-  // Priority: the red final-minutes states win over the freeze-blue state.
-  const secs = state.remainingMs / 1000;
-  const freezeMs = (event?.freeze_minutes ?? 0) * 60_000;
-  const inFreeze = freezeMs > 0 && state.remainingMs <= freezeMs;
-  const final1 = secs <= 60; // last minute — about to finish
-  const final3 = secs <= 180; // last three minutes
-
-  const color = final1
-    ? 'text-terminal-redlight'
-    : final3
-      ? 'text-terminal-red'
-      : inFreeze
-        ? 'text-terminal-cyan'
-        : 'text-terminal-green';
-  const border = final1
-    ? 'border-terminal-red/50 bg-terminal-red/10 shadow-neon-red'
-    : final3
-      ? 'border-terminal-red/40 bg-terminal-red/5 shadow-neon-red'
-      : inFreeze
-        ? 'border-terminal-cyan/40 bg-terminal-cyan/5'
-        : 'border-terminal-green/30 bg-terminal-green/5 shadow-neon';
-  const label = inFreeze && !final3 ? 'score freeze · time remaining' : 'time remaining';
+  const critical = phase === 'critical';
+  const color =
+    critical
+      ? 'text-terminal-redlight'
+      : phase === 'warn'
+        ? 'text-terminal-red'
+        : phase === 'freeze'
+          ? 'text-terminal-cyan'
+          : 'text-terminal-green';
+  const border =
+    critical
+      ? 'border-terminal-red/60 bg-terminal-red/10 shadow-neon-red'
+      : phase === 'warn'
+        ? 'border-terminal-red/40 bg-terminal-red/5 shadow-neon-red'
+        : phase === 'freeze'
+          ? 'border-terminal-cyan/40 bg-terminal-cyan/5'
+          : 'border-terminal-green/30 bg-terminal-green/5 shadow-neon';
+  const label =
+    critical
+      ? 'final minute'
+      : phase === 'warn'
+        ? 'hurry — time is almost up'
+        : phase === 'freeze'
+          ? 'score freeze · time remaining'
+          : 'time remaining';
 
   return (
     <div className={`flex flex-col items-center justify-center border-b py-4 ${border}`}>
-      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-terminal-dim">
-        {label}
-      </span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-terminal-dim">{label}</span>
       <span
-        className={`text-5xl font-extrabold tabular-nums tracking-widest drop-shadow-[0_0_16px_currentColor] sm:text-6xl ${color} ${final1 ? 'animate-flicker' : ''}`}
+        className={`text-5xl font-extrabold tabular-nums tracking-widest drop-shadow-[0_0_16px_currentColor] sm:text-6xl ${color} ${critical ? 'animate-strobe' : ''}`}
+        style={critical ? { animationDuration: `${strobeMs(secs)}ms` } : undefined}
       >
-        {formatDuration(state.remainingMs)}
+        {formatDuration(remainingMs)}
       </span>
     </div>
   );
 }
 
 /**
- * Compact inline timer — used for legacy/admin contexts. The arena uses ArenaTimerBanner.
+ * Sound-only clock. Rendered in the arena header; see RoundAudio above for why
+ * that one mount covers every screen.
  */
 export default function Timer({ event }: { event: EventConfig | null }) {
-  return <SoundClock event={event} />;
+  return <RoundAudio event={event} />;
 }

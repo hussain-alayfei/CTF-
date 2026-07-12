@@ -66,6 +66,12 @@ export interface EventConfig {
   freeze_minutes: number;
   /** Which day's leaderboard is currently "live" for students. */
   active_day: number | null;
+  /**
+   * Drives the synced winner reveal. The instructor advances it and every screen
+   * in the room follows, because event_config is already in the realtime feed.
+   *   -1 closed · 0 cards face down · 1 third · 2 second · 3 first
+   */
+  finale_stage: number;
 }
 
 export interface SubmitResult {

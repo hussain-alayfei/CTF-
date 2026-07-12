@@ -245,9 +245,77 @@ export function playHint() {
   tone(1174.66, 0.16, 0.22, { type: 'triangle', gain: 0.1 });
 }
 
-/** Countdown tick for the final seconds — soft, rounded blip. */
+/**
+ * Countdown tick for the final seconds. Louder than it used to be (0.09 was
+ * inaudible over a room) — this has to carry across a classroom from a projector.
+ */
 export function playTick() {
-  tone(1100, 0, 0.05, { type: 'sine', gain: 0.09, attack: 0.004 });
+  tone(1100, 0, 0.06, { type: 'sine', gain: 0.15, attack: 0.004 });
+}
+
+/**
+ * The 5-minutes-left warning — a firm descending two-tone, played once as the
+ * clock crosses the boundary and turns red.
+ */
+export function playWarn5() {
+  tone(880, 0.0, 0.22, { type: 'triangle', gain: 0.2 });
+  tone(659.25, 0.2, 0.34, { type: 'triangle', gain: 0.2 });
+  noise(0.0, 0.25, 0.05, 2200);
+}
+
+/**
+ * The 1-minute-left alarm — three urgent pulses, played once as the clock starts
+ * strobing. Deliberately more alarming than playWarn5.
+ */
+export function playFinalMinute() {
+  for (let i = 0; i < 3; i++) {
+    const t = i * 0.19;
+    tone(1318.5, t, 0.13, { type: 'square', gain: 0.13 });
+    tone(659.25, t, 0.15, { type: 'triangle', gain: 0.16 });
+  }
+  noise(0.0, 0.5, 0.05, 3000);
+}
+
+/**
+ * A single beep of the last-minute countdown, escalating as it runs out: soft
+ * pulse through the last minute, a harder tick inside 10s, and an urgent stab on
+ * the last 3. `secs` is the number about to be shown on the clock.
+ */
+export function playCountdownBeep(secs: number) {
+  if (secs <= 3) {
+    tone(1568, 0.0, 0.16, { type: 'square', gain: 0.14 });
+    tone(784, 0.0, 0.2, { type: 'triangle', gain: 0.2 });
+    dataBlip(0.0, 0.06, 6000);
+  } else if (secs <= 10) {
+    tone(1318.5, 0.0, 0.09, { type: 'triangle', gain: 0.19 });
+    dataBlip(0.0, 0.05, 5200);
+  } else {
+    tone(988, 0.0, 0.07, { type: 'sine', gain: 0.12, attack: 0.004 });
+  }
+}
+
+/** A finale card flipping over — a short mechanical whoosh + snap. */
+export function playCardFlip() {
+  noise(0.0, 0.16, 0.07, 3600);
+  tone(520, 0.1, 0.1, { type: 'triangle', gain: 0.13 });
+}
+
+/**
+ * A firework shell going off. `big` gives the winner's bursts more weight (deeper
+ * boom, longer crackle) so 1st place clearly outguns 3rd and 2nd.
+ */
+export function playFireworkBurst(big = false) {
+  const g = big ? 0.16 : 0.1;
+  // Launch whistle up.
+  tone(big ? 300 : 420, 0.0, 0.22, { type: 'sine', gain: 0.06, slideTo: big ? 1500 : 1200, glide: 'lin' });
+  // The boom.
+  tone(big ? 55 : 80, 0.24, big ? 0.7 : 0.45, { type: 'sine', gain: g });
+  noise(0.24, big ? 0.6 : 0.4, g, big ? 2600 : 2000);
+  // Crackle tail.
+  const sparks = big ? 9 : 5;
+  for (let i = 0; i < sparks; i++) {
+    dataBlip(0.3 + Math.random() * (big ? 0.55 : 0.35), 0.05, 4000 + Math.random() * 4000);
+  }
 }
 
 /** Time's up — gentle system power-down. */
