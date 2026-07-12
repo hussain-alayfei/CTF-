@@ -725,10 +725,6 @@ export default function Play() {
           embedded
           game={game}
           onClose={() => setShowAdmin(false)}
-          onPresentBoard={() => {
-            setShowAdmin(false);
-            setShowBoard(true);
-          }}
         />
       )}
 

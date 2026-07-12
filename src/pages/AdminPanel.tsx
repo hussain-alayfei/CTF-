@@ -23,7 +23,6 @@ import useCountdown from '../lib/useCountdown';
 import type { Game } from '../lib/useGame';
 import type { AdminChallenge, AdminDay, AdminOverview, AdminPlayer, AdminPlayerSolve } from '../lib/types';
 import { useApp } from '../lib/app-context';
-import { clearPlayer } from '../lib/session';
 import { getCache, setCache } from '../lib/cache';
 import Prompt from '../components/Prompt';
 import Register from '../components/Register';
@@ -53,7 +52,6 @@ export default function AdminPanel({
   embedded = false,
   game,
   onClose,
-  onPresentBoard,
 }: {
   /** When true the panel renders as a full-screen overlay on the arena URL
    *  (no /admin route) — "back to the arena" calls onClose instead of navigating. */
@@ -68,11 +66,8 @@ export default function AdminPanel({
    */
   game?: Game;
   onClose?: () => void;
-  /** Opens the projector board overlay (closing this panel first). Provided by
-   *  the arena, which owns both overlays. */
-  onPresentBoard?: () => void;
 } = {}) {
-  const { player, setPlayer, theme, toggleTheme } = useApp();
+  const { player } = useApp();
   // Seed from the session cache so the dashboard paints instantly on refresh /
   // re-entry; load() still fetches fresh data below and the 5s poll revalidates.
   const [data, setData] = useState<AdminOverview | null>(() => getCache<AdminOverview>('admin_overview'));
@@ -171,11 +166,6 @@ export default function AdminPanel({
   // while people were still practising, then the arena — which had nothing to do
   // with the decision — started nagging about it. Locking a day is a decision, so
   // it is now only ever made by hand, from the Days tab.)
-
-  function logout() {
-    clearPlayer();
-    setPlayer(null);
-  }
 
   async function run(
     action: () => Promise<{ error?: string; message?: string }>,
@@ -310,41 +300,19 @@ export default function AdminPanel({
 
   return wrap(
     <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header bar. Embedded mode has no "back to the arena" link — the persistent
-          HeaderBar's "Arena" tab above already is that link, and duplicating it here
-          reads as a second, disconnected page rather than a tab of the same one. */}
-      <div className="mb-4 flex items-center justify-end">
-        {!embedded && (
+      {/* Embedded mode has no local chrome here — Board / theme / sign-out all live
+          in the persistent HeaderBar (and profile) above. Standalone keeps a back
+          link only for the rare non-embedded render. */}
+      {!embedded && (
+        <div className="mb-4">
           <Link
             to="/"
-            className="mr-auto text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
+            className="text-sm text-terminal-dim underline decoration-dotted hover:text-terminal-green"
           >
             ‹ back to the arena
           </Link>
-        )}
-        <div className="flex items-center gap-2">
-          {onPresentBoard && (
-            <button
-              onClick={onPresentBoard}
-              className="rounded-lg border border-terminal-cyan/50 px-3 py-2 text-sm font-bold text-terminal-cyan transition hover:bg-terminal-cyan/10"
-            >
-              🖥 Present board
-            </button>
-          )}
-          <button
-            onClick={toggleTheme}
-            className="rounded-lg border border-terminal-border px-3 py-2 text-terminal-dim transition hover:border-terminal-green hover:text-terminal-green"
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
-          <button
-            onClick={logout}
-            className="rounded-lg border border-terminal-border px-3 py-2 text-sm font-bold text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
-          >
-            Sign out
-          </button>
         </div>
-      </div>
+      )}
 
       <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
 

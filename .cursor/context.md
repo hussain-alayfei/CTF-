@@ -17,16 +17,22 @@ Update this file when architecture, days, or challenge conventions change.
 
 ---
 
-## Current state (2026-07-09)
+## Current state (2026-07-12)
 
 | Day | Title | Status | Flag model |
 |-----|-------|--------|------------|
 | 3 | Securing Data | Authored, often closed | **Static** (`challenge_flags`) |
 | 4 | Securing Networks | Authored | **Dynamic** (7 core + 2 extras) |
 | 5 | Privacy | Authored **v4** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
-| 6–10 | Placeholders | Locked, empty | — |
+| 6 | (prior pack) | Authored | **Dynamic** |
+| 7 | Web Applications | Authored **v2 live** | **Dynamic** (10: 3E / 4M / 2H / 1D, **no files**) |
+| 8–10 | Placeholders | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
+
+**Day 7 IDs (v2):** `d7_markup_trail`, `d7_side_door`, `d7_desk_wizard` (easy) · `d7_role_chip`, `d7_twin_check`, `d7_frame_whisper`, `d7_stash_order` (medium) · `d7_blind_counter`, `d7_friendly_sink` (hard) · `d7_triple_lock` (danger).
+
+**Day 7 model (v2):** all live browser labs under `src/pages/day7/` — DOM, cookies, storage, network beacons, postMessage, blind oracle, XSS sink, triple lock. **Zero `asset_url` files.** Manual: `ADMIN_MANUAL_DAY7.md`. Code: `WEB-2026`. Migration: `supabase/migrations/20260712_2200_day7_webapps_live_v2.sql`.
 
 **Day 5 IDs (v4):** `p5_cache_phantom`, `p5_bookmark_vault`, `p5_consent_labyrinth` (easy, unchanged) · `p5_ghost_profile`, `p5_referer_burn`, `p5_metadata_mirage`, `p5_cookie_jar` (medium) · `p5_entropy_portal`, `p5_supercookie` (hard) · `p5_reidentified` (danger).
 
@@ -50,7 +56,7 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 4. **Hints:** at most one; short nudge only (what to look at), not how.
 5. **No `KGSP{…}` or plaintext answer** in artifacts or client bundle. Grep before ship.
 6. **Before delete/change answers:** check `solves` counts; warn user if > 0.
-7. Full workflow: `.cursor/skills/manage-ctf-challenges/SKILL.md` · Design history: `ADMIN_MANUAL_DAY4.md` · Day 5 answers: `ADMIN_MANUAL_DAY5.md`.
+7. Full workflow: `.cursor/skills/manage-ctf-challenges/SKILL.md` · Design history: `ADMIN_MANUAL_DAY4.md` · Day 5 answers: `ADMIN_MANUAL_DAY5.md` · Day 7 answers: `ADMIN_MANUAL_DAY7.md`.
 
 ### Deploy / DB
 
