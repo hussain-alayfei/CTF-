@@ -359,12 +359,8 @@ export default function Play() {
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
                 onOpen={() => {
-                  // Live browser labs: go straight into the page. File-based
-                  // challenges still open the modal (prompt + download + submit).
-                  if (c.action_url && !c.asset_url) {
-                    navigate(c.action_url);
-                    return;
-                  }
+                  // Always open the detail panel first (prompt / hint / submit /
+                  // Open challenge). Live labs are reached via the modal button.
                   setOpenId(c.id);
                 }}
                 blurred={shouldBlur}
