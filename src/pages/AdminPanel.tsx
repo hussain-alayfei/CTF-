@@ -26,6 +26,8 @@ import { useApp } from '../lib/app-context';
 import { getCache, setCache } from '../lib/cache';
 import Prompt from '../components/Prompt';
 import Register from '../components/Register';
+import ConfirmDialog from '../components/ConfirmDialog';
+import useLockBodyScroll from '../lib/useLockBodyScroll';
 
 const diffColor: Record<string, string> = {
   easy: 'text-terminal-green',
@@ -167,11 +169,15 @@ export default function AdminPanel({
   // with the decision — started nagging about it. Locking a day is a decision, so
   // it is now only ever made by hand, from the Days tab.)
 
-  async function run(
-    action: () => Promise<{ error?: string; message?: string }>,
-    confirmText?: string,
-  ) {
-    if (confirmText && !window.confirm(confirmText)) return;
+  // Confirmable admin actions route through an in-app dialog instead of
+  // window.confirm — same gate, but readable, on-brand, and keyboard-friendly.
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    body: string;
+    tone: 'default' | 'danger';
+    action: () => Promise<{ error?: string; message?: string }>;
+  } | null>(null);
+
+  async function execute(action: () => Promise<{ error?: string; message?: string }>) {
     setBusy(true);
     setMsg(null);
     try {
@@ -184,6 +190,19 @@ export default function AdminPanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  function run(
+    action: () => Promise<{ error?: string; message?: string }>,
+    confirmText?: string,
+  ) {
+    if (confirmText) {
+      const tone: 'default' | 'danger' =
+        /\b(delete|reset|remove|sign)\b|cannot be undone/i.test(confirmText) ? 'danger' : 'default';
+      setPendingConfirm({ body: confirmText, tone, action });
+      return;
+    }
+    return execute(action);
   }
 
   // The live event, straight off the arena's realtime feed (falling back to the
@@ -395,10 +414,10 @@ export default function AdminPanel({
       {/* Tab content */}
       <div className="mt-6">
         {tab === 'event' && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* One-line "what to do next", derived purely from day + clock state,
                 so the tab always tells the instructor the single next action. */}
-            <div className="flex items-center gap-3 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 px-4 py-2.5">
+            <div className="flex items-center gap-3 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 px-4 py-2">
               <span className="rounded bg-terminal-cyan/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-terminal-cyan">
                 Next
               </span>
@@ -470,52 +489,56 @@ export default function AdminPanel({
 
             {/* STEP 3 — round length + score freeze (saved settings for next start). */}
             <Step n={3} title="Set the round length" hint="Applied on the next start.">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div>
-                  <Label>Round length (min)</Label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={minutesStr}
-                    onChange={(e) => setMinutesStr(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-                  />
-                  <p className="mt-1 text-[11px] text-terminal-dim">Used by the next start.</p>
-                </div>
-                <div>
-                  <Label>Score freeze (final min)</Label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={freezeStr}
-                    onChange={(e) => setFreezeStr(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-terminal-border bg-terminal-input px-4 py-2.5 text-terminal-green outline-none focus:border-terminal-green"
-                  />
-                  <p className="mt-1 text-[11px] text-terminal-dim">
-                    Board hides scores for the last {validFreeze} min. 0 = never hide.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+                <label className="block">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-terminal-dim">
+                    Round length
+                  </span>
+                  <span className="mt-1 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={minutesStr}
+                      onChange={(e) => setMinutesStr(e.target.value)}
+                      className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
+                    />
+                    <span className="text-[11px] text-terminal-dim">min · next start</span>
+                  </span>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] font-bold uppercase tracking-widest text-terminal-dim">
+                    Score freeze
+                  </span>
+                  <span className="mt-1 flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={freezeStr}
+                      onChange={(e) => setFreezeStr(e.target.value)}
+                      className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
+                    />
+                    <span className="text-[11px] text-terminal-dim">final min · 0 = never</span>
+                  </span>
+                </label>
                 <button
                   disabled={busy || !setupDirty}
                   onClick={() => void saveSetup()}
-                  className="rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-5 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
+                  className="rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20 disabled:opacity-40"
                 >
-                  {setupDirty ? '💾 Save setup' : '✓ Saved'}
+                  {setupDirty ? '💾 Save' : '✓ Saved'}
                 </button>
-                {setupDirty && <span className="text-[11px] text-terminal-amber">Unsaved changes.</span>}
+                {setupDirty && <span className="self-center text-[11px] text-terminal-amber">Unsaved changes.</span>}
               </div>
             </Step>
 
             {/* STEP 4 — the live clock + the start/stop you press to run it. */}
             <Step n={4} title="Run the round" hint="Start when the room is ready. Everyone sees the countdown.">
               <AdminClock clock={clock} />
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   disabled={busy}
                   onClick={handleStartEvent}
-                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
                 >
                   {isRunning ? `🔁 Restart · ${validMinutes} min` : `▶ Start · ${validMinutes} min`}
                 </button>
@@ -523,7 +546,7 @@ export default function AdminPanel({
                   disabled={busy || !isRunning}
                   onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
                   title={!isRunning ? 'Nothing is running right now.' : undefined}
-                  className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
                 >
                   ⏹ Stop now
                 </button>
@@ -595,14 +618,14 @@ export default function AdminPanel({
                   <button
                     disabled={busy || finaleStage >= 0}
                     onClick={() => run(() => adminSetFinaleStage(secret, 0))}
-                    className="rounded-lg border border-terminal-amber bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                    className="rounded-lg border border-terminal-amber bg-terminal-amber/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
                   >
                     🏁 Open the reveal
                   </button>
                   <button
                     disabled={busy || finaleStage < 0}
                     onClick={() => run(() => adminSetFinaleStage(secret, -1))}
-                    className="rounded-lg border border-terminal-border px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red disabled:opacity-40"
+                    className="rounded-lg border border-terminal-border px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red disabled:opacity-40"
                   >
                     ✕ End it
                   </button>
@@ -635,7 +658,7 @@ export default function AdminPanel({
                         ? 'Set a live day first.'
                         : undefined
                   }
-                  className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
+                  className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
                 >
                   ⟲ Reset {days.find((d) => d.day === activeDay)?.title ?? 'live day'}
                 </button>
@@ -718,6 +741,19 @@ export default function AdminPanel({
 
       </div>
 
+      <ConfirmDialog
+        open={pendingConfirm !== null}
+        title="Please confirm"
+        body={pendingConfirm?.body ?? ''}
+        tone={pendingConfirm?.tone ?? 'default'}
+        busy={busy}
+        onConfirm={() => {
+          const action = pendingConfirm?.action;
+          setPendingConfirm(null);
+          if (action) void execute(action);
+        }}
+        onCancel={() => setPendingConfirm(null)}
+      />
     </div>,
   );
 }
@@ -762,14 +798,14 @@ function DaysWeekGroup({
         <span className="text-xs font-normal text-terminal-dim">({days.length} days)</span>
       </button>
       {open && (
-        <div className="space-y-3 pl-2">
+        <div className="space-y-2 pl-2">
           {days.map((d: AdminDay) => {
             const autoCode = generateDayCode(d);
             const dayChallenges = challengesByDay.find((g) => g.day === d.day)?.list ?? [];
             return (
               <div
                 key={d.day}
-                className="rounded-lg border border-terminal-border bg-terminal-input/50 px-4 py-3"
+                className="rounded-lg border border-terminal-border bg-terminal-input/50 px-3 py-2.5"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-2">
@@ -974,28 +1010,18 @@ function Step({
   children: ReactNode;
 }) {
   return (
-    <section className={`rounded-xl border bg-terminal-panel p-5 ${cardTone[tone]}`}>
-      <div className="mb-3 flex items-start gap-3">
+    <section className={`rounded-lg border bg-terminal-panel p-4 ${cardTone[tone]}`}>
+      <div className="mb-2.5 flex items-center gap-2.5">
         <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black ${stepBadge[tone]}`}
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-black ${stepBadge[tone]}`}
         >
           {n}
         </span>
-        <div className="min-w-0">
-          <h2 className={`text-sm font-bold uppercase tracking-widest ${titleTone[tone]}`}>{title}</h2>
-          {hint && <p className="mt-0.5 text-[11px] text-terminal-dim">{hint}</p>}
-        </div>
+        <h2 className={`text-xs font-bold uppercase tracking-widest ${titleTone[tone]}`}>{title}</h2>
+        {hint && <span className="truncate text-[11px] font-normal normal-case text-terminal-dim">— {hint}</span>}
       </div>
       {children}
     </section>
-  );
-}
-
-function Label({ children }: { children: ReactNode }) {
-  return (
-    <label className="block text-xs font-bold uppercase tracking-widest text-terminal-dim">
-      {children}
-    </label>
   );
 }
 
@@ -1250,7 +1276,7 @@ function PlayersSection({
   onDeleteAll: () => void;
 }) {
   const [query, setQuery] = useState('');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   // challenge_id -> { day, title } so a player's solves can be grouped per day
   // and shown by challenge title instead of a raw id.
@@ -1279,6 +1305,10 @@ function PlayersSection({
     p.username.toLowerCase().includes(query.trim().toLowerCase()),
   );
 
+  // Look up against the full roster (not `filtered`) so the detail modal stays
+  // open even if the search box is edited while it is showing.
+  const detailPlayer = detailId != null ? players.find((p) => p.id === detailId) ?? null : null;
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1293,7 +1323,7 @@ function PlayersSection({
                 <strong className="text-terminal-green">
                   Day {activeDay} — {activeDayTitle}
                 </strong>{' '}
-                (the currently live day). Expand a player for their full per-day history.
+                (the currently live day). Click a player for their full per-day history.
               </>
             ) : (
               'No active day is set — showing all-time totals. Set an active day in Event Control.'
@@ -1327,7 +1357,6 @@ function PlayersSection({
       ) : (
         <div className="space-y-2">
           {filtered.map((p, i) => {
-            const isOpen = openId === p.id;
             const dayStat = activeDayStats.get(p.id);
             const showDayScoped = activeDay != null && dayStat != null;
             const points = showDayScoped ? dayStat.points : p.total_points;
@@ -1344,7 +1373,8 @@ function PlayersSection({
                   </span>
                   <span className="text-lg">{p.avatar}</span>
                   <button
-                    onClick={() => setOpenId(isOpen ? null : p.id)}
+                    onClick={() => setDetailId(p.id)}
+                    title="View player details"
                     className="flex-1 truncate text-left font-semibold text-terminal-green hover:underline"
                   >
                     {p.username}
@@ -1393,28 +1423,26 @@ function PlayersSection({
                     🗑
                   </button>
                 </div>
-
-                {isOpen && (
-                  <div className="border-t border-terminal-border/60 px-4 py-3 text-xs">
-                    <div className="mb-3 flex flex-wrap gap-4 text-terminal-dim">
-                      <span>
-                        All-time score: <span className="text-terminal-amber">{p.total_points}</span>
-                      </span>
-                      <span>
-                        All-time solves: <span className="text-terminal-green">{p.solves_count}</span>
-                      </span>
-                      <span>
-                        All-time first bloods: <span className="text-terminal-red">{p.first_bloods}</span>
-                      </span>
-                      <span>Joined: {new Date(p.created_at).toLocaleString()}</span>
-                    </div>
-                    <PlayerSolvesByDay solves={p.solves} chMeta={chMeta} activeDay={activeDay} />
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {detailPlayer && (
+        <PlayerDetailModal
+          player={detailPlayer}
+          chMeta={chMeta}
+          activeDay={activeDay}
+          activeDayTitle={activeDayTitle}
+          busy={busy}
+          onToggleExclude={onToggleExclude}
+          onDelete={(id, name) => {
+            setDetailId(null);
+            onDelete(id, name);
+          }}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );
@@ -1494,6 +1522,123 @@ function PlayerSolvesByDay({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// Player detail as a right-side drawer (matches the arena's ProfileModal
+// pattern) instead of expanding the row inline and pushing the list around.
+function PlayerDetailModal({
+  player,
+  chMeta,
+  activeDay,
+  activeDayTitle,
+  busy,
+  onToggleExclude,
+  onDelete,
+  onClose,
+}: {
+  player: AdminPlayer;
+  chMeta: Map<string, { day: number; title: string }>;
+  activeDay: number | null;
+  activeDayTitle: string | null;
+  busy: boolean;
+  onToggleExclude: (id: string, name: string, excluded: boolean) => void;
+  onDelete: (id: string, name: string) => void;
+  onClose: () => void;
+}) {
+  useLockBodyScroll();
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <aside
+        className="flex h-full w-full max-w-md animate-slide-left flex-col border-l border-terminal-border bg-terminal-panel shadow-neon"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-terminal-border p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="text-3xl">{player.avatar}</span>
+            <div className="min-w-0">
+              <h2 className="truncate text-lg font-extrabold text-terminal-green">{player.username}</h2>
+              <span className="text-[11px] text-terminal-dim">
+                Joined {new Date(player.created_at).toLocaleString()}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded border border-terminal-border px-2 py-1 text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {player.exclude_from_board && (
+            <p className="mb-3 rounded border border-terminal-amber/40 bg-terminal-amber/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-terminal-amber">
+              🙈 Hidden from the competition
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-lg border border-terminal-border bg-terminal-input/40 px-2 py-3">
+              <div className="text-[10px] uppercase tracking-widest text-terminal-dim">Score</div>
+              <div className="mt-1 text-lg font-extrabold text-terminal-amber">{player.total_points}</div>
+            </div>
+            <div className="rounded-lg border border-terminal-border bg-terminal-input/40 px-2 py-3">
+              <div className="text-[10px] uppercase tracking-widest text-terminal-dim">Solves</div>
+              <div className="mt-1 text-lg font-extrabold text-terminal-green">{player.solves_count}</div>
+            </div>
+            <div className="rounded-lg border border-terminal-border bg-terminal-input/40 px-2 py-3">
+              <div className="text-[10px] uppercase tracking-widest text-terminal-dim">First bloods</div>
+              <div className="mt-1 text-lg font-extrabold text-terminal-red">{player.first_bloods}</div>
+            </div>
+          </div>
+          {activeDay != null && (
+            <p className="mt-3 text-[11px] text-terminal-dim">
+              Live day:{' '}
+              <strong className="text-terminal-cyan">
+                Day {activeDay}
+                {activeDayTitle ? ` — ${activeDayTitle}` : ''}
+              </strong>
+            </p>
+          )}
+          <div className="mt-4">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-widest text-terminal-dim">
+              Solves by day
+            </h3>
+            <PlayerSolvesByDay solves={player.solves} chMeta={chMeta} activeDay={activeDay} />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t border-terminal-border p-4">
+          <button
+            disabled={busy}
+            onClick={() => onToggleExclude(player.id, player.username, !player.exclude_from_board)}
+            className={`rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition disabled:opacity-40 ${
+              player.exclude_from_board
+                ? 'border-terminal-amber/50 text-terminal-amber hover:bg-terminal-amber/15'
+                : 'border-terminal-border text-terminal-dim hover:border-terminal-cyan hover:text-terminal-cyan'
+            }`}
+          >
+            {player.exclude_from_board ? '👁 Show on board' : '🙈 Hide from board'}
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => onDelete(player.id, player.username)}
+            className="rounded-lg border border-terminal-red/60 bg-terminal-red/10 px-3 py-2 text-xs font-bold uppercase tracking-widest text-terminal-red transition hover:bg-terminal-red/20 disabled:opacity-40"
+          >
+            🗑 Delete player
+          </button>
+        </div>
+      </aside>
     </div>
   );
 }

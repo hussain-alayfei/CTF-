@@ -6,6 +6,7 @@ import { submitFlag, unlockHint } from '../lib/api';
 import { playClick, playCorrect, playHint, playWrong, unlockAudio } from '../lib/sounds';
 import useLockBodyScroll from '../lib/useLockBodyScroll';
 import Prompt from './Prompt';
+import ConfirmDialog from './ConfirmDialog';
 
 // Keep unlocked hints for the session so re-opening a challenge keeps them.
 const hintCache = new Map<string, Map<number, HintResult>>();
@@ -46,17 +47,22 @@ export default function ChallengeModal({
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [hints, setHints] = useState<Map<number, HintResult>>(() => new Map(getCache(challenge.id)));
+  const [hintConfirm, setHintConfirm] = useState<number | null>(null);
   useLockBodyScroll();
 
   const running = eventStatus === 'running';
 
-  async function onUnlock(n: number) {
-    if (
-      !solved &&
-      !window.confirm('Revealing this hint costs points on this challenge. Are you sure you want to see it?')
-    ) {
+  // Solved challenges unlock hints for free (no confirm). Otherwise pop the
+  // in-app confirm first — it costs points.
+  function requestUnlock(n: number) {
+    if (solved) {
+      void doUnlock(n);
       return;
     }
+    setHintConfirm(n);
+  }
+
+  async function doUnlock(n: number) {
     unlockAudio();
     playClick();
     try {
@@ -107,6 +113,7 @@ export default function ChallengeModal({
   }
 
   return (
+    <>
     <div
       className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -211,7 +218,7 @@ export default function ChallengeModal({
                     </div>
                   ) : (
                     <button
-                      onClick={() => onUnlock(n)}
+                      onClick={() => requestUnlock(n)}
                       disabled={!running}
                       className="flex w-full items-center justify-between rounded border border-terminal-border px-3 py-2 text-sm text-terminal-dim transition hover:border-terminal-amber/50 hover:text-terminal-amber disabled:opacity-40"
                     >
@@ -273,5 +280,20 @@ export default function ChallengeModal({
         </div>
       </div>
     </div>
+
+      <ConfirmDialog
+        open={hintConfirm !== null}
+        title="Reveal the hint?"
+        body="This hint costs points on this challenge. Reveal it anyway?"
+        confirmLabel="Reveal"
+        tone="default"
+        onConfirm={() => {
+          const n = hintConfirm;
+          setHintConfirm(null);
+          if (n !== null) void doUnlock(n);
+        }}
+        onCancel={() => setHintConfirm(null)}
+      />
+    </>
   );
 }
