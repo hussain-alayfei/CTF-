@@ -382,7 +382,17 @@ export default function AdminPanel({
         </div>
       )}
 
-      <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h1 className="text-2xl font-extrabold text-terminal-green">🛠 Instructor Dashboard</h1>
+        {/* Compact status line — used to be three tall tiles under the title. */}
+        <p className="font-mono text-xs text-terminal-dim">
+          <span className={`font-bold ${statusColor}`}>{statusLabel}</span>
+          <span className="mx-2 text-terminal-border">·</span>
+          {activePlayerCount} players
+          <span className="mx-2 text-terminal-border">·</span>
+          {activeSolves} solves
+        </p>
+      </div>
 
       {/* Action result message */}
       {msg && (
@@ -397,16 +407,9 @@ export default function AdminPanel({
         </div>
       )}
 
-      {/* Stats tiles */}
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <Tile label="Status" value={statusLabel} valueClass={statusColor} />
-        <Tile label="Active players" value={String(activePlayerCount)} />
-        <Tile label="Total solves" value={String(activeSolves)} />
-      </div>
-
       {/* Tab bar — 3 tabs: Event Control (incl. Active Day), Days (incl.
           Challenges), Players (labeled with the live day number). */}
-      <div className="mt-6 flex gap-1 border-b border-terminal-border">
+      <div className="mt-5 flex gap-1 border-b border-terminal-border">
         {(
           [
             { id: 'event' as TabId, label: 'Event Control' },
@@ -1090,23 +1093,6 @@ function AdminClock({ clock }: { clock: CountdownState }) {
           {formatDuration(remainingMs)}
         </div>
       )}
-    </div>
-  );
-}
-
-function Tile({
-  label,
-  value,
-  valueClass = 'text-terminal-green',
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-center">
-      <div className="text-[10px] uppercase tracking-widest text-terminal-dim">{label}</div>
-      <div className={`mt-1 text-lg font-extrabold ${valueClass}`}>{value}</div>
     </div>
   );
 }
