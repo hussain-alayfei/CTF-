@@ -9,6 +9,7 @@ import { playClick, unlockAudio } from '../../lib/sounds';
 const ID = 'd7_inherited_trust';
 
 type Dict = Record<string, unknown>;
+type Proto = Dict & { deskRole?: string; deskSeal?: string };
 
 /** Naive recursive merge — blocks only the literal key __proto__ at each level.
  *  Still recurses into functions (e.g. constructor) so constructor.prototype works. */
@@ -28,20 +29,51 @@ function merge(target: Dict, source: Dict): Dict {
   return target;
 }
 
+function readPolluted(): { role: string; seal: string } {
+  const proto = Object.prototype as Proto;
+  const role = Object.prototype.hasOwnProperty.call(Object.prototype, 'deskRole')
+    ? String(proto.deskRole ?? '')
+    : '';
+  const seal = Object.prototype.hasOwnProperty.call(Object.prototype, 'deskSeal')
+    ? String(proto.deskSeal ?? '')
+    : '';
+  return { role, seal };
+}
+
+function clearPollution() {
+  try {
+    delete (Object.prototype as Proto).deskRole;
+    delete (Object.prototype as Proto).deskSeal;
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Danger (multi-step):
+ * 1) Pollute deskRole=chief → unlocks stage-2 panel + reveals seal mark
+ * 2) Pollute deskRole=chief AND deskSeal=<seal> → claim vault
+ */
 export default function InheritedTrustChallenge() {
   const { player } = useApp();
   const [revealHex, setRevealHex] = useState('');
+  const [seal, setSeal] = useState('');
   const [raw, setRaw] = useState('{\n  "theme": "dark"\n}');
   const [msg, setMsg] = useState('');
+  const [stage2, setStage2] = useState(false);
   const [revealed, setRevealed] = useState('');
 
   useEffect(() => {
     if (!player) return;
     fetchChallengeLiveMaterial(player, ID)
       .then((r) => {
-        if (r.ok && r.material) setRevealHex(String(r.material.reveal_hex ?? ''));
+        if (r.ok && r.material) {
+          setRevealHex(String(r.material.reveal_hex ?? ''));
+          setSeal(String(r.material.seal ?? ''));
+        }
       })
       .catch(() => {});
+    return () => clearPollution();
   }, [player]);
 
   function applyMerge() {
@@ -62,47 +94,44 @@ export default function InheritedTrustChallenge() {
     }
     const base: Dict = { theme: 'dark', desk: { name: 'front' } };
     merge(base, parsed as Dict);
-    // Privilege check reads a field that honest JSON cannot set on the base
-    // object — only a polluted prototype makes it appear.
-    const role = (base as Dict & { deskRole?: string }).deskRole
-      ?? (base.desk as Dict | undefined)?.role;
-    const polluted = Object.prototype.hasOwnProperty.call(Object.prototype, 'deskRole')
-      ? String((Object.prototype as Dict & { deskRole?: string }).deskRole ?? '')
-      : '';
-    const effective = polluted || (typeof role === 'string' ? role : '') || '';
-    if (effective !== 'chief') {
+    const { role, seal: pollutedSeal } = readPolluted();
+
+    if (role !== 'chief') {
       setMsg('Desk settings saved. No elevated seat detected.');
-      // Clean accidental pollution attempts that weren't chief
-      try {
-        delete (Object.prototype as Dict).deskRole;
-      } catch {
-        /* ignore */
-      }
+      clearPollution();
       return;
     }
+
+    // Stage 1: chief only → reveal the second mark the vault will demand.
+    if (!stage2 || pollutedSeal !== seal || !seal) {
+      setStage2(true);
+      setMsg(
+        pollutedSeal && seal && pollutedSeal !== seal
+          ? 'Chief seat seen, but the second inherited mark does not match the desk seal.'
+          : 'Chief seat recognised. A second inherited mark is still required before the vault opens.',
+      );
+      clearPollution();
+      return;
+    }
+
+    // Stage 2: chief + matching seal on the prototype at the same time.
     if (!revealHex) return;
     xorDecryptHex(revealHex, 'chief')
       .then((txt) => {
         if (looksLikeToken(txt)) {
           setRevealed(txt);
-          setMsg('Chief seat recognised.');
+          setMsg('Chief vault opened.');
         }
       })
       .catch(() => setMsg('Elevation failed.'))
-      .finally(() => {
-        try {
-          delete (Object.prototype as Dict).deskRole;
-        } catch {
-          /* ignore */
-        }
-      });
+      .finally(() => clearPollution());
   }
 
   return (
     <ChallengeFrame
       challengeId={ID}
       title="Inherited Trust"
-      blurb="This desk merges visitor settings into its own config. It swears it blocked the one dangerous key everyone knows about. Prove the swear was too narrow — then take the chief seat."
+      blurb="This desk merges visitor settings into its own config. It swears it blocked the one dangerous key everyone knows about. Taking the chief seat is only half the job — the vault still wants a second inherited mark before it opens."
     >
       <textarea
         value={raw}
@@ -118,6 +147,18 @@ export default function InheritedTrustChallenge() {
       >
         Merge settings
       </button>
+      {stage2 && seal && (
+        <div className="mt-4 rounded-lg border border-terminal-amber/40 bg-terminal-amber/10 p-3 text-sm text-terminal-dim">
+          <p className="text-xs uppercase tracking-widest text-terminal-amber">Chief console</p>
+          <p className="mt-2">
+            Desk seal on file:{' '}
+            <code className="font-mono text-terminal-green">{seal}</code>
+          </p>
+          <p className="mt-1 text-xs opacity-70">
+            The vault checks for this mark the same way it checks the seat — through inheritance, not a normal field on the desk object.
+          </p>
+        </div>
+      )}
       {msg && <p className="mt-3 text-sm text-terminal-dim">{msg}</p>}
       {revealed && <code className="mt-3 block font-mono text-lg text-terminal-green">{revealed}</code>}
       <AnswerBox challengeId={ID} />
