@@ -229,6 +229,17 @@ export default function AdminPanel({
     });
   }
 
+  // Read-only convenience on Event Control: copy the live day's access code so
+  // the instructor never has to hop to the Days tab mid-round to read it.
+  async function copyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setMsg({ ok: true, text: `Copied access code: ${code}` });
+    } catch {
+      setMsg({ ok: false, text: 'Could not copy automatically — select the code and copy it by hand.' });
+    }
+  }
+
   // In embedded mode the panel is one of the tabs in the persistent HeaderBar —
   // there is no /admin route anymore (navigating to a separate route was causing
   // the arena's realtime/game state to remount). It renders as normal in-page
@@ -288,6 +299,23 @@ export default function AdminPanel({
   // Days split into Week 1 (3-5) and Week 2 (6-10)
   const week1Days = days.filter((d) => d.day >= 3 && d.day <= 5);
   const week2Days = days.filter((d) => d.day >= 6 && d.day <= 10);
+
+  // Event Control workflow helpers: which day is live, its access code, and a
+  // single "what to do next" line so the tab reads as ordered steps rather than
+  // a stack of equally-loud cards.
+  const activeDayObj = days.find((d) => d.day === activeDay) ?? null;
+  const activeDayName = activeDayObj?.title ?? (activeDay != null ? `Day ${activeDay}` : '—');
+  const activeCode = activeDayObj?.code ?? '';
+  const nextHint =
+    activeDay == null
+      ? 'Start here — choose the live day below.'
+      : isRunning
+        ? 'The round is live. Add or remove time below if you need to.'
+        : isEnded
+          ? 'The round ended. Open the finale to reveal the winners.'
+          : activeCode
+            ? 'Ready — share the access code, check the length, then start the round.'
+            : 'Ready — set the round length, then start the round.';
 
   function handleStartEvent() {
     run(
@@ -368,121 +396,17 @@ export default function AdminPanel({
       <div className="mt-6">
         {tab === 'event' && (
           <div className="space-y-4">
-            {/* ── THE ROUND ─────────────────────────────────────────────
-                Live clock + the three things you actually press mid-event. */}
-            <Card title="The round">
-              <AdminClock clock={clock} />
+            {/* One-line "what to do next", derived purely from day + clock state,
+                so the tab always tells the instructor the single next action. */}
+            <div className="flex items-center gap-3 rounded-lg border border-terminal-cyan/30 bg-terminal-cyan/5 px-4 py-2.5">
+              <span className="rounded bg-terminal-cyan/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-terminal-cyan">
+                Next
+              </span>
+              <span className="text-sm text-terminal-green/90">{nextHint}</span>
+            </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  disabled={busy}
-                  onClick={handleStartEvent}
-                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
-                >
-                  {isRunning ? `🔁 Restart · ${validMinutes} min` : `▶ Start · ${validMinutes} min`}
-                </button>
-                <button
-                  disabled={busy || !isRunning}
-                  onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
-                  title={!isRunning ? 'Nothing is running right now.' : undefined}
-                  className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                >
-                  ⏹ Stop now
-                </button>
-              </div>
-
-              {/* Adjust the clock without restarting. Restart resets starts_at, which
-                  replays the 3-2-1 GO! intro; this only moves ends_at. */}
-              {(isRunning || isEnded) && (
-                <div className="mt-4 border-t border-terminal-border pt-4">
-                  <Label>
-                    Adjust the clock{' '}
-                    <span className="font-normal normal-case text-terminal-dim">
-                      — no restart, no replayed intro
-                    </span>
-                  </Label>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {[5, 15].map((m) => (
-                      <button
-                        key={m}
-                        disabled={busy}
-                        onClick={() => run(() => adminAddTime(secret, m))}
-                        className="rounded-lg border border-terminal-green/50 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-                      >
-                        +{m} min
-                      </button>
-                    ))}
-                    <button
-                      disabled={busy}
-                      onClick={() => run(() => adminAddTime(secret, -5))}
-                      className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                    >
-                      −5 min
-                    </button>
-                    <span className="mx-1 hidden h-6 w-px bg-terminal-border sm:block" />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={adjustStr}
-                      onChange={(e) => setAdjustStr(e.target.value)}
-                      aria-label="Custom minutes to add or remove"
-                      className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
-                    />
-                    <button
-                      disabled={busy || validAdjust === 0}
-                      onClick={() => run(() => adminAddTime(secret, validAdjust))}
-                      className="rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
-                    >
-                      ＋ Add
-                    </button>
-                    <button
-                      disabled={busy || validAdjust === 0}
-                      onClick={() => run(() => adminAddTime(secret, -validAdjust))}
-                      className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                    >
-                      － Remove
-                    </button>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* ── THE FINALE ───────────────────────────────────────────
-                Drives the reveal on every screen in the room at once. */}
-            {isEnded && (
-              <Card title="The finale" tone="amber">
-                <p className="text-xs text-terminal-dim">
-                  Opens the card table on <strong className="text-terminal-amber">every screen</strong>.
-                  Click the cards to reveal 3rd → 2nd → 1st.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    disabled={busy || finaleStage >= 0}
-                    onClick={() => run(() => adminSetFinaleStage(secret, 0))}
-                    className="rounded-lg border border-terminal-amber bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
-                  >
-                    🏁 Open the reveal
-                  </button>
-                  <button
-                    disabled={busy || finaleStage < 0}
-                    onClick={() => run(() => adminSetFinaleStage(secret, -1))}
-                    className="rounded-lg border border-terminal-border px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red disabled:opacity-40"
-                  >
-                    ✕ End it
-                  </button>
-                  {finaleStage >= 0 && (
-                    <span className="self-center text-xs text-terminal-dim">
-                      {finaleStage === 0
-                        ? 'Cards are face down.'
-                        : `Revealed: ${finaleStage} of 3.`}
-                    </span>
-                  )}
-                </div>
-              </Card>
-            )}
-
-            {/* ── THE LIVE DAY ─────────────────────────────────────────── */}
-            <Card title="The live day" tone="cyan">
+            {/* STEP 1 — pick which day the leaderboard scores. */}
+            <Step n={1} title="Choose the live day" tone="cyan" hint="Sets which day the leaderboard scores right now.">
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   value={activeDaySel}
@@ -509,26 +433,43 @@ export default function AdminPanel({
                   }
                   className="rounded-lg border border-terminal-green bg-terminal-green/10 px-4 py-2.5 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
                 >
-                  {activeDaySel !== '' && Number(activeDaySel) === activeDay
-                    ? '✓ Live'
-                    : 'Set live'}
+                  {activeDaySel !== '' && Number(activeDaySel) === activeDay ? '✓ Live' : 'Set live'}
                 </button>
                 <span className="text-xs text-terminal-dim">
-                  Now:{' '}
-                  <strong className="text-terminal-green">
-                    {days.find((d) => d.day === activeDay)?.title ?? `Day ${activeDay ?? '—'}`}
-                  </strong>
+                  Now: <strong className="text-terminal-green">{activeDayName}</strong>
                 </span>
               </div>
+            </Step>
 
-            </Card>
+            {/* STEP 2 — read/copy the code players type to join (edited under Days). */}
+            <Step n={2} title="Share the access code" hint="Players enter this to join the live day.">
+              {activeDay == null ? (
+                <p className="text-sm text-terminal-dim">Pick the live day first, then its code shows here.</p>
+              ) : activeCode ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  <code className="rounded-lg border border-terminal-amber/40 bg-terminal-amber/10 px-4 py-2 font-mono text-lg font-bold tracking-widest text-terminal-amber">
+                    {activeCode}
+                  </code>
+                  <button
+                    onClick={() => void copyCode(activeCode)}
+                    className="rounded-lg border border-terminal-cyan/60 bg-terminal-cyan/10 px-4 py-2 text-sm font-bold uppercase tracking-widest text-terminal-cyan transition hover:bg-terminal-cyan/20"
+                  >
+                    ⧉ Copy
+                  </button>
+                  <span className="text-[11px] text-terminal-dim">
+                    Change it under <strong className="text-terminal-green">Days &amp; Challenges</strong>.
+                  </span>
+                </div>
+              ) : (
+                <p className="text-sm text-terminal-dim">
+                  <span className="text-terminal-amber">No code set</span> — this day is open to everyone. Add one
+                  under <strong className="text-terminal-green">Days &amp; Challenges</strong> if you want to gate it.
+                </p>
+              )}
+            </Step>
 
-            {/* ── SETUP ──────────────────────────────────────────────────
-                Both fields are real, saved settings. Round length used to be
-                local-only state that Start happened to read, so editing it and
-                refreshing threw the edit away — the field looked broken because
-                nothing was ever written back. */}
-            <Card title="Setup">
+            {/* STEP 3 — round length + score freeze (saved settings for next start). */}
+            <Step n={3} title="Set the round length" hint="Applied on the next start.">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <Label>Round length (min)</Label>
@@ -563,14 +504,119 @@ export default function AdminPanel({
                 >
                   {setupDirty ? '💾 Save setup' : '✓ Saved'}
                 </button>
-                {setupDirty && (
-                  <span className="text-[11px] text-terminal-amber">Unsaved changes.</span>
-                )}
+                {setupDirty && <span className="text-[11px] text-terminal-amber">Unsaved changes.</span>}
               </div>
-            </Card>
+            </Step>
 
-            {/* ── DANGER ───────────────────────────────────────────────── */}
-            <Card title="Danger zone" tone="red">
+            {/* STEP 4 — the live clock + the start/stop you press to run it. */}
+            <Step n={4} title="Run the round" hint="Start when the room is ready. Everyone sees the countdown.">
+              <AdminClock clock={clock} />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  disabled={busy}
+                  onClick={handleStartEvent}
+                  className="rounded-lg border border-terminal-green bg-terminal-green/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-50"
+                >
+                  {isRunning ? `🔁 Restart · ${validMinutes} min` : `▶ Start · ${validMinutes} min`}
+                </button>
+                <button
+                  disabled={busy || !isRunning}
+                  onClick={() => run(() => adminStopEvent(secret), 'Stop the event now for everyone?')}
+                  title={!isRunning ? 'Nothing is running right now.' : undefined}
+                  className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                >
+                  ⏹ Stop now
+                </button>
+              </div>
+            </Step>
+
+            {/* STEP 5 — adjust the clock without restarting (running or ended only).
+                Restart resets starts_at, which replays the 3-2-1 GO! intro; this
+                only moves ends_at. */}
+            {(isRunning || isEnded) && (
+              <Step
+                n={5}
+                title="Adjust the clock"
+                hint="Add or remove time without restarting — no replayed intro."
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  {[5, 15].map((m) => (
+                    <button
+                      key={m}
+                      disabled={busy}
+                      onClick={() => run(() => adminAddTime(secret, m))}
+                      className="rounded-lg border border-terminal-green/50 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                    >
+                      +{m} min
+                    </button>
+                  ))}
+                  <button
+                    disabled={busy}
+                    onClick={() => run(() => adminAddTime(secret, -5))}
+                    className="rounded-lg border border-terminal-amber/50 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    −5 min
+                  </button>
+                  <span className="mx-1 hidden h-6 w-px bg-terminal-border sm:block" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={adjustStr}
+                    onChange={(e) => setAdjustStr(e.target.value)}
+                    aria-label="Custom minutes to add or remove"
+                    className="w-16 rounded-lg border border-terminal-border bg-terminal-input px-3 py-2 text-center text-terminal-green outline-none focus:border-terminal-green"
+                  />
+                  <button
+                    disabled={busy || validAdjust === 0}
+                    onClick={() => run(() => adminAddTime(secret, validAdjust))}
+                    className="rounded-lg border border-terminal-green/60 bg-terminal-green/10 px-3 py-2 text-sm font-bold text-terminal-green transition hover:bg-terminal-green/20 disabled:opacity-40"
+                  >
+                    ＋ Add
+                  </button>
+                  <button
+                    disabled={busy || validAdjust === 0}
+                    onClick={() => run(() => adminAddTime(secret, -validAdjust))}
+                    className="rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 px-3 py-2 text-sm font-bold text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    － Remove
+                  </button>
+                </div>
+              </Step>
+            )}
+
+            {/* THE FINALE — reveal on every screen at once (ended only). */}
+            {isEnded && (
+              <Step n="🏁" title="The finale" tone="amber" hint="Reveals the winners on every screen at once.">
+                <p className="text-xs text-terminal-dim">
+                  Opens the card table on <strong className="text-terminal-amber">every screen</strong>. Click the
+                  cards to reveal 3rd → 2nd → 1st.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    disabled={busy || finaleStage >= 0}
+                    onClick={() => run(() => adminSetFinaleStage(secret, 0))}
+                    className="rounded-lg border border-terminal-amber bg-terminal-amber/10 px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-amber transition hover:bg-terminal-amber/20 disabled:opacity-40"
+                  >
+                    🏁 Open the reveal
+                  </button>
+                  <button
+                    disabled={busy || finaleStage < 0}
+                    onClick={() => run(() => adminSetFinaleStage(secret, -1))}
+                    className="rounded-lg border border-terminal-border px-5 py-3 text-sm font-bold uppercase tracking-widest text-terminal-dim transition hover:border-terminal-red hover:text-terminal-red disabled:opacity-40"
+                  >
+                    ✕ End it
+                  </button>
+                  {finaleStage >= 0 && (
+                    <span className="self-center text-xs text-terminal-dim">
+                      {finaleStage === 0 ? 'Cards are face down.' : `Revealed: ${finaleStage} of 3.`}
+                    </span>
+                  )}
+                </div>
+              </Step>
+            )}
+
+            {/* DANGER — reset the live day's scores. Visually last and quiet. */}
+            <Step n="⚠" title="Danger zone" tone="red" hint="Clears the live day's scores and clock. Other days are safe.">
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   disabled={busy || isIdle || activeDay == null}
@@ -597,7 +643,7 @@ export default function AdminPanel({
                   Clears the live day&apos;s scores and the clock. Other days are safe.
                 </span>
               </div>
-            </Card>
+            </Step>
           </div>
         )}
 
@@ -905,20 +951,41 @@ const titleTone: Record<string, string> = {
   red: 'text-terminal-red',
 };
 
-function Card({
+const stepBadge: Record<string, string> = {
+  default: 'border-terminal-cyan/50 text-terminal-cyan',
+  cyan: 'border-terminal-cyan/50 text-terminal-cyan',
+  amber: 'border-terminal-amber/50 text-terminal-amber',
+  red: 'border-terminal-red/50 text-terminal-red',
+};
+
+/** A numbered section: a panel shell with a step badge and an optional one-line
+ * hint so Event Control reads as an ordered checklist. */
+function Step({
+  n,
   title,
   tone = 'default',
+  hint,
   children,
 }: {
+  n: number | string;
   title: string;
   tone?: 'default' | 'cyan' | 'amber' | 'red';
+  hint?: string;
   children: ReactNode;
 }) {
   return (
     <section className={`rounded-xl border bg-terminal-panel p-5 ${cardTone[tone]}`}>
-      <h2 className={`mb-3 text-sm font-bold uppercase tracking-widest ${titleTone[tone]}`}>
-        ▸ {title}
-      </h2>
+      <div className="mb-3 flex items-start gap-3">
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-black ${stepBadge[tone]}`}
+        >
+          {n}
+        </span>
+        <div className="min-w-0">
+          <h2 className={`text-sm font-bold uppercase tracking-widest ${titleTone[tone]}`}>{title}</h2>
+          {hint && <p className="mt-0.5 text-[11px] text-terminal-dim">{hint}</p>}
+        </div>
+      </div>
       {children}
     </section>
   );
