@@ -16,7 +16,6 @@ const ID = 'd7_cross_talk';
  */
 export default function CrossTalkChallenge() {
   const { player } = useApp();
-  const [revealHex, setRevealHex] = useState('');
   const [gate, setGate] = useState('');
   const [channelOpen, setChannelOpen] = useState(false);
   const [widgetHtml, setWidgetHtml] = useState(
@@ -36,7 +35,6 @@ export default function CrossTalkChallenge() {
         if (r.ok && r.material) {
           const hex = String(r.material.reveal_hex ?? '');
           const g = String(r.material.gate ?? '');
-          setRevealHex(hex);
           setGate(g);
           revealRef.current = hex;
           gateRef.current = g;
