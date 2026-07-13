@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
 import { getEventState } from '../lib/time';
@@ -46,7 +46,6 @@ function saveUnlockedDays(s: Set<number>) {
 export default function Play() {
   const { player, setPlayer, muted, toggleMute, theme, toggleTheme } = useApp();
   const game = useGame(player);
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // A challenge page links back here as `/?c=<challengeId>` so pressing "back to
