@@ -76,16 +76,26 @@ export default function AdminPanel({
   const [players, setPlayers] = useState<AdminPlayer[]>(() => getCache<AdminPlayer[]>('admin_players') ?? []);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [activeDaySel, setActiveDaySel] = useState<number | ''>('');
   const [showFlags, setShowFlags] = useState(false);
 
-  // Duration & freeze as local string state — synced from server only on genuine changes
-  const [minutesStr, setMinutesStr] = useState('35');
-  const [freezeStr, setFreezeStr] = useState('15');
+  // Seed the editable event fields from the freshest event we already have — the
+  // arena's realtime feed (`game.event`) when embedded, else the cached overview.
+  // Without this, opening Admin flashed the hardcoded 35/15/"choose a day"
+  // defaults and only snapped to the real values once the 5s poll returned,
+  // which read as stale ghost values coming back from the DB.
+  const seedEvent = game?.event ?? getCache<AdminOverview>('admin_overview')?.event ?? null;
+  const [activeDaySel, setActiveDaySel] = useState<number | ''>(seedEvent?.active_day ?? '');
+
+  // Duration & freeze as local string state — synced from the live event only
+  // when the SERVER value genuinely changes, so a poll never clobbers a value
+  // the instructor is mid-edit.
+  const [minutesStr, setMinutesStr] = useState(() => String(seedEvent?.duration_minutes ?? 35));
+  const [freezeStr, setFreezeStr] = useState(() => String(seedEvent?.freeze_minutes ?? 15));
   // Mid-round clock adjustment (add/remove minutes without restarting).
   const [adjustStr, setAdjustStr] = useState('15');
-  const lastServerMinutes = useRef<number | null>(null);
-  const lastServerFreeze = useRef<number | null>(null);
+  const lastServerMinutes = useRef<number | null>(seedEvent?.duration_minutes ?? null);
+  const lastServerFreeze = useRef<number | null>(seedEvent?.freeze_minutes ?? null);
+  const lastServerActiveDay = useRef<number | null>(seedEvent?.active_day ?? null);
 
   // Tab state persisted in localStorage. Old saved values from the previous
   // 5-tab layout ('activeday', 'challenges') are transparently remapped to
@@ -126,21 +136,9 @@ export default function AdminPanel({
       ...res,
       challenges: res.challenges?.map((c) => ({ ...c, flag: '' })),
     });
-
-    if (res.event) {
-      // Sync duration only when server value genuinely changed
-      const serverMin = res.event.duration_minutes ?? 35;
-      if (lastServerMinutes.current === null || lastServerMinutes.current !== serverMin) {
-        lastServerMinutes.current = serverMin;
-        setMinutesStr(String(serverMin));
-      }
-      const serverFreeze = res.event.freeze_minutes ?? 15;
-      if (lastServerFreeze.current === null || lastServerFreeze.current !== serverFreeze) {
-        lastServerFreeze.current = serverFreeze;
-        setFreezeStr(String(serverFreeze));
-      }
-      setActiveDaySel(res.event.active_day ?? '');
-    }
+    // Editable event fields (duration / freeze / active-day selector) are synced
+    // from the live event in a dedicated effect below, not here — so they hydrate
+    // from the arena's realtime feed instantly instead of waiting on this poll.
     try {
       const pl = await adminListPlayers(secret);
       if (pl.players) {
@@ -216,6 +214,29 @@ export default function AdminPanel({
   const isEnded = clock.status === 'ended';
   const activeDay = liveEvent?.active_day ?? null;
   const finaleStage = liveEvent?.finale_stage ?? -1;
+
+  // Keep the editable event fields in lock-step with the live event. Only
+  // overwrite when the SERVER value actually changed (tracked via refs) so a
+  // realtime tick or poll never stomps a value the instructor is mid-edit, and
+  // the active-day dropdown isn't reset out from under an unsaved selection.
+  useEffect(() => {
+    if (!liveEvent) return;
+    const serverMin = liveEvent.duration_minutes ?? 35;
+    if (lastServerMinutes.current !== serverMin) {
+      lastServerMinutes.current = serverMin;
+      setMinutesStr(String(serverMin));
+    }
+    const serverFreeze = liveEvent.freeze_minutes ?? 15;
+    if (lastServerFreeze.current !== serverFreeze) {
+      lastServerFreeze.current = serverFreeze;
+      setFreezeStr(String(serverFreeze));
+    }
+    const serverDay = liveEvent.active_day ?? null;
+    if (lastServerActiveDay.current !== serverDay) {
+      lastServerActiveDay.current = serverDay;
+      setActiveDaySel(serverDay ?? '');
+    }
+  }, [liveEvent?.duration_minutes, liveEvent?.freeze_minutes, liveEvent?.active_day]);
   const statusLabel = isRunning ? 'RUNNING' : isEnded ? 'ENDED' : 'NOT STARTED';
   const statusColor = isRunning ? 'text-terminal-green' : isEnded ? 'text-terminal-red' : 'text-terminal-amber';
 
