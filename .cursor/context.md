@@ -3,6 +3,8 @@
 Read this first. Prefer this file + the skill over re-exploring the whole repo.
 Update this file when architecture, days, or challenge conventions change.
 
+**DB performance / indexes / retrieval:** `.cursor/db-performance.md` (re-audit after DDL).
+
 ---
 
 ## Stack & IDs

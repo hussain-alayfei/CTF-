@@ -55,6 +55,26 @@ export function useGame(player: Player | null) {
     setCache('leaderboard', lb);
   }, []);
 
+  /** Fast path after a single solve INSERT — merge locally, only refetch the board ranks. */
+  const refreshBoardAfterSolve = useCallback(
+    async (incoming: Solve) => {
+      setSolves((prev) => {
+        if (prev.some((x) => x.id === incoming.id)) return prev;
+        const next = [...prev, incoming].sort(
+          (a, b) => Date.parse(a.solved_at) - Date.parse(b.solved_at),
+        );
+        setCache('solves', next);
+        return next;
+      });
+      const day = activeDayRef.current;
+      const lb =
+        day != null ? await fetchDayLeaderboard(day) : await fetchLeaderboard();
+      setLeaderboard(lb);
+      setCache('leaderboard', lb);
+    },
+    [],
+  );
+
   // Debounced board refresh. Postgres Realtime fires ONE event per affected
   // row, so an admin "Reset day" (which bulk-deletes every solve for that day)
   // or "Delete all players" would otherwise trigger dozens of back-to-back
@@ -164,7 +184,7 @@ export function useGame(player: Player | null) {
               } as Announcement,
             ].slice(-30),
           );
-          await refreshBoard();
+          await refreshBoardAfterSolve(s);
         },
       )
       .on(
@@ -234,7 +254,7 @@ export function useGame(player: Player | null) {
         boardRefreshTimer.current = null;
       }
     };
-  }, [refreshBoard, refreshEvent, refreshDaysAndChallenges, scheduleBoardRefresh]);
+  }, [refreshBoard, refreshBoardAfterSolve, refreshEvent, refreshDaysAndChallenges, scheduleBoardRefresh]);
 
   // Belt and braces for the realtime feed: revalidate when the tab comes back to
   // life, when the network returns, and on a slow timer while visible. Realtime is
