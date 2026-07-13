@@ -16,6 +16,29 @@ export function getEventState(event: EventConfig | null, now = Date.now()): Even
   return { status: 'running', remainingMs: end - now };
 }
 
+/** Minutes after ends_at before the arena drops TIME'S UP and returns to STAND BY. */
+export const STALE_ENDED_MS = 30 * 60 * 1000;
+
+/**
+ * True when the round has been over long enough that the UI should look like
+ * standby again (timer + banners), not shout TIME'S UP forever.
+ */
+export function isStaleEnded(event: EventConfig | null, now = Date.now()): boolean {
+  const { status } = getEventState(event, now);
+  if (status !== 'ended' || !event?.ends_at) return false;
+  return now - Date.parse(event.ends_at) > STALE_ENDED_MS;
+}
+
+/** Status used by arena chrome: ended → idle after the stale window. */
+export function getEffectiveEventStatus(
+  event: EventConfig | null,
+  now = Date.now(),
+): EventStatus {
+  const { status } = getEventState(event, now);
+  if (isStaleEnded(event, now)) return 'idle';
+  return status;
+}
+
 /**
  * The scoreboard "blackout": during the final `freeze_minutes` of a running
  * event the live leaderboard is hidden to build suspense (like a real CTF

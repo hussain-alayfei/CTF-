@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../lib/app-context';
 import { useGame } from '../lib/useGame';
-import { getEventState } from '../lib/time';
+import { getEffectiveEventStatus, getEventState, isStaleEnded } from '../lib/time';
 import { adminSetFinaleStage, checkDayCode } from '../lib/api';
 import { playEventStart, playEventEnd } from '../lib/sounds';
 import { clearPlayer } from '../lib/session';
@@ -245,9 +245,9 @@ export default function Play() {
 
   // After the event ends, treat the ended state as "idle" once 30 min have passed
   // so the page refreshes cleanly for the next day instead of showing "TIME'S UP" forever.
-  const endedAt = game.event?.ends_at ? Date.parse(game.event.ends_at) : null;
-  const staleEnded = eventState.status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
-  const effectiveStatus = staleEnded ? 'idle' : eventState.status;
+  // Shared helpers keep the big timer, banners, and challenge blur in lockstep.
+  const staleEnded = isStaleEnded(game.event, now);
+  const effectiveStatus = getEffectiveEventStatus(game.event, now);
 
   // `finale_stage` stays where the instructor left it until the next round starts,
   // so a stage of 3 from last week's round is still sitting in the database today.
@@ -256,13 +256,11 @@ export default function Play() {
   // belongs to the round that just ended; once that round is stale it's history.
   const showFinale = finaleStage >= 0 && !finaleDismissed && !staleEnded;
 
-  // Fairness blur applies ONLY to the live competition day before/after its
-  // round runs — never to completed/practice days. A day marked is_completed by
-  // the admin is always readable so students can practice it, even with the
-  // clock idle. Previously every open day blurred while idle, which wrongly hid
-  // past days (3, 4) that students want to practice.
+  // Fairness blur: hide titles only while waiting for the next GO — never after
+  // a round has ended (or gone stale into STAND BY). Old logic used
+  // `!== 'running'`, so TIME'S UP / STAND BY still showed "Hidden until start".
   const dayIsBlurred = (d: Day) =>
-    !d.is_completed && d.day === activeDay && effectiveStatus !== 'running';
+    !d.is_completed && d.day === activeDay && effectiveStatus === 'idle' && !staleEnded && !!game.event?.starts_at;
 
   // Day categories
   const restDays = sortedDays.filter((d) => d.is_rest && d.is_open);
@@ -441,6 +439,14 @@ export default function Play() {
             {isLive && effectiveStatus === 'running' ? (
               <span className="rounded border border-terminal-green/50 bg-terminal-green/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-green">
                 ● Live · scoring
+              </span>
+            ) : isLive && effectiveStatus === 'ended' ? (
+              <span className="rounded border border-terminal-red/40 bg-terminal-red/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-red">
+                Round ended
+              </span>
+            ) : isLive && effectiveStatus === 'idle' ? (
+              <span className="rounded border border-terminal-amber/40 bg-terminal-amber/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-amber">
+                Stand by
               </span>
             ) : finished ? (
               <span className="rounded border border-terminal-dim/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-terminal-dim">

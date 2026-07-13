@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { EventConfig } from '../lib/types';
-import { CRITICAL_SECONDS, WARN_SECONDS, formatDuration, strobeMs } from '../lib/time';
+import { CRITICAL_SECONDS, WARN_SECONDS, formatDuration, getEffectiveEventStatus, isStaleEnded, strobeMs } from '../lib/time';
 import useCountdown from '../lib/useCountdown';
 import { playCountdownBeep, playFinalMinute, playTimeUp, playWarn5 } from '../lib/sounds';
 
@@ -97,12 +97,9 @@ function RoundAudio({ event }: { event: EventConfig | null }) {
  */
 export function ArenaTimerBanner({ event }: { event: EventConfig | null }) {
   const { status, remainingMs, secs, phase } = useCountdown(event);
+  const displayStatus = getEffectiveEventStatus(event);
 
-  // After 30 min past the end, stop shouting "TIME'S UP" and go back to standby.
-  const endedAt = event?.ends_at ? Date.parse(event.ends_at) : null;
-  const staleEnded = status === 'ended' && endedAt != null && Date.now() - endedAt > 30 * 60 * 1000;
-
-  if (status === 'idle' || staleEnded) {
+  if (displayStatus === 'idle' || isStaleEnded(event)) {
     return (
       <div className="flex items-center justify-center gap-3 border-b border-terminal-amber/30 bg-terminal-amber/5 py-4">
         <span className="animate-flicker text-4xl font-extrabold tracking-widest text-terminal-amber sm:text-5xl">
