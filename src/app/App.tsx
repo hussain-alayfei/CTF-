@@ -33,6 +33,18 @@ import ClaimTicketChallenge from '@/challenges/day7/ClaimTicketChallenge';
 import InheritedTrustChallenge from '@/challenges/day7/InheritedTrustChallenge';
 import CrossTalkChallenge from '@/challenges/day7/CrossTalkChallenge';
 import FlashSeatChallenge from '@/challenges/day7/FlashSeatChallenge';
+import DoorMapChallenge from '@/challenges/day8/DoorMapChallenge';
+import HeaderMirrorChallenge from '@/challenges/day8/HeaderMirrorChallenge';
+import MethodGateChallenge from '@/challenges/day8/MethodGateChallenge';
+import CookieLoungeChallenge from '@/challenges/day8/CookieLoungeChallenge';
+import ProxyPriceChallenge from '@/challenges/day8/ProxyPriceChallenge';
+import HashedDossierChallenge from '@/challenges/day8/HashedDossierChallenge';
+import StepSkipChallenge from '@/challenges/day8/StepSkipChallenge';
+import VerbSmuggleChallenge from '@/challenges/day8/VerbSmuggleChallenge';
+import TwinParamChallenge from '@/challenges/day8/TwinParamChallenge';
+import GraphAtticChallenge from '@/challenges/day8/GraphAtticChallenge';
+import FilterCrawlChallenge from '@/challenges/day8/FilterCrawlChallenge';
+import TemplateVaultChallenge from '@/challenges/day8/TemplateVaultChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -136,6 +148,19 @@ export default function App() {
         <Route path="/challenge/inherited-trust" element={<InheritedTrustChallenge />} />
         <Route path="/challenge/cross-talk" element={<CrossTalkChallenge />} />
         <Route path="/challenge/flash-seat" element={<FlashSeatChallenge />} />
+        <Route path="/challenge/door-map" element={<DoorMapChallenge />} />
+        <Route path="/challenge/door-map/staff-closet" element={<DoorMapChallenge />} />
+        <Route path="/challenge/header-mirror" element={<HeaderMirrorChallenge />} />
+        <Route path="/challenge/method-gate" element={<MethodGateChallenge />} />
+        <Route path="/challenge/cookie-lounge" element={<CookieLoungeChallenge />} />
+        <Route path="/challenge/proxy-price" element={<ProxyPriceChallenge />} />
+        <Route path="/challenge/hashed-dossier" element={<HashedDossierChallenge />} />
+        <Route path="/challenge/step-skip" element={<StepSkipChallenge />} />
+        <Route path="/challenge/verb-smuggle" element={<VerbSmuggleChallenge />} />
+        <Route path="/challenge/twin-param" element={<TwinParamChallenge />} />
+        <Route path="/challenge/graph-attic" element={<GraphAtticChallenge />} />
+        <Route path="/challenge/filter-crawl" element={<FilterCrawlChallenge />} />
+        <Route path="/challenge/template-vault" element={<TemplateVaultChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         {/* Neither /admin nor /board are routes anymore — the instructor panel and
             the projector board both open as in-page overlays from the arena (see

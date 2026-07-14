@@ -28,7 +28,8 @@ Update this file when architecture, days, or challenge conventions change.
 | 5 | Privacy | Authored **v4** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
 | 6 | (prior pack) | Authored | **Dynamic** |
 | 7 | Web Applications | Authored **v2.4 live** | **Dynamic** (15: 3E / 6M / 3H / 3D multi-step, **no files**) |
-| 8–10 | Placeholders | Locked, empty | — |
+| 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (12: 3E / 4M / 3H / 2D, **no files**) |
+| 9–10 | Placeholders | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
@@ -60,7 +61,7 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 4. **Hints:** at most one; short nudge only (what to look at), not how.
 5. **No `KGSP{…}` or plaintext answer** in artifacts or client bundle. Grep before ship.
 6. **Before delete/change answers:** check `solves` counts; warn user if > 0.
-7. Full workflow: `.cursor/skills/manage-ctf-challenges/SKILL.md` · Design history: `docs/ADMIN_MANUAL_DAY4.md` · Day 5 answers: `docs/ADMIN_MANUAL_DAY5.md` · Day 7 answers: `docs/ADMIN_MANUAL_DAY7.md`.
+7. Full workflow: `.cursor/skills/manage-ctf-challenges/SKILL.md` · Design history: `docs/ADMIN_MANUAL_DAY4.md` · Day 5 answers: `docs/ADMIN_MANUAL_DAY5.md` · Day 7 answers: `docs/ADMIN_MANUAL_DAY7.md` · Day 8 answers: `docs/ADMIN_MANUAL_DAY8.md`.
 
 ### Deploy / DB
 
@@ -215,8 +216,9 @@ Verified via MCP **2026-07-14**. Prefer live queries over guessing; file migrati
 | Day | Title | open | completed | #challenges (approx) |
 |-----|-------|------|-----------|----------------------|
 | 3–6 | Data → Pentesting | open | **completed** | Day4≈9, Day5=10, Day6≈13 |
-| **7** | Web Applications | **open** | not completed | **15** all dynamic |
-| 8–10 | placeholders | locked | — | empty |
+| **7** | Web Applications | open | **completed** | **15** all dynamic |
+| **8** | Web Application Hacking | **open** | not completed | **12** all dynamic |
+| 9–10 | placeholders | locked | — | empty |
 
 Scale ≈ **13 players · 54 challenges · 143 solves** (Day 7 solves ≈ 19). Re-query before destructive ops.
 
@@ -293,8 +295,9 @@ src/challenges/day5/        CachePhantom, ConsentLabyrinth (easy live) · GhostP
                             Reidentified (D, verify_reident) · dayfive.ts (crypto),
                             reidentData.ts (datasets)
 src/challenges/day7/*.tsx   Day 7 live labs (15) + dayseven.ts helpers
+src/challenges/day8/*.tsx   Day 8 live labs (12) + dayeight.ts helpers
 
-public/challenges/day4|day5/          artifacts (day5: places.sqlite + metadata-mirage.jpg only)
+public/challenges/day4|day5|day8/     artifacts (day5: places.sqlite + metadata-mirage.jpg; day8: robots/ping)
 scripts/gen-day4-artifacts.py
 scripts/gen-day5-privacy.py            Day 5 v4: image + crypto material + migration
 supabase/migrations/                  history; live DB is source of truth
@@ -312,7 +315,7 @@ docs/ADMIN_MANUAL.md | _DAY4.md | _DAY5.md | _DAY7.md instructor keys
 | User wants… | Do this |
 |-------------|---------|
 | Add/edit/delete challenges | Follow **manage-ctf-challenges** skill; query live DB first |
-| Day 4/5/7 answers / how to solve | Read `docs/ADMIN_MANUAL_DAY4.md` / `_DAY5.md` / `_DAY7.md` — don’t invent |
+| Day 4/5/7/8 answers / how to solve | Read `docs/ADMIN_MANUAL_DAY4.md` / `_DAY5.md` / `_DAY7.md` / `_DAY8.md` — don’t invent |
 | New day (6+) | Dynamic + anti-AI rules; Day 7 bar = live browser labs (no file dumps for GPT) |
 | Regenerate Day 5 artifacts | `python scripts/gen-day5-privacy.py` then **re-apply** emitted migration (keys changed) |
 | UI/admin/board bugs | Touch `src/pages/*` + `src/lib/*`; keep perf/sound + Admin seed-from-`game.event` rules |

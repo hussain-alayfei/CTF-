@@ -7,7 +7,7 @@ alwaysApply: true
 
 1. Read `.cursor/context.md` first (state, **Backend — live Supabase**, hard rules, owner style, lessons, session digest).
 2. Challenge CRUD → `.cursor/skills/manage-ctf-challenges/SKILL.md`.
-3. Day 4/5/7 answers → `docs/ADMIN_MANUAL_DAY4.md` / `docs/ADMIN_MANUAL_DAY5.md` / `docs/ADMIN_MANUAL_DAY7.md` only — never invent.
+3. Day 4/5/7/8 answers → `docs/ADMIN_MANUAL_DAY4.md` / `docs/ADMIN_MANUAL_DAY5.md` / `docs/ADMIN_MANUAL_DAY7.md` / `docs/ADMIN_MANUAL_DAY8.md` only — never invent.
 4. DB performance / indexes → `.cursor/db-performance.md` (re-audit after DDL). Migration rules → `supabase/migrations/README.md`.
 
 ## Owner style (match this)

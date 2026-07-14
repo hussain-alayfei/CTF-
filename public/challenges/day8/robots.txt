@@ -1,0 +1,6 @@
+# Campus desk crawler notice
+# Paths below are not for public menus.
+
+User-agent: *
+Disallow: /challenge/door-map/staff-closet
+Disallow: /staging/
