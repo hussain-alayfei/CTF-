@@ -45,6 +45,7 @@ import TwinParamChallenge from '@/challenges/day8/TwinParamChallenge';
 import GraphAtticChallenge from '@/challenges/day8/GraphAtticChallenge';
 import FilterCrawlChallenge from '@/challenges/day8/FilterCrawlChallenge';
 import TemplateVaultChallenge from '@/challenges/day8/TemplateVaultChallenge';
+import HiddenLedgerChallenge from '@/challenges/day8/HiddenLedgerChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -159,6 +160,7 @@ export default function App() {
         <Route path="/challenge/verb-smuggle" element={<VerbSmuggleChallenge />} />
         <Route path="/challenge/twin-param" element={<TwinParamChallenge />} />
         <Route path="/challenge/graph-attic" element={<GraphAtticChallenge />} />
+        <Route path="/challenge/hidden-ledger" element={<HiddenLedgerChallenge />} />
         <Route path="/challenge/filter-crawl" element={<FilterCrawlChallenge />} />
         <Route path="/challenge/template-vault" element={<TemplateVaultChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />

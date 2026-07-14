@@ -28,7 +28,7 @@ Update this file when architecture, days, or challenge conventions change.
 | 5 | Privacy | Authored **v4** | **Dynamic** (10: 3E / 4M / 2H / 1D) |
 | 6 | (prior pack) | Authored | **Dynamic** |
 | 7 | Web Applications | Authored **v2.4 live** | **Dynamic** (15: 3E / 6M / 3H / 3D multi-step, **no files**) |
-| 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (12: 3E / 4M / 3H / 2D, **no files**) |
+| 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (13: 3E / 4M / 4H / 2D, **no files**) |
 | 9–10 | Placeholders | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
