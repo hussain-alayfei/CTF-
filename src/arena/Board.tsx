@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { formatDuration, isFrozen, strobeMs } from '@/lib/time';
+import { formatDuration, getEventState, isFrozen, strobeMs } from '@/lib/time';
 import useCountdown from '@/lib/useCountdown';
 import type { EventConfig } from '@/lib/types';
 import type { Game } from '@/lib/useGame';
@@ -89,14 +89,26 @@ function BoardClock({ event }: { event: EventConfig | null }) {
 // Shown in place of the ranking during the final-minutes freeze so the finish
 // stays a surprise on the projector. Scores are revealed automatically the
 // moment the timer hits zero.
-function FrozenPanel({ event, count }: { event: EventConfig | null; count: number }) {
+function FrozenPanel({
+  event,
+  count,
+  ended,
+}: {
+  event: EventConfig | null;
+  count: number;
+  ended: boolean;
+}) {
   const mins = event?.freeze_minutes ?? 15;
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-terminal-amber/40 bg-terminal-amber/5 p-10 text-center">
-      <div className="animate-flicker text-6xl">🔒</div>
-      <h2 className="mt-4 text-2xl font-extrabold text-terminal-amber sm:text-3xl">Standings frozen</h2>
+      <div className="animate-flicker text-6xl">{ended ? '🏁' : '🔒'}</div>
+      <h2 className="mt-4 text-2xl font-extrabold text-terminal-amber sm:text-3xl">
+        {ended ? 'Final reveal' : 'Standings frozen'}
+      </h2>
       <p className="mt-2 max-w-md text-sm leading-relaxed text-terminal-dim">
-        Hidden for the final {mins} minutes. Revealed the moment the clock hits zero.
+        {ended
+          ? 'Time is up! The top 3 are revealed on the results cards. Full standings appear once the champion card is opened.'
+          : `Hidden for the final ${mins} minutes. The winners are then revealed card by card.`}
       </p>
       <p className="mt-5 text-xs uppercase tracking-widest text-terminal-dim">
         {count} competitor{count === 1 ? '' : 's'} still in the running
@@ -122,9 +134,11 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
   // again at time's up, rather than ticking every second — a per-second re-render
   // of this whole board was the old "shimmer".
   const [frozen, setFrozen] = useState(() => isFrozen(game.event, Date.now()));
+  const [ended, setEnded] = useState(() => getEventState(game.event).status === 'ended');
   useEffect(() => {
     const ev = game.event;
     setFrozen(isFrozen(ev, Date.now()));
+    setEnded(getEventState(ev).status === 'ended');
     if (!ev?.ends_at) return;
     const end = Date.parse(ev.ends_at);
     const freezeMs = (ev.freeze_minutes ?? 0) * 60_000;
@@ -135,10 +149,28 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
       timers.push(window.setTimeout(() => setFrozen(true), freezeStart - now + 50));
     }
     if (now < end) {
-      timers.push(window.setTimeout(() => setFrozen(false), end - now + 50)); // reveal at time's up
+      // At time-up the freeze window closes, but the standings do NOT auto-reveal:
+      // the winners come out card by card in the finale. Hand off to the ended
+      // hold, which stays hidden until the champion card is turned.
+      timers.push(
+        window.setTimeout(() => {
+          setFrozen(false);
+          setEnded(true);
+        }, end - now + 50),
+      );
     }
     return () => timers.forEach(clearTimeout);
   }, [game.event]);
+
+  // Numeric standings unlock only when the champion card is revealed
+  // (finale_stage 3). Fewer than 3 scored players can't run the card reveal, so
+  // don't trap the board in that case.
+  const finaleStage = game.event?.finale_stage ?? -1;
+  const scoredCount = game.leaderboard.filter(
+    (r) => r.total_points > 0 || r.solves_count > 0,
+  ).length;
+  const resultsRevealed = finaleStage >= 3 || scoredCount < 3;
+  const hideStandings = frozen || (ended && !resultsRevealed);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -200,8 +232,8 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
           </section>
 
           <section className="flex flex-col gap-5">
-            {frozen ? (
-              <FrozenPanel event={game.event} count={game.leaderboard.length} />
+            {hideStandings ? (
+              <FrozenPanel event={game.event} count={game.leaderboard.length} ended={ended} />
             ) : (
               // One shared grid template across every row, so rank, avatar, name,
               // solve count and score line up in true columns instead of each row
@@ -280,15 +312,16 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
                     <span className="text-center text-2xl">
                       {a.type === 'first_blood' ? '🩸' : '✓'}
                     </span>
-                    {/* During the freeze the feed keeps flowing (so the room still
-                        feels the action) but names are hidden so it can't reveal
-                        who's climbing while standings are blacked out. */}
+                    {/* While standings are hidden (freeze, or the post-time-up
+                        reveal window) the feed keeps flowing so the room still
+                        feels the action, but names/points are masked so it can't
+                        leak who's climbing before the cards are opened. */}
                     <span className="text-center text-3xl leading-none">
-                      {frozen ? '🕵️' : a.avatar}
+                      {hideStandings ? '🕵️' : a.avatar}
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-lg font-bold text-terminal-green">
-                        {frozen ? 'Anonymous' : a.username}
+                        {hideStandings ? 'Anonymous' : a.username}
                       </span>
                       <span className="block truncate text-sm text-terminal-dim">
                         {a.type === 'first_blood' ? 'first blood · ' : ''}
@@ -296,7 +329,7 @@ export default function Board({ game, onClose }: { game: Game; onClose: () => vo
                       </span>
                     </span>
                     <span className="text-right text-2xl font-extrabold tabular-nums text-terminal-amber">
-                      {frozen ? '🔒' : `+${a.points}`}
+                      {hideStandings ? '🔒' : `+${a.points}`}
                     </span>
                   </li>
                 ))}

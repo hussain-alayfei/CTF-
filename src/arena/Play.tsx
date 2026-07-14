@@ -249,12 +249,27 @@ export default function Play() {
   const staleEnded = isStaleEnded(game.event, now);
   const effectiveStatus = getEffectiveEventStatus(game.event, now);
 
+  // The winners come out card by card, so the numeric standings must NOT appear
+  // the instant the clock hits zero — that spoiled the whole reveal (players saw
+  // the top 3 scores before a single card was opened). Results unlock only once
+  // the champion card is turned (finale_stage 3). With fewer than 3 scored players
+  // the card reveal can't run, so don't trap the board — reveal right away then.
+  const scoredCount = game.leaderboard.filter(
+    (r) => r.total_points > 0 || r.solves_count > 0,
+  ).length;
+  const resultsRevealed = finaleStage >= 3 || scoredCount < 3;
+
   // `finale_stage` stays where the instructor left it until the next round starts,
   // so a stage of 3 from last week's round is still sitting in the database today.
   // Without this gate every visit — and every refresh — reopened last round's
   // results over the arena and there was no way to get past them. The finale
   // belongs to the round that just ended; once that round is stale it's history.
-  const showFinale = finaleStage >= 0 && !finaleDismissed && !staleEnded;
+  //
+  // The moment the round ends we auto-open the card table (even before the
+  // instructor has touched finale_stage) so the room lands on the face-down top-3
+  // cards, never on a spoiler list of scores. Admin opens the cards from there.
+  const showFinale =
+    (finaleStage >= 0 || effectiveStatus === 'ended') && !finaleDismissed && !staleEnded;
 
   // Fairness blur: hide titles only while waiting for the next GO — never after
   // a round has ended (or gone stale into STAND BY). Old logic used
@@ -669,7 +684,13 @@ export default function Play() {
             <LockedBoard
               icon="🙈"
               title="Standings hidden"
-              text="The leaderboard stays hidden while the round is live — no peeking! Keep hacking; the full results are revealed the moment time runs out."
+              text="The leaderboard stays hidden while the round is live — no peeking! The winners are revealed card by card when time runs out."
+            />
+          ) : effectiveStatus === 'ended' && !resultsRevealed ? (
+            <LockedBoard
+              icon="🏁"
+              title="Final reveal in progress"
+              text="Time's up! The top 3 are being revealed on the results cards. The full standings unlock the moment the champion card is opened."
             />
           ) : (
             <Leaderboard
