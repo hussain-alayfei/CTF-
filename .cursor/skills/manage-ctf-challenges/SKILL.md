@@ -54,7 +54,7 @@ flag.
 
 ## Critical content rule — no recipes, ever
 
-This has caused real incidents (see `ADMIN_MANUAL_DAY4.md` and the
+This has caused real incidents (see `docs/ADMIN_MANUAL_DAY4.md` and the
 **Lessons learned** section in `.cursor/context.md`). Every prompt and
 hint **must**:
 - Never name a tool ("Wireshark", "CyberChef", "DevTools", "exiftool", "openssl").

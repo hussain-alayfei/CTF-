@@ -122,15 +122,19 @@ Report honestly: if it wasn't checked, say it wasn't checked.
 
 ## Layout of the thing
 
-- `src/pages/Play.tsx` — the arena. Owns the live `game` object and mounts Board, Admin,
-  Finale, and the challenge modal as **in-page overlays** (not routes — a route change
-  remounts the realtime subscription).
+`src/` is organised by domain. `@/` is an import alias for `src/`. Full map:
+`src/AGENT_MAP.md`.
+
+- `src/arena/Play.tsx` — the arena. Owns the live `game` object and mounts Board, Admin,
+ Finale, and the challenge modal as **in-page overlays** (not routes — a route change
+ remounts the realtime subscription).
 - `src/lib/useGame.ts` — the single realtime subscription. Everything else reuses it.
 - `src/lib/time.ts` + `useCountdown.ts` — one countdown model shared by arena, board and
-  admin, so all three screens agree: red at 5:00, strobe through the final minute.
-- `src/pages/AdminPanel.tsx` — instructor panel. Reads the event off the arena's live
-  feed, so a clock change lands everywhere from the same update.
-- `src/pages/Board.tsx` — projector. `src/components/Finale.tsx` — the reveal.
+ admin, so all three screens agree: red at 5:00, strobe through the final minute.
+- `src/admin/AdminPanel.tsx` — instructor panel. Reads the event off the arena's live
+ feed, so a clock change lands everywhere from the same update.
+- `src/arena/Board.tsx` — projector. `src/arena/components/Finale.tsx` — the reveal.
+- `src/challenges/dayN/` — per-day live labs; `src/challenges/shared/` — reusable lab chrome.
 - `supabase/migrations/` — read the README there first.
 
 Flags are always `KGSP{...}`.

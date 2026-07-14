@@ -5,17 +5,19 @@ alwaysApply: true
 
 # KGSP CTF agent bootstrap
 
-1. Read `.cursor/context.md` first (state, hard rules, **owner style**, **lessons learned**).
+1. Read `.cursor/context.md` first (state, **Backend — live Supabase**, hard rules, owner style, lessons, session digest).
 2. Challenge CRUD → `.cursor/skills/manage-ctf-challenges/SKILL.md`.
-3. Day 4/5 answers → `ADMIN_MANUAL_DAY4.md` / `ADMIN_MANUAL_DAY5.md` only — never invent.
-4. DB performance / indexes → `.cursor/db-performance.md` (re-audit after DDL).
+3. Day 4/5/7 answers → `docs/ADMIN_MANUAL_DAY4.md` / `docs/ADMIN_MANUAL_DAY5.md` / `docs/ADMIN_MANUAL_DAY7.md` only — never invent.
+4. DB performance / indexes → `.cursor/db-performance.md` (re-audit after DDL). Migration rules → `supabase/migrations/README.md`.
 
 ## Owner style (match this)
 
 - Day 4 / Day 5 **v3** quality: real tools, mixed formats, not all text downloads.
+- Day 7 bar: **live browser labs only** (no GPT-pasteable file dumps); dangers = multi-step.
 - Full day mix ≈ 3 easy (not trivial) · 4 medium · 2 hard · 1 danger.
 - Medium+ must be **unsolvable from the file alone** (off-file high-entropy key).
 - Hints = short nudge; challenge UI = soft panels, not scary warning popups.
+- Arena: card → **ChallengeModal first** → then live lab (never skip the modal).
 - Commit/push when he asks; ship frontend before DB; say clearly if old solves were wiped.
 
 ## Never repeat (real past bugs)
@@ -25,6 +27,11 @@ alwaysApply: true
 - No plaintext answers in URLs/logs/JSON/HTML; no `KGSP{` in files; no flags in JS bundle.
 - Don’t wipe all days in resets; don’t ignore `*.log` challenge assets; keep binary `.gitattributes`.
 - No MCP SQL with shell-like syntax (WAF); always `WHERE` on UPDATE/DELETE (pg-safeupdate).
+- Content migrations **upsert** — never delete+reinsert challenges (RESTRICT on solves FKs).
 - No full-viewport `mix-blend-mode`; no fake “sound on” without gesture (`isAudioRunning`).
 - Regenerating Day 5 artifacts **requires** re-applying the emitted migration (keys change).
 - Check `solves` before deleting/changing answers; update admin manuals with rewrites.
+- Admin editable fields: seed/sync from `game.event` — never hardcoded defaults + poll flash.
+- `admin_add_time` moves `ends_at` only — never rewrite `duration_minutes`.
+- `admin_stop_event` must clear `starts_at`/`ends_at`/`finale_stage` (true STAND BY).
+- Admin confirms → `ConfirmDialog`; players detail → drawer; stats → title-line strip not tiles.

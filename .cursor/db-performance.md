@@ -1,8 +1,8 @@
 # KGSP CTF — Database performance & retrieval (agent reference)
 
 > **For agents.** Live project: Supabase `xehzdlfrzlokwvtcfvjx` (`meras-ctf`).  
-> Last audited / fixed: **2026-07-13**. Re-run advisors + the SQL below after schema changes; update this file.  
-> Companion: `.cursor/context.md` (architecture) · skill: `manage-ctf-challenges`.
+> Last audited / fixed: **2026-07-14** (re-checked scale + Day 7 RPCs/answers against live DB). Re-run advisors + the SQL below after schema changes; update this file.  
+> Companion: `.cursor/context.md` (architecture + backend digest) · skill: `manage-ctf-challenges`.
 
 ---
 
@@ -14,9 +14,10 @@
 | Index coverage | **Fixed** | Duplicate `day_entries` uniqueness removed; FK + query indexes added |
 | Retrieval design | **Improved** | Realtime solve INSERT merges locally; full `fetchSolves` on reset/catch-up only |
 | Security posture (RLS) | **Intentional** | Secrets tables: RLS on, **no SELECT** policies (deny-by-default) |
+| Score safety | **Hardened** | `solves` / `hint_unlocks` → challenge FK **ON DELETE RESTRICT** |
 | Urgency | **None** | Hygiene applied; unused-index INFO on brand-new indexes is expected |
 
-**Scale today (approx):** players ~12 · challenges ~54 · solves ~124 · attempts ~354 · days 8.
+**Scale (live 2026-07-14):** players **13** · challenges **54** · solves **143** · Day7 solves **~19** · days 8 (3–10). Day7 = 15 challenges; Day5 = 10; Day4 ≈ 9; Day6 ≈ 13.
 
 ---
 
@@ -114,7 +115,9 @@ Day `is_open` **or** past active `sort_order`. Cheap while `days` is small.
 
 Player-facing: `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code`, `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`, `verify_reident`, `d7_blind_lookup`, `d7_leaky_user`, `d7_safe_file`.
 
-Admin: `admin_*` (start/stop/reset/overview/players/days/finale/…).
+Admin (live): `admin_add_time`, `admin_set_duration`, `admin_set_freeze`, `admin_set_finale_stage`, `admin_start_event`, `admin_stop_event` (nulls clocks + finale → STAND BY), `admin_reset`, `admin_overview`, `admin_set_day`, `admin_set_day_code`, `admin_set_day_completed`, `admin_set_active_day`, `admin_list_players`, `admin_delete_player`, `admin_delete_all_players`, `admin_set_player_excluded`, `admin_login`.
+
+**`admin_add_time` vs `admin_set_duration`:** add/remove minutes moves `ends_at` only. Round length for the *next* start is `duration_minutes` via `admin_set_duration` (or start’s `p_minutes`). Never let add-time rewrite duration (fixed in `round_length_setting`).
 
 Security advisor **WARN**: DEFINER RPCs executable by `anon` — **by design** (SPA anon key + `p_secret` / player token). Do not revoke execute without redesigning auth.
 
