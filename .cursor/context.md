@@ -301,7 +301,7 @@ public/challenges/day4|day5|day8/     artifacts (day5: places.sqlite + metadata-
 scripts/gen-day4-artifacts.py
 scripts/gen-day5-privacy.py            Day 5 v4: image + crypto material + migration
 supabase/migrations/                  history; live DB is source of truth
-docs/ADMIN_MANUAL.md | _DAY4.md | _DAY5.md | _DAY7.md instructor keys
+docs/ADMIN_MANUAL.md | _DAY4.md | _DAY5.md | _DAY7.md | _DAY8.md instructor keys
 .cursor/skills/manage-ctf-challenges/SKILL.md
 .cursor/db-performance.md             indexes / RPC performance notes
 ```
