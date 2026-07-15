@@ -264,6 +264,7 @@ Scale = **18 players · 82 challenges · 218 solves** (Day 9 solves = 0 at relea
 | `day9_blockchain_schema_content` | locked 15-lab catalog + private progress table + score columns |
 | `day9_blockchain_lab_rpc` | server-tracked multi-stage Day 9 validation |
 | `day9_dynamic_scoring_and_verification` | personal receipts + immutable solve-order awards |
+| `harden_dynamic_scoring_races` | hint/solve shared lock + never reuse a stored solve position |
 
 Repo mirror files: `supabase/migrations/20260712_*.sql`, `20260713_*.sql`. Always **`apply_migration` via MCP** then keep a matching file. Content changes = **upsert**, not delete+insert.
 

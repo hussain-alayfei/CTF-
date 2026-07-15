@@ -14,6 +14,9 @@ Day 9 uses solve-order decay, not retroactive CTFd repricing:
 - Floor: **100** base points.
 - A hint is deducted from that solver’s current base award; first blood remains a separate +25.
 - Previous solves never change. Days 3–8 also stay on their existing static values.
+- Stored solve positions are never reused if a player is hidden later.
+- Hint unlock and solve submission are serialized: hint-first costs points;
+  solve-first makes the hint free.
 
 This exactly matches Hussain’s `525 → 500 → 475 → 450` example. Standard CTFd
 instead lowers the value for *everyone* whenever another player solves; that makes

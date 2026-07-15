@@ -171,3 +171,4 @@ Then MCP: `get_advisors` `performance` + `security`. Skim `src/lib/api.ts` + `sr
 | 2026-07-13 | Initial audit. |
 | 2026-07-13 | Applied index hygiene migration; incremental solve merge in `useGame`; duplicate `day_entries` constraint dropped. Performance advisor clean of unindexed-FK / duplicate-index. |
 | 2026-07-15 | Added private `day9_progress` + challenge decay columns. Re-audit: only expected new-index INFO; RLS/no-policy and DEFINER warnings remain intentional for token-gated SPA RPCs. |
+| 2026-07-15 | Serialized hint unlocks with solves on the challenge lock; solve-order rank now counts every immutable stored solve even if a player is hidden later. |
