@@ -38,7 +38,7 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
 **Day 7 model (v2.4):** live browser labs only under `src/challenges/day7/` — **no download artifacts**, all dynamic. Blind/IDOR/LFI use server RPCs. Manual: `docs/ADMIN_MANUAL_DAY7.md`. Access code: **`WEB-2026`**.
 
-**Day 9 model (v1):** 15 multi-stage Blockchain missions under `src/challenges/day9/` with mixed JSON/CSV/PNG/ZIP evidence. Progress and final per-player recovery receipts are gated by `d9_lab_step` + private `day9_progress`; medium+ cannot finish from the artifact alone. Mix = 3E / 6M / 3H / 3D. Manual: `docs/ADMIN_MANUAL_DAY9.md`. Access code: **`BLOCKCHAIN-2026`**. Day remains locked until the instructor opens it.
+**Day 9 model (v1):** 15 multi-stage Blockchain missions under `src/challenges/day9/` with mixed JSON/CSV/PNG/ZIP evidence. Progress and final per-player recovery receipts are gated by `d9_lab_step` + private `day9_progress`; medium+ cannot finish from the artifact alone. Mix = 3E / 6M / 3H / 3D. Manual: `docs/ADMIN_MANUAL_DAY9.md`. Access code: **`BLOCKCHAIN-2026`**. Day remains locked until the instructor opens it. Day 9 `asset_url` is intentionally null — evidence files download **only inside the lab** (highlighted `ArtifactCard`), never as a second modal button.
 
 **Arena open path:** challenge card → **ChallengeModal first** (prompt / hint / submit / “Open challenge”) → live lab route. Never jump straight from card → lab.
 
@@ -266,6 +266,7 @@ Scale = **18 players · 82 challenges · 218 solves** (Day 9 solves = 0 at relea
 | `day9_dynamic_scoring_and_verification` | personal receipts + immutable solve-order awards |
 | `harden_dynamic_scoring_races` | hint/solve shared lock + never reuse a stored solve position |
 | `day9_difficulty_scoring` | correct Day 9 from uniform 500 to Easy/Medium/Hard/Danger tiers |
+| `day9_drop_modal_download` | clear Day 9 `asset_url` so evidence downloads live only inside the lab |
 
 Repo mirror files: `supabase/migrations/20260712_*.sql`, `20260713_*.sql`. Always **`apply_migration` via MCP** then keep a matching file. Content changes = **upsert**, not delete+insert.
 

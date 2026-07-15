@@ -35,10 +35,58 @@ function displayValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
+function isArtifactPath(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('/challenges/day9/');
+}
+
+function fileMeta(path: string): { name: string; kind: string } {
+  const name = path.split('/').pop() ?? path;
+  const ext = (name.split('.').pop() ?? '').toLowerCase();
+  const kind =
+    ext === 'json'
+      ? 'JSON ledger'
+      : ext === 'csv'
+        ? 'CSV export'
+        : ext === 'zip'
+          ? 'Evidence bundle'
+          : ext === 'png'
+            ? 'Inspection image'
+            : 'File';
+  return { name, kind };
+}
+
+/** Prominent, highlighted download for a downloadable evidence file. */
+function ArtifactCard({ label, path }: { label: string; path: string }) {
+  const { name, kind } = fileMeta(path);
+  return (
+    <a
+      href={path}
+      download
+      className="group flex items-center gap-3 rounded-lg border border-terminal-amber/60 bg-terminal-amber/10 p-3 shadow-[0_0_14px_rgb(245_191_66_/_0.15)] transition hover:border-terminal-amber hover:bg-terminal-amber/20 sm:col-span-2"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-terminal-amber/50 bg-black/30 text-lg text-terminal-amber">
+        ⬇
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[9px] font-bold uppercase tracking-widest text-terminal-amber/80">
+          {label.replace(/_/g, ' ')} · {kind}
+        </span>
+        <span className="block truncate font-mono text-sm font-bold text-terminal-amber">{name}</span>
+      </span>
+      <span className="shrink-0 rounded border border-terminal-amber/50 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-terminal-amber group-hover:bg-terminal-amber/20">
+        Download
+      </span>
+    </a>
+  );
+}
+
 function EvidencePanel({ lab, evidence }: { lab: DayNineLab; evidence: Record<string, unknown> }) {
   const style = modeStyle[lab.mode];
   const entries = Object.entries(evidence);
   if (entries.length === 0) return null;
+
+  const artifacts = entries.filter(([, value]) => isArtifactPath(value)) as [string, string][];
+  const facts = entries.filter(([, value]) => !isArtifactPath(value));
 
   return (
     <div className={`rounded-xl border p-4 ${style.accent}`}>
@@ -48,36 +96,39 @@ function EvidencePanel({ lab, evidence }: { lab: DayNineLab; evidence: Record<st
           Live evidence
         </span>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {entries.map(([key, value]) => {
-          const text = displayValue(value);
-          const wide = text.length > 42 || text.includes('\n');
-          const isArtifact = typeof value === 'string' && value.startsWith('/challenges/day9/');
-          return (
-            <div
-              key={key}
-              className={`rounded-lg border border-terminal-border bg-black/25 p-3 ${wide ? 'sm:col-span-2' : ''}`}
-            >
-              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-terminal-dim">
-                {key.replace(/_/g, ' ')}
-              </p>
-              {isArtifact ? (
-                <a
-                  href={value}
-                  download
-                  className="font-mono text-xs text-terminal-cyan underline decoration-dotted"
-                >
-                  Download evidence
-                </a>
-              ) : (
+
+      {artifacts.length > 0 && (
+        <div className="mb-3 grid gap-2">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-terminal-amber/80">
+            {artifacts.length > 1 ? 'Evidence files — download to inspect' : 'Evidence file — download to inspect'}
+          </p>
+          {artifacts.map(([key, value]) => (
+            <ArtifactCard key={key} label={key} path={value} />
+          ))}
+        </div>
+      )}
+
+      {facts.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {facts.map(([key, value]) => {
+            const text = displayValue(value);
+            const wide = text.length > 42 || text.includes('\n');
+            return (
+              <div
+                key={key}
+                className={`rounded-lg border border-terminal-border bg-black/25 p-3 ${wide ? 'sm:col-span-2' : ''}`}
+              >
+                <p className="mb-1 text-[9px] font-bold uppercase tracking-widest text-terminal-dim">
+                  {key.replace(/_/g, ' ')}
+                </p>
                 <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs text-terminal-green">
                   {text}
                 </pre>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
