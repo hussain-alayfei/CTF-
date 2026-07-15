@@ -1,0 +1,62 @@
+{
+  "genesis_anchor": "71a9",
+  "forks": [
+    {
+      "name": "atlas",
+      "blocks": 6,
+      "work": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "supporters": [
+        "P01",
+        "P02"
+      ]
+    },
+    {
+      "name": "borealis",
+      "blocks": 4,
+      "work": [
+        5,
+        5,
+        4,
+        4
+      ],
+      "supporters": [
+        "P03",
+        "P05"
+      ]
+    },
+    {
+      "name": "cinder",
+      "blocks": 7,
+      "work": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "supporters": [
+        "P04",
+        "P07",
+        "P09"
+      ]
+    }
+  ],
+  "resource_commitments": {
+    "P01": "iron-31",
+    "P02": "lime-82",
+    "P03": "cyan-44",
+    "P04": "violet-00",
+    "P05": "gold-26",
+    "P07": "violet-00",
+    "P09": "violet-00"
+  }
+}

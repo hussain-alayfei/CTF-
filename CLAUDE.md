@@ -26,6 +26,9 @@ bug to fix later — it is unrecoverable.
   `solves`. If it does: say so plainly and get an explicit yes.
 - A zero-solve count is not permission. The Day-6 migration was "safe" only because it
   happened to run 71 seconds before the first solve.
+- **Dynamic score changes never rewrite old solve rows.** Day 9 uses solve-order
+  awards (`525 → 500 → 475 → 450`, then a floor). `solves.points_awarded` is an
+  immutable receipt of what that player earned; existing days default to no decay.
 
 See `supabase/migrations/README.md`.
 

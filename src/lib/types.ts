@@ -5,8 +5,13 @@ export interface Challenge {
   title: string;
   category: string;
   difficulty: Difficulty;
+  /** Starting/base value before solve-order decay. */
   points: number;
   first_blood_bonus: number;
+  /** Points removed for each solver after the second. Zero keeps static scoring. */
+  score_decay_step: number;
+  /** Lowest base value reachable through solve-order decay. */
+  score_minimum: number;
   sort_order: number;
   prompt: string;
   asset_url: string | null;
@@ -103,6 +108,8 @@ export interface AdminChallenge {
   difficulty: Difficulty;
   points: number;
   first_blood_bonus: number;
+  score_decay_step: number;
+  score_minimum: number;
   sort_order: number;
   num_hints: number;
   prompt: string;

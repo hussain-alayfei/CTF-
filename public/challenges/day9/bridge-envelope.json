@@ -1,0 +1,7 @@
+{
+  "envelope_id": "ENV-100",
+  "message": "bridge release 7",
+  "r": "000000000000000000000000000000000000000000000000c93a71e5d4b2981f",
+  "s": "9cc72400fa8ddfc20c73b2137cfeda975109f166fd02c279933bea613dc619d5",
+  "replay_cache_key": "envelope_id"
+}

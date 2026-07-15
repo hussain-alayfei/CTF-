@@ -73,7 +73,9 @@ export default function ChallengeCard({
       <div className="mt-auto flex items-center justify-between pt-3">
         <span className="text-xl font-extrabold tabular-nums text-terminal-amber">
           {challenge.points}
-          <span className="ml-1 text-xs font-normal text-terminal-dim">pts</span>
+          <span className="ml-1 text-xs font-normal text-terminal-dim">
+            {challenge.score_decay_step > 0 ? 'pts next' : 'pts'}
+          </span>
         </span>
         {firstBloodBy ? (
           <span className="truncate text-[11px] text-terminal-red" title={`First blood: ${firstBloodBy}`}>

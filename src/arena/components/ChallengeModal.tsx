@@ -130,8 +130,10 @@ export default function ChallengeModal({
               <span>•</span>
               <span>{challenge.difficulty}</span>
               <span>•</span>
-              <span className="text-terminal-amber">{challenge.points} pts</span>
-              {challenge.first_blood_bonus > 0 && (
+              <span className="text-terminal-amber">
+                {challenge.points} {challenge.score_decay_step > 0 ? 'pts next' : 'pts'}
+              </span>
+              {challenge.first_blood_bonus > 0 && !firstBloodBy && (
                 <span className="text-terminal-red">🩸 +{challenge.first_blood_bonus}</span>
               )}
               {challenge.is_extra && (
@@ -143,6 +145,12 @@ export default function ChallengeModal({
             <h2 className="text-2xl font-extrabold text-terminal-green">{challenge.title}</h2>
             {firstBloodBy && (
               <p className="mt-1 text-xs text-terminal-red">First blood claimed by {firstBloodBy}</p>
+            )}
+            {challenge.score_decay_step > 0 && (
+              <p className="mt-1 text-[10px] text-terminal-dim">
+                Solve-order value · −{challenge.score_decay_step} after the second solver · floor{' '}
+                {challenge.score_minimum}
+              </p>
             )}
           </div>
           <button

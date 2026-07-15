@@ -1,0 +1,37 @@
+{
+  "policy": {
+    "threshold": 3,
+    "key_order": [
+      "K1",
+      "K2",
+      "K3",
+      "K4",
+      "K5"
+    ],
+    "revoked": [
+      "K4"
+    ]
+  },
+  "envelopes": [
+    {
+      "id": "S-a",
+      "signer": "K4",
+      "check": "valid"
+    },
+    {
+      "id": "S-b",
+      "signer": "K2",
+      "check": "valid"
+    },
+    {
+      "id": "S-c",
+      "signer": "K1",
+      "check": "invalid"
+    },
+    {
+      "id": "S-d",
+      "signer": "K5",
+      "check": "valid"
+    }
+  ]
+}

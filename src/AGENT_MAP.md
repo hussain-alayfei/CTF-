@@ -27,7 +27,8 @@ src/
   challenges/
     shared/       reusable lab chrome + the generic verify page
     day4/ day5/   per-day challenge pages (+ that day's helper .ts)
-    day7/         15 live labs + dayseven.ts helpers
+    day7/ day8/   browser-first live labs
+    day9/         15 server-tracked blockchain labs + daynine.ts catalog
 ```
 
 ## Where is X?
@@ -54,6 +55,8 @@ src/
 | A Day 4 lab | `challenges/day4/` |
 | A Day 5 lab or its crypto/data helpers | `challenges/day5/` (`dayfive.ts`, `reidentData.ts`) |
 | A Day 7 lab or its helpers | `challenges/day7/` (`dayseven.ts`) |
+| A Day 8 web-hacking lab | `challenges/day8/` (`dayeight.ts`) |
+| A Day 9 blockchain lab | `challenges/day9/` (`BlockchainChallenge.tsx`, `daynine.ts`) |
 
 ## Rules that still apply
 

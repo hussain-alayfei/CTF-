@@ -6,6 +6,7 @@ import { getEffectiveEventStatus, getEventState, isStaleEnded } from '@/lib/time
 import { adminSetFinaleStage, checkDayCode } from '@/lib/api';
 import { playEventStart, playEventEnd } from '@/lib/sounds';
 import { clearPlayer } from '@/lib/session';
+import { nextSolveValue } from '@/lib/scoring';
 import type { Challenge, Day, Difficulty } from '@/lib/types';
 import Register from '@/arena/components/Register';
 import HeaderBar from '@/arena/components/HeaderBar';
@@ -308,7 +309,23 @@ export default function Play() {
     .reverse();
   // Future locked days are intentionally not rendered — students shouldn't see them.
 
-  const open = game.challenges.find((c) => c.id === openId) ?? null;
+  const solveCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const solve of game.solves) {
+      counts.set(solve.challenge_id, (counts.get(solve.challenge_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [game.solves]);
+
+  function withCurrentValue(challenge: Challenge): Challenge {
+    return {
+      ...challenge,
+      points: nextSolveValue(challenge, solveCounts.get(challenge.id) ?? 0),
+    };
+  }
+
+  const openBase = game.challenges.find((c) => c.id === openId) ?? null;
+  const open = openBase ? withCurrentValue(openBase) : null;
   const totalPossible = game.challenges.reduce((s, c) => s + c.points, 0);
 
   function handleLogout() {
@@ -367,7 +384,7 @@ export default function Play() {
             {group.map((c) => (
               <ChallengeCard
                 key={c.id}
-                challenge={c}
+                challenge={withCurrentValue(c)}
                 solved={game.mySolvedIds.has(c.id)}
                 firstBloodBy={game.firstBloodByChallenge.get(c.id)}
                 onOpen={() => {

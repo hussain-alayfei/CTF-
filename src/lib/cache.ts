@@ -23,8 +23,8 @@
 
 const PREFIX = 'kgsp_ctf_cache:';
 
-// Bump on any cached-shape change. v2: EventConfig gained finale_stage.
-const VERSION = 2;
+// Bump on any cached-shape change. v3: Challenge gained solve-order scoring fields.
+const VERSION = 3;
 
 /** Entries older than this are treated as a miss. Long enough to cover a refresh
  *  or a navigation, far too short to survive into the next round. */

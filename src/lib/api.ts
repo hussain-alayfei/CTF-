@@ -295,6 +295,24 @@ export async function d7SafeFile(
   return (data ?? {}) as Record<string, unknown>;
 }
 
+/** Day 9 multi-stage blockchain labs — progress and validation stay server-side. */
+export async function d9LabStep(
+  player: Player,
+  challengeId: string,
+  action: 'begin' | 'submit' | 'reset',
+  input = '',
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('d9_lab_step', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_challenge_id: challengeId,
+    p_action: action,
+    p_input: input,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, unknown>;
+}
+
 // --- admin ---
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResult> {
   const { data, error } = await supabase.rpc('admin_login', {

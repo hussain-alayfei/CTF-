@@ -1,0 +1,72 @@
+{
+  "transactions": [
+    {
+      "id": "tx-a",
+      "inputs": [
+        "mint:0"
+      ],
+      "outputs": [
+        {
+          "n": 0,
+          "owner": "Mira",
+          "value": 50
+        },
+        {
+          "n": 1,
+          "owner": "Nora",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "id": "tx-b",
+      "inputs": [
+        "tx-a:0"
+      ],
+      "outputs": [
+        {
+          "n": 0,
+          "owner": "shop-2",
+          "value": 19
+        },
+        {
+          "n": 1,
+          "owner": "Mira",
+          "value": 30
+        }
+      ]
+    },
+    {
+      "id": "tx-c",
+      "inputs": [
+        "tx-b:1",
+        "tx-a:1"
+      ],
+      "outputs": [
+        {
+          "n": 0,
+          "owner": "clinic-4",
+          "value": 34
+        },
+        {
+          "n": 1,
+          "owner": "Mira",
+          "value": 15
+        }
+      ]
+    },
+    {
+      "id": "tx-d",
+      "inputs": [
+        "tx-c:0"
+      ],
+      "outputs": [
+        {
+          "n": 0,
+          "owner": "archive-1",
+          "value": 33
+        }
+      ]
+    }
+  ]
+}

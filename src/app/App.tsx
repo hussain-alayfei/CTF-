@@ -46,6 +46,7 @@ import GraphAtticChallenge from '@/challenges/day8/GraphAtticChallenge';
 import FilterCrawlChallenge from '@/challenges/day8/FilterCrawlChallenge';
 import TemplateVaultChallenge from '@/challenges/day8/TemplateVaultChallenge';
 import HiddenLedgerChallenge from '@/challenges/day8/HiddenLedgerChallenge';
+import BlockchainChallenge from '@/challenges/day9/BlockchainChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -163,6 +164,66 @@ export default function App() {
         <Route path="/challenge/hidden-ledger" element={<HiddenLedgerChallenge />} />
         <Route path="/challenge/filter-crawl" element={<FilterCrawlChallenge />} />
         <Route path="/challenge/template-vault" element={<TemplateVaultChallenge />} />
+        <Route
+          path="/challenge/block-autopsy"
+          element={<BlockchainChallenge challengeId="d9_block_autopsy" />}
+        />
+        <Route
+          path="/challenge/chain-stitch"
+          element={<BlockchainChallenge challengeId="d9_chain_stitch" />}
+        />
+        <Route
+          path="/challenge/honest-weight"
+          element={<BlockchainChallenge challengeId="d9_honest_weight" />}
+        />
+        <Route
+          path="/challenge/nonce-forge"
+          element={<BlockchainChallenge challengeId="d9_nonce_forge" />}
+        />
+        <Route
+          path="/challenge/merkle-freight"
+          element={<BlockchainChallenge challengeId="d9_merkle_freight" />}
+        />
+        <Route
+          path="/challenge/change-address"
+          element={<BlockchainChallenge challengeId="d9_utxo_change" />}
+        />
+        <Route
+          path="/challenge/replay-window"
+          element={<BlockchainChallenge challengeId="d9_replay_window" />}
+        />
+        <Route
+          path="/challenge/stake-jury"
+          element={<BlockchainChallenge challengeId="d9_stake_jury" />}
+        />
+        <Route
+          path="/challenge/cold-chain"
+          element={<BlockchainChallenge challengeId="d9_cold_chain" />}
+        />
+        <Route
+          path="/challenge/twin-signature"
+          element={<BlockchainChallenge challengeId="d9_nonce_reuse" />}
+        />
+        <Route
+          path="/challenge/mempool-architect"
+          element={<BlockchainChallenge challengeId="d9_mempool_block" />}
+        />
+        <Route
+          path="/challenge/quorum-vault"
+          element={<BlockchainChallenge challengeId="d9_multisig_quorum" />}
+        />
+        <Route
+          path="/challenge/reorg-room"
+          element={<BlockchainChallenge challengeId="d9_reorg_room" />}
+        />
+        <Route
+          path="/challenge/signature-siege"
+          element={<BlockchainChallenge challengeId="d9_signature_siege" />}
+        />
+        <Route
+          path="/challenge/provenance-blackout"
+          element={<BlockchainChallenge challengeId="d9_provenance_blackout" />}
+        />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         {/* Neither /admin nor /board are routes anymore — the instructor panel and
             the projector board both open as in-page overlays from the arena (see
