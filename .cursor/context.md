@@ -196,7 +196,7 @@ These already burned us. Treat as hard bans.
 
 **Score protect:** `solves.challenge_id` + `hint_unlocks.challenge_id` = **`ON DELETE RESTRICT`**. Content migrations **upsert**; never `delete from challenges` + re-insert. Retire only after deliberate solve wipe. See `supabase/migrations/README.md` + `20260712_1400_protect_scores.sql`.
 
-**Day 9 solve-order scoring:** starting base `points=500`; first = base + `first_blood_bonus=25`; second = base; third onward subtracts `score_decay_step=25` per position, floored at `score_minimum=100`. Awards in `solves.points_awarded` remain immutable; existing challenges default to step 0, so historical scores never reprice. This deliberately follows Hussain's `525 → 500 → 475 → 450` model rather than CTFd's retroactive parabolic repricing.
+**Day 9 difficulty scoring:** Easy `100 / step 5 / floor 50`; Medium `250 / step 15 / floor 125`; Hard `400 / step 20 / floor 200`; Danger `500 / step 25 / floor 250`. First = base + `first_blood_bonus=25`; second = base; third onward decays by the tier step. Danger follows Hussain's `525 → 500 → 475 → 450` example. Awards in `solves.points_awarded` remain immutable; existing challenges default to step 0, so historical scores never reprice.
 
 **Fairness blur:** only the **active, non-completed** day is hidden pre-start (`effectiveStatus !== 'running'`). Completed days (`is_completed` via `admin_set_day_completed`) and past/closed days stay readable. `ChallengeModal` gets `hidden` from Play, not raw event status.
 
@@ -265,6 +265,7 @@ Scale = **18 players · 82 challenges · 218 solves** (Day 9 solves = 0 at relea
 | `day9_blockchain_lab_rpc` | server-tracked multi-stage Day 9 validation |
 | `day9_dynamic_scoring_and_verification` | personal receipts + immutable solve-order awards |
 | `harden_dynamic_scoring_races` | hint/solve shared lock + never reuse a stored solve position |
+| `day9_difficulty_scoring` | correct Day 9 from uniform 500 to Easy/Medium/Hard/Danger tiers |
 
 Repo mirror files: `supabase/migrations/20260712_*.sql`, `20260713_*.sql`. Always **`apply_migration` via MCP** then keep a matching file. Content changes = **upsert**, not delete+insert.
 
