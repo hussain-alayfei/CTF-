@@ -1,7 +1,7 @@
 # KGSP CTF — Database performance & retrieval (agent reference)
 
 > **For agents.** Live project: Supabase `xehzdlfrzlokwvtcfvjx` (`meras-ctf`).  
-> Last audited / fixed: **2026-07-14** (re-checked scale + Day 7 RPCs/answers against live DB). Re-run advisors + the SQL below after schema changes; update this file.  
+> Last audited / fixed: **2026-07-15** (re-checked after Day 9 schema, lab RPC, and solve-order scoring). Re-run advisors + the SQL below after schema changes; update this file.  
 > Companion: `.cursor/context.md` (architecture + backend digest) · skill: `manage-ctf-challenges`.
 
 ---
@@ -17,7 +17,7 @@
 | Score safety | **Hardened** | `solves` / `hint_unlocks` → challenge FK **ON DELETE RESTRICT** |
 | Urgency | **None** | Hygiene applied; unused-index INFO on brand-new indexes is expected |
 
-**Scale (live 2026-07-14):** players **13** · challenges **54** · solves **143** · Day7 solves **~19** · days 8 (3–10). Day7 = 15 challenges; Day5 = 10; Day4 ≈ 9; Day6 ≈ 13.
+**Scale (live 2026-07-15):** players **18** · challenges **82** · solves **218** · Day9 = **15 challenges / 0 solves at release**.
 
 ---
 
@@ -31,7 +31,7 @@
 | `fetchLeaderboard` | PostgREST view | `leaderboard` | All-time board |
 | `fetchDayLeaderboard` | RPC | `day_leaderboard(p_day)` | Live day board |
 | `fetchEventConfig` | PostgREST `id = 1` | `event_config` | Timer / active day |
-| submit / hints / login / day code / live material / Day7 labs | RPC `SECURITY DEFINER` | various | Mutations + gated reads |
+| submit / hints / login / day code / live material / Day7/9 labs | RPC `SECURITY DEFINER` | various | Mutations + gated reads |
 | Live updates | Realtime `postgres_changes` | solves, players, days, event_config, day_entries | Instant board |
 
 **Client techniques:**
@@ -62,6 +62,7 @@
 | `day_entries` | `(player_id, day)` | yes | yes | Who entered a day |
 | `event_config` | `id=1` | yes | yes | Round clock |
 | `admin_config` | `id=1` | yes | **no policy** | Admin secret store |
+| `day9_progress` | `(player_id, challenge_id)` | yes | **no policy** | Private staged-lab progress |
 | `leaderboard` | **view** | n/a | yes | All-time aggregates |
 
 ---
@@ -90,8 +91,10 @@
 | `idx_hint_unlocks_challenge_id` | FK / join / challenge delete |
 | `idx_challenges_day_sort (day, sort_order)` | Arena filter + order |
 | `idx_solves_solved_at` | `ORDER BY solved_at` on full fetch |
+| `idx_day9_progress_challenge` | Day-scoped reset / challenge FK operations |
 
-Advisor may report **unused_index** INFO on brand-new indexes until traffic hits them — keep them.
+Advisor currently reports **unused_index** INFO for the brand-new Day 9 progress
+index (and the existing hint FK index) until traffic hits them — keep them.
 
 ---
 
@@ -113,7 +116,7 @@ Day `is_open` **or** past active `sort_order`. Cheap while `days` is small.
 
 ## RPC surface (DEFINER)
 
-Player-facing: `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code`, `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`, `verify_reident`, `d7_blind_lookup`, `d7_leaky_user`, `d7_safe_file`.
+Player-facing: `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code`, `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`, `verify_reident`, `d7_blind_lookup`, `d7_leaky_user`, `d7_safe_file`, `d9_lab_step`.
 
 Admin (live): `admin_add_time`, `admin_set_duration`, `admin_set_freeze`, `admin_set_finale_stage`, `admin_start_event`, `admin_stop_event` (nulls clocks + finale → STAND BY), `admin_reset`, `admin_overview`, `admin_set_day`, `admin_set_day_code`, `admin_set_day_completed`, `admin_set_active_day`, `admin_list_players`, `admin_delete_player`, `admin_delete_all_players`, `admin_set_player_excluded`, `admin_login`.
 
@@ -167,3 +170,4 @@ Then MCP: `get_advisors` `performance` + `security`. Skim `src/lib/api.ts` + `sr
 |------|------|
 | 2026-07-13 | Initial audit. |
 | 2026-07-13 | Applied index hygiene migration; incremental solve merge in `useGame`; duplicate `day_entries` constraint dropped. Performance advisor clean of unindexed-FK / duplicate-index. |
+| 2026-07-15 | Added private `day9_progress` + challenge decay columns. Re-audit: only expected new-index INFO; RLS/no-policy and DEFINER warnings remain intentional for token-gated SPA RPCs. |

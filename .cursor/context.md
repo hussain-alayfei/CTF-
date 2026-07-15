@@ -29,7 +29,7 @@ Update this file when architecture, days, or challenge conventions change.
 | 6 | (prior pack) | Authored | **Dynamic** |
 | 7 | Web Applications | Authored **v2.4 live** | **Dynamic** (15: 3E / 6M / 3H / 3D multi-step, **no files**) |
 | 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (13: 3E / 4M / 4H / 2D, **no files**) |
-| 9 | Blockchain | Authored **v1, pending deploy/DB apply** | **Dynamic** (15: 3E / 6M / 3H / 3D, server-tracked multi-stage) |
+| 9 | Blockchain | Authored **v1 live, locked** | **Dynamic** (15: 3E / 6M / 3H / 3D, server-tracked multi-stage) |
 | 10 | Placeholder | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
@@ -37,6 +37,8 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 **Day 7 IDs (v2.4):** easy `d7_markup_trail`, `d7_side_door`, `d7_desk_wizard` · medium `d7_role_chip`, `d7_twin_check`, `d7_leaky_desk`, `d7_frame_whisper`, `d7_safe_shelf`, `d7_stash_order` · hard `d7_blind_lookup` (boolean blind `w7blindx`), `d7_strict_book` (strict XSS / `strict_spill`), `d7_claim_ticket` (`forged_pass` / alg:none) · danger multi-step `d7_inherited_trust` (pollution×2 → seal `R7-SEAL`), `d7_cross_talk` (elevate → gate `n0rigin` → confirm), `d7_flash_seat` (Arm → Reserve guest → admin flip ≤450ms).
 
 **Day 7 model (v2.4):** live browser labs only under `src/challenges/day7/` — **no download artifacts**, all dynamic. Blind/IDOR/LFI use server RPCs. Manual: `docs/ADMIN_MANUAL_DAY7.md`. Access code: **`WEB-2026`**.
+
+**Day 9 model (v1):** 15 multi-stage Blockchain missions under `src/challenges/day9/` with mixed JSON/CSV/PNG/ZIP evidence. Progress and final per-player recovery receipts are gated by `d9_lab_step` + private `day9_progress`; medium+ cannot finish from the artifact alone. Mix = 3E / 6M / 3H / 3D. Manual: `docs/ADMIN_MANUAL_DAY9.md`. Access code: **`BLOCKCHAIN-2026`**. Day remains locked until the instructor opens it.
 
 **Arena open path:** challenge card → **ChallengeModal first** (prompt / hint / submit / “Open challenge”) → live lab route. Never jump straight from card → lab.
 
@@ -188,17 +190,17 @@ These already burned us. Treat as hard bans.
 
 ## Schema cheat sheet
 
-**Tables:** `players`, `challenges` (`is_dynamic`, `is_extra`, `day`, `difficulty` easy|medium|hard|danger; pending Day 9 migration adds `score_decay_step`, `score_minimum`), `challenge_flags` (static only), `challenge_answer_keys` (answer, secret, live_material jsonb), `challenge_hints`, `solves`, `hint_unlocks`, `submission_attempts`, `days` (`is_open`, `is_rest`, `requires_code`, **`is_completed`**), `day_codes`, `day_entries`, `event_config`, `admin_config`; pending Day 9 migration adds private `day9_progress`.
+**Tables:** `players`, `challenges` (`is_dynamic`, `is_extra`, `day`, `difficulty` easy|medium|hard|danger, `score_decay_step`, `score_minimum`), `challenge_flags` (static only), `challenge_answer_keys` (answer, secret, live_material jsonb), `challenge_hints`, `solves`, `hint_unlocks`, `submission_attempts`, `days` (`is_open`, `is_rest`, `requires_code`, **`is_completed`**), `day_codes`, `day_entries`, `day9_progress` (private staged-lab state), `event_config`, `admin_config`.
 
 **`event_config` (id=1) columns:** `name`, `starts_at`, `ends_at`, `duration_minutes` (saved round length for next start), `freeze_minutes`, `active_day`, `finale_stage` (−1 = none; 0+ = reveal step), `updated_at`.
 
 **Score protect:** `solves.challenge_id` + `hint_unlocks.challenge_id` = **`ON DELETE RESTRICT`**. Content migrations **upsert**; never `delete from challenges` + re-insert. Retire only after deliberate solve wipe. See `supabase/migrations/README.md` + `20260712_1400_protect_scores.sql`.
 
-**Day 9 solve-order scoring (pending deploy/apply):** starting base `points=500`; first = base + `first_blood_bonus=25`; second = base; third onward subtracts `score_decay_step=25` per position, floored at `score_minimum=100`. Awards in `solves.points_awarded` remain immutable; existing challenges default to step 0, so historical scores never reprice. This deliberately follows Hussain's `525 → 500 → 475 → 450` model rather than CTFd's retroactive parabolic repricing.
+**Day 9 solve-order scoring:** starting base `points=500`; first = base + `first_blood_bonus=25`; second = base; third onward subtracts `score_decay_step=25` per position, floored at `score_minimum=100`. Awards in `solves.points_awarded` remain immutable; existing challenges default to step 0, so historical scores never reprice. This deliberately follows Hussain's `525 → 500 → 475 → 450` model rather than CTFd's retroactive parabolic repricing.
 
 **Fairness blur:** only the **active, non-completed** day is hidden pre-start (`effectiveStatus !== 'running'`). Completed days (`is_completed` via `admin_set_day_completed`) and past/closed days stay readable. `ChallengeModal` gets `hidden` from Play, not raw event status.
 
-**Player RPCs:** `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code` (also writes `day_entries`), `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`, `verify_reident` (Day 5 danger); pending Day 9 migration adds `d9_lab_step`.
+**Player RPCs:** `register_player`, `login_player`, `submit_flag`, `unlock_hint`, `check_day_code` (also writes `day_entries`), `day_leaderboard`, `verify_challenge_answer`, `challenge_live_material`, `verify_reident` (Day 5 danger), `d9_lab_step` (Day 9 staged labs).
 
 **Day 7 lab RPCs (DEFINER):** `d7_blind_lookup` (Quiet Directory / boolean blind), `d7_leaky_user` (Leaky Desk IDOR), `d7_safe_file` (Safe Shelf LFI). Other Day 7 labs are client-side + `verify_challenge_answer` / `challenge_live_material`.
 
@@ -212,7 +214,7 @@ These already burned us. Treat as hard bans.
 
 ## Backend — live Supabase (`meras-ctf` / `xehzdlfrzlokwvtcfvjx`)
 
-Verified via MCP **2026-07-14**. Prefer live queries over guessing; file migrations under `supabase/migrations/` must match what MCP applied (version names often differ from filenames).
+Verified via MCP **2026-07-15**. Prefer live queries over guessing; file migrations under `supabase/migrations/` must match what MCP applied (version names often differ from filenames).
 
 ### Live curriculum snapshot
 
@@ -221,11 +223,12 @@ Verified via MCP **2026-07-14**. Prefer live queries over guessing; file migrati
 | 3–6 | Data → Pentesting | open | **completed** | Day4≈9, Day5=10, Day6≈13 |
 | **7** | Web Applications | open | **completed** | **15** all dynamic |
 | **8** | Web Application Hacking | **open** | not completed | **12** all dynamic |
-| 9–10 | placeholders | locked | — | empty |
+| **9** | **Blockchain** | **locked** | — | **15** dynamic, server-tracked |
+| 10 | placeholder | locked | — | empty |
 
-Scale ≈ **13 players · 54 challenges · 143 solves** (Day 7 solves ≈ 19). Re-query before destructive ops.
+Scale = **18 players · 82 challenges · 218 solves** (Day 9 solves = 0 at release). Re-query before destructive ops.
 
-**`event_config` at audit:** `active_day=7`, `duration_minutes=45`, `freeze_minutes=20`. If `starts_at`/`ends_at` remain set while arena should be idle, call **Stop** (`admin_stop_event`) — FINALE leftover `finale_stage` can also linger until stop/start.
+**`event_config` at audit:** `active_day=10`, `duration_minutes=50`, `freeze_minutes=2`; the stored round ended 2026-07-14 and `finale_stage=-1`. If `starts_at`/`ends_at` remain set while arena should be idle, call **Stop** (`admin_stop_event`) — FINALE leftover `finale_stage` can also linger until stop/start.
 
 ### Day 7 answer markers (canonical in `challenge_answer_keys` — full writeups in `docs/ADMIN_MANUAL_DAY7.md`)
 
@@ -258,6 +261,9 @@ Scale ≈ **13 players · 54 challenges · 143 solves** (Day 7 solves ≈ 19). R
 | `day7_danger_multistep` | danger prompts/hints + seal/gate in `live_material` |
 | `db_performance_indexes` | challenge/solves/hint indexes; drop dup day_entries uniq |
 | `fix_event_standby_sync` | `admin_stop_event` nulls clocks + `finale_stage=-1` |
+| `day9_blockchain_schema_content` | locked 15-lab catalog + private progress table + score columns |
+| `day9_blockchain_lab_rpc` | server-tracked multi-stage Day 9 validation |
+| `day9_dynamic_scoring_and_verification` | personal receipts + immutable solve-order awards |
 
 Repo mirror files: `supabase/migrations/20260712_*.sql`, `20260713_*.sql`. Always **`apply_migration` via MCP** then keep a matching file. Content changes = **upsert**, not delete+insert.
 
