@@ -17,3 +17,5 @@
 *.woff2 -text -diff binary
 *.ico   -text -diff binary
 *.mp3   -text -diff binary
+*.wav   -text -diff binary
+*.bin   -text -diff binary

@@ -57,6 +57,7 @@ src/
 | A Day 7 lab or its helpers | `challenges/day7/` (`dayseven.ts`) |
 | A Day 8 web-hacking lab | `challenges/day8/` (`dayeight.ts`) |
 | A Day 9 blockchain lab | `challenges/day9/` (`BlockchainChallenge.tsx`, `daynine.ts`) |
+| A Day 10 final CTF lab | `challenges/day10/` (`dayten.ts` + live lab pages) |
 
 ## Rules that still apply
 

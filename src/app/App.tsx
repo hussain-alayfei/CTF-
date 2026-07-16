@@ -47,6 +47,16 @@ import FilterCrawlChallenge from '@/challenges/day8/FilterCrawlChallenge';
 import TemplateVaultChallenge from '@/challenges/day8/TemplateVaultChallenge';
 import HiddenLedgerChallenge from '@/challenges/day8/HiddenLedgerChallenge';
 import BlockchainChallenge from '@/challenges/day9/BlockchainChallenge';
+import ForgotPathChallenge from '@/challenges/day10/ForgotPathChallenge';
+import SoftGateChallenge from '@/challenges/day10/SoftGateChallenge';
+import SecretAlbumChallenge from '@/challenges/day10/SecretAlbumChallenge';
+import PoisonedPrefsChallenge from '@/challenges/day10/PoisonedPrefsChallenge';
+import GalleryLockChallenge from '@/challenges/day10/GalleryLockChallenge';
+import LicenseVmChallenge from '@/challenges/day10/LicenseVmChallenge';
+import FalseDebugChallenge from '@/challenges/day10/FalseDebugChallenge';
+import Day10InheritedTrustChallenge from '@/challenges/day10/InheritedTrustChallenge';
+import RaceWindowChallenge from '@/challenges/day10/RaceWindowChallenge';
+import CapstoneChainChallenge from '@/challenges/day10/CapstoneChainChallenge';
 
 export default function App() {
   const [player, setPlayerState] = useState<Player | null>(() => loadPlayer());
@@ -224,6 +234,19 @@ export default function App() {
           path="/challenge/provenance-blackout"
           element={<BlockchainChallenge challengeId="d9_provenance_blackout" />}
         />
+        <Route path="/challenge/forgot-path" element={<ForgotPathChallenge />} />
+        <Route path="/challenge/forgot-path/assets/backups/temp" element={<ForgotPathChallenge />} />
+        <Route path="/challenge/forgot-path/assets/backups/temp/" element={<ForgotPathChallenge />} />
+        <Route path="/challenge/soft-gate" element={<SoftGateChallenge />} />
+        <Route path="/challenge/secret-album" element={<SecretAlbumChallenge />} />
+        <Route path="/challenge/poisoned-prefs" element={<PoisonedPrefsChallenge />} />
+        <Route path="/challenge/gallery-lock" element={<GalleryLockChallenge />} />
+        <Route path="/challenge/gallery-lock/vault" element={<GalleryLockChallenge />} />
+        <Route path="/challenge/license-lattice" element={<LicenseVmChallenge />} />
+        <Route path="/challenge/false-debugger" element={<FalseDebugChallenge />} />
+        <Route path="/challenge/inherited-trust-final" element={<Day10InheritedTrustChallenge />} />
+        <Route path="/challenge/race-window" element={<RaceWindowChallenge />} />
+        <Route path="/challenge/final-desk" element={<CapstoneChainChallenge />} />
         <Route path="/challenge/verify/:challengeId" element={<AnswerVerifyChallenge />} />
         {/* Neither /admin nor /board are routes anymore — the instructor panel and
             the projector board both open as in-page overlays from the arena (see

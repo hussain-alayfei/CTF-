@@ -1,0 +1,5 @@
+NovaTech final desk map
+/assets/backups/temp/   (legacy)
+album id window: 100-110
+overnight transfer tag prefix: c2_
+license desk: activation lattice

@@ -88,7 +88,7 @@ Each challenge belongs to a **day**. The dashboard's **Days** section controls t
 | 7 | 🌐 Web Applications | Locked |
 | 8 | 💥 Web Application Hacking | Locked |
 | 9 | ⛓️ Blockchain Introduction | Locked |
-| 10 | 🏁 Final CTF Challenges | Locked |
+| 10 | 🏁 Final CTF Challenges | Locked · code `FINAL-2026` · 20 challenges |
 
 > Every day can hold both its **core** and **extra (bonus)** challenges together —
 > there is no separate global "Bonus" day.

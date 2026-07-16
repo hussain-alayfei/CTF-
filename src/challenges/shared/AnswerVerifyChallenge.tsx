@@ -9,6 +9,12 @@ const MATERIAL_LABELS: Record<string, string> = {
   key_hex: 'Key (hex)',
   iv_hex: 'IV (hex)',
   session_key_hex: 'Session key (hex)',
+  key_seed: 'Live seed',
+  frag: 'Desk fragment',
+  suffix: 'Desk suffix',
+  reveal_hex: 'Desk seal (hex)',
+  e: 'Public exponent',
+  note: 'Desk note',
 };
 
 // Generic Day 4 challenge page: the player recovers an "answer" from a

@@ -30,7 +30,7 @@ Update this file when architecture, days, or challenge conventions change.
 | 7 | Web Applications | Authored **v2.4 live** | **Dynamic** (15: 3E / 6M / 3H / 3D multi-step, **no files**) |
 | 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (13: 3E / 4M / 4H / 2D, **no files**) |
 | 9 | Blockchain | Authored **v1 live, locked** | **Dynamic** (15: 3E / 6M / 3H / 3D, server-tracked multi-stage) |
-| 10 | Final CTF Challenges | Locked, empty | — |
+| 10 | Final CTF Challenges | Authored **v1**, locked | **Dynamic** (20: 5E / 8M / 4H / 3D) |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
@@ -39,6 +39,8 @@ Days 1–2 were deleted. Day numbers are plain ints (3–10).
 **Day 7 model (v2.4):** live browser labs only under `src/challenges/day7/` — **no download artifacts**, all dynamic. Blind/IDOR/LFI use server RPCs. Manual: `docs/ADMIN_MANUAL_DAY7.md`. Access code: **`WEB-2026`**.
 
 **Day 9 model (v1):** 15 multi-stage Blockchain missions under `src/challenges/day9/` with mixed JSON/CSV/PNG/ZIP evidence. Progress and final per-player recovery receipts are gated by `d9_lab_step` + private `day9_progress`; medium+ cannot finish from the artifact alone. Mix = 3E / 6M / 3H / 3D. Manual: `docs/ADMIN_MANUAL_DAY9.md`. Access code: **`BLOCKCHAIN-2026`**. Day remains locked until the instructor opens it. Day 9 `asset_url` is intentionally null — evidence files download **only inside the lab** (highlighted `ArtifactCard`), never as a second modal button.
+
+**Day 10 model (v1):** 20 NovaTech finale challenges under `src/challenges/day10/` + `public/challenges/day10/` — mix of live browser labs and binary artifacts (wav/pcap/png/zip/bin). Mix = 5E / 8M / 4H / 3D. Capstone uses `d10_lab_step` + `day10_progress`. Manual: `docs/ADMIN_MANUAL_DAY10.md`. Access code: **`FINAL-2026`**. Day remains locked until the instructor opens it.
 
 **Arena open path:** challenge card → **ChallengeModal first** (prompt / hint / submit / “Open challenge”) → live lab route. Never jump straight from card → lab.
 
@@ -208,7 +210,7 @@ These already burned us. Treat as hard bans.
 
 **Board model:** live board = entrants of `active_day` via `day_entries` + `day_leaderboard`. Profile score = all-time. Projector freezes points in last `freeze_minutes`.
 
-**Day codes (live `day_codes`):** 3 `SECURING-DATA` · 4 `Securing-Networks` · 5 `PRIVACY-2026` · 6 `PENTESTING-2026` · 7 **`WEB-2026`** · 8 `WEBHACK-2026` · 9 `BLOCKCHAIN-2026` · 10 `SMART-2026`.
+**Day codes (live `day_codes`):** 3 `SECURING-DATA` · 4 `Securing-Networks` · 5 `PRIVACY-2026` · 6 `PENTESTING-2026` · 7 **`WEB-2026`** · 8 `WEBHACK-2026` · 9 `BLOCKCHAIN-2026` · 10 **`FINAL-2026`**.
 
 ---
 
@@ -224,7 +226,7 @@ Verified via MCP **2026-07-15**. Prefer live queries over guessing; file migrati
 | **7** | Web Applications | open | **completed** | **15** all dynamic |
 | **8** | Web Application Hacking | **open** | not completed | **12** all dynamic |
 | **9** | **Blockchain** | **locked** | — | **15** dynamic, server-tracked |
-| 10 | placeholder | locked | — | empty |
+| **10** | **Final CTF Challenges** | **locked** | — | **20** dynamic (5E/8M/4H/3D) |
 
 Scale = **18 players · 82 challenges · 218 solves** (Day 9 solves = 0 at release). Re-query before destructive ops.
 
@@ -309,13 +311,11 @@ src/challenges/day5/        CachePhantom, ConsentLabyrinth (easy live) · GhostP
 src/challenges/day7/*.tsx   Day 7 live labs (15) + dayseven.ts helpers
 src/challenges/day8/*.tsx   Day 8 live labs (12) + dayeight.ts helpers
 src/challenges/day9/        Day 9 shared blockchain mission UI + 15-lab catalog
+src/challenges/day10/       Day 10 Final CTF live labs + dayten.ts helpers
 
-public/challenges/day4|day5|day8|day9/ artifacts (Day 9: JSON/CSV/PNG/ZIP evidence)
-scripts/gen-day4-artifacts.py
-scripts/gen-day5-privacy.py            Day 5 v4: image + crypto material + migration
-scripts/gen-day9-blockchain.py         Day 9 deterministic mixed evidence
-supabase/migrations/                  history; live DB is source of truth
-docs/ADMIN_MANUAL.md | _DAY4.md | _DAY5.md | _DAY7.md | _DAY8.md | _DAY9.md instructor keys
+public/challenges/day4|day5|day8|day9|day10/ artifacts
+scripts/gen-day10-final.py         Day 10 mixed evidence + answer-key SQL fragment
+docs/ADMIN_MANUAL.md | _DAY4.md | _DAY5.md | _DAY7.md | _DAY8.md | _DAY9.md | _DAY10.md
 .cursor/skills/manage-ctf-challenges/SKILL.md
 .cursor/db-performance.md             indexes / RPC performance notes
 ```

@@ -313,6 +313,24 @@ export async function d9LabStep(
   return (data ?? {}) as Record<string, unknown>;
 }
 
+/** Day 10 Final Desk multi-stage lab. */
+export async function d10LabStep(
+  player: Player,
+  challengeId: string,
+  action: 'begin' | 'submit' | 'reset',
+  input = '',
+): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase.rpc('d10_lab_step', {
+    p_player_id: player.id,
+    p_token: player.token,
+    p_challenge_id: challengeId,
+    p_action: action,
+    p_input: input,
+  });
+  if (error) throw new Error(error.message);
+  return (data ?? {}) as Record<string, unknown>;
+}
+
 // --- admin ---
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResult> {
   const { data, error } = await supabase.rpc('admin_login', {
