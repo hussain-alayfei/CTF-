@@ -30,7 +30,7 @@ Update this file when architecture, days, or challenge conventions change.
 | 7 | Web Applications | Authored **v2.4 live** | **Dynamic** (15: 3E / 6M / 3H / 3D multi-step, **no files**) |
 | 8 | Web Application Hacking | Authored **v1 live** | **Dynamic** (13: 3E / 4M / 4H / 2D, **no files**) |
 | 9 | Blockchain | Authored **v1 live, locked** | **Dynamic** (15: 3E / 6M / 3H / 3D, server-tracked multi-stage) |
-| 10 | Placeholder | Locked, empty | — |
+| 10 | Final CTF Challenges | Locked, empty | — |
 
 Days 1–2 were deleted. Day numbers are plain ints (3–10).
 
